@@ -7,6 +7,8 @@ import DashboardHome from '../teamlead/pages/DashboardHome';
 // @ts-ignore
 import ModulePage from '../teamlead/pages/ModulePage';
 // @ts-ignore
+import MessagingHub from '../shared/MessagingHub';
+// @ts-ignore
 import { ToastProvider } from '../teamlead/context/ToastContext';
 // @ts-ignore
 import { UserProvider } from '../teamlead/context/UserContext';
@@ -30,6 +32,7 @@ export const TeamLeadDashboard = () => {
                         <Route path="policies" element={<ModulePage title="Policies" type="policies" />} />
                         <Route path="hierarchy" element={<ModulePage title="Organizational Hierarchy" type="default" />} />
                         <Route path="project-hierarchy" element={<ModulePage title="Project Hierarchy" type="default" />} />
+                        <Route path="messages" element={<MessagingHub />} />
                         <Route path="announcements" element={<ModulePage title="Announcements" type="default" />} />
                         <Route path="settings" element={<ModulePage title="Settings" type="default" />} />
                     </Routes>

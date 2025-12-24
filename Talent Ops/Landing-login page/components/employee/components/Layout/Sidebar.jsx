@@ -16,7 +16,8 @@ import {
     ChevronDown,
     LogOut,
     UserCheck,
-    Megaphone
+    Megaphone,
+    MessageCircle
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -51,6 +52,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar }) => {
                 { label: 'Project', path: '/employee-dashboard/project-hierarchy' }
             ]
         },
+        { icon: MessageCircle, label: 'Messages', path: '/employee-dashboard/messages' },
         { icon: Megaphone, label: 'Announcements', path: '/employee-dashboard/announcements' },
         { icon: Settings, label: 'Profile', path: '/employee-dashboard/settings' },
     ];

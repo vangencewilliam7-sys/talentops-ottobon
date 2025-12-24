@@ -7,6 +7,8 @@ import DashboardHome from '../executive/pages/DashboardHome';
 // @ts-ignore
 import ModulePage from '../executive/pages/ModulePage';
 // @ts-ignore
+import MessagingHub from '../shared/MessagingHub';
+// @ts-ignore
 import { ToastProvider } from '../executive/context/ToastContext';
 // @ts-ignore
 import { UserProvider } from '../executive/context/UserContext';
@@ -36,6 +38,7 @@ export const ExecutiveDashboard = () => {
                             <Route path="policies" element={<ModulePage title="Policies" type="policies" />} />
                             <Route path="payroll" element={<ModulePage title="Payroll" type="payroll-generation" />} />
                             <Route path="invoice" element={<ModulePage title="Invoice" type="invoice" />} />
+                            <Route path="messages" element={<MessagingHub />} />
                             <Route path="hiring" element={<HiringPortal />} />
                             <Route path="hierarchy" element={<ModulePage title="Organizational Hierarchy" type="default" />} />
                             <Route path="project-hierarchy" element={<ModulePage title="Project Hierarchy" type="default" />} />

@@ -4,6 +4,7 @@ import Layout from './components/Layout/Layout';
 import DashboardHome from './pages/DashboardHome';
 import ModulePage from './pages/ModulePage';
 import NotificationsPage from '../shared/NotificationsPage';
+import MessagingHub from '../shared/MessagingHub';
 import { ToastProvider } from './context/ToastContext';
 import { UserProvider } from './context/UserContext';
 
@@ -23,6 +24,7 @@ function App() {
               <Route path="/leaves" element={<ModulePage title="Leave Requests" type="leaves" />} />
               <Route path="/team-status" element={<ModulePage title="Your Status" type="status" />} />
               <Route path="/payslips" element={<ModulePage title="Your Payslip" type="payroll" />} />
+              <Route path="/messages" element={<MessagingHub />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/hierarchy" element={<ModulePage title="Team Hierarchy" type="default" />} />
               <Route path="/audit" element={<ModulePage title="Audit Logs" type="default" />} />

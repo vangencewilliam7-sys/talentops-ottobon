@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Layout from './components/Layout/Layout';
 import DashboardHome from './pages/DashboardHome';
 import ModulePage from './pages/ModulePage';
+import MessagingHub from '../shared/MessagingHub';
 import { ToastProvider } from './context/ToastContext';
 import { UserProvider } from './context/UserContext';
 
@@ -22,6 +23,7 @@ function App() {
               <Route path="/leaves" element={<ModulePage title="Leave Requests" type="leaves" />} />
               <Route path="/team-status" element={<ModulePage title="Team Status" type="status" />} />
               <Route path="/payslips" element={<ModulePage title="Payslips" type="payroll" />} />
+              <Route path="/messages" element={<MessagingHub />} />
               <Route path="/hierarchy" element={<ModulePage title="Team Hierarchy" type="default" />} />
               <Route path="/audit" element={<ModulePage title="Audit Logs" type="default" />} />
               <Route path="/settings" element={<ModulePage title="Settings" type="default" />} />

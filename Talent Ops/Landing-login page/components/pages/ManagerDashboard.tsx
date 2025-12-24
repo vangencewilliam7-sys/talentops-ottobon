@@ -9,6 +9,8 @@ import ModulePage from '../manager/pages/ModulePage';
 // @ts-ignore
 import MyLeavesPage from '../manager/pages/MyLeavesPage';
 // @ts-ignore
+import MessagingHub from '../shared/MessagingHub';
+// @ts-ignore
 import { ToastProvider } from '../manager/context/ToastContext';
 // @ts-ignore
 import { UserProvider } from '../manager/context/UserContext';
@@ -34,6 +36,7 @@ export const ManagerDashboard = () => {
                         <Route path="hiring" element={<ModulePage title="Hiring Portal" type="recruitment" />} />
                         <Route path="hierarchy" element={<ModulePage title="Organizational Hierarchy" type="default" />} />
                         <Route path="project-hierarchy" element={<ModulePage title="Project Hierarchy" type="default" />} />
+                        <Route path="messages" element={<MessagingHub />} />
                         <Route path="announcements" element={<ModulePage title="Announcements" type="default" />} />
                         <Route path="settings" element={<ModulePage title="Settings" type="default" />} />
                     </Routes>
