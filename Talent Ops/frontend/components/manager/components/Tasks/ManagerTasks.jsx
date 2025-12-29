@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { MoreHorizontal, Plus, X, User, Users, Filter, Search, Calendar, CheckCircle2, Circle, Clock, AlertCircle, ChevronLeft, ChevronRight, Eye, Shield, FileText, ExternalLink, XCircle } from 'lucide-react';
-import { useToast } from '../context/ToastContext';
-import { useUser } from '../context/UserContext';
-import { supabase } from '../../../lib/supabaseClient';
+import { useToast } from '../../context/ToastContext';
+import { useUser } from '../../context/UserContext';
+import { supabase } from '../../../../lib/supabaseClient';
 
 
-const TeamTasks = () => {
+const ManagerTasks = () => {
     // Add styles for dropdown options
     React.useEffect(() => {
         const style = document.createElement('style');
@@ -399,10 +399,20 @@ const TeamTasks = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                 <div>
                     <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{myTeamName ? `${myTeamName} Tasks` : 'Team Tasks'}</h2>
-                    <p style={{ color: 'var(--text-secondary)' }}>View and track tasks assigned by your manager</p>
+                    <p style={{ color: 'var(--text-secondary)' }}>Manage and track tasks for your team</p>
                 </div>
+                <button
+                    onClick={() => setShowModal(true)}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: '8px',
+                        backgroundColor: 'var(--primary)', color: 'white',
+                        padding: '10px 20px', borderRadius: '8px', fontWeight: 600,
+                        border: 'none', cursor: 'pointer', boxShadow: 'var(--shadow-md)'
+                    }}
+                >
+                    <Plus size={18} /> New Task
+                </button>
             </div>
-
 
             {/* Filters Bar */}
             <div style={{
@@ -1105,4 +1115,4 @@ const TeamTasks = () => {
     );
 };
 
-export default TeamTasks;
+export default ManagerTasks;

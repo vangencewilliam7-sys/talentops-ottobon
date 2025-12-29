@@ -278,6 +278,12 @@ ACTION_MAPPING = {
     "chat": "profiles",
     "greeting": "profiles",
     "view_my_timesheets": "timesheets",
+    "schedule_meeting": "announcements",
+    "request_task_validation": "tasks",
+    "approve_task": "tasks",
+    "reject_task": "tasks",
+    "get_validation_queue": "tasks",
+    "get_task_history": "task_state_history",
 }
 
 # ==========================================
@@ -291,21 +297,24 @@ REQUIRED_FIELDS = {
     "create_team": ["team_name"], # manager_id will default to self
     "add_employee": ["full_name", "email"],
     "post_announcement": ["message"], # title will default
+    "schedule_meeting": ["title", "date", "time", "attendees"],
     "upload_payslip": ["employee_id", "month", "net_salary"],
 }
 
 ROLE_PERMISSIONS = {
-    "employee": ["mark_attendance", "clock_in", "clock_out", "apply_leave", "view_my_tasks", "update_task_status", "submit_timesheet", "upload_document", "view_payslips", "get_payroll", "raise_support_ticket", "get_tasks", "view_tasks", "show_tasks", "get_balance", "chat", "greeting", "view_my_timesheets"],
+    "employee": ["mark_attendance", "clock_in", "clock_out", "apply_leave", "view_my_tasks", "update_task_status", "submit_timesheet", "upload_document", "view_payslips", "get_payroll", "raise_support_ticket", "get_tasks", "view_tasks", "show_tasks", "get_balance", "chat", "greeting", "view_my_timesheets", "request_task_validation", "get_task_history"],
     "team_lead": ["mark_attendance", "clock_in", "clock_out", "apply_leave", "view_my_tasks", "update_task_status", "submit_timesheet", "view_payslips", "get_payroll", "get_tasks", "view_tasks", "show_tasks", "get_balance", "chat", "greeting", "view_my_timesheets",
-                 "view_team_attendance", "get_team_attendance", "get_attendance", "view_team_tasks", "view_team_leaves", "view_team_timesheets", "give_performance_feedback", "approve_timesheet", "raise_correction"],
+                 "view_team_attendance", "get_team_attendance", "get_attendance", "view_team_tasks", "view_team_leaves", "view_team_timesheets", "give_performance_feedback", "approve_timesheet", "raise_correction", "schedule_meeting", "request_task_validation", "get_task_history"],
     "manager": ["mark_attendance", "clock_in", "clock_out", "apply_leave", "view_my_tasks", "update_task_status", "submit_timesheet", "view_payslips", "get_payroll", "get_tasks", "view_tasks", "show_tasks", "get_balance", "chat", "greeting", "view_my_timesheets",
                 "view_team_attendance", "get_team_attendance", "get_attendance", "view_team_tasks", "view_team_leaves", "view_team_timesheets", "view_dept_leaves", "get_pending_leaves", "view_pending_leaves",
-                "add_dept_employee", "add_employee", "create_employee", "manager_approve_leave", "manager_reject_leave", "approve_leave", "reject_leave", "create_team", "assign_team_lead", "assign_task", "create_task", "view_dept_analytics"],
+                "add_dept_employee", "add_employee", "create_employee", "manager_approve_leave", "manager_reject_leave", "approve_leave", "reject_leave", "create_team", "assign_team_lead", "assign_task", "create_task", "view_dept_analytics", "schedule_meeting",
+                "request_task_validation", "approve_task", "reject_task", "get_validation_queue", "get_task_history"],
     "executive": ["mark_attendance", "clock_in", "clock_out", "apply_leave", "view_my_tasks", "update_task_status", "submit_timesheet", "view_payslips", "get_payroll", "get_tasks", "view_tasks", "show_tasks", "get_active_tasks", "view_active_tasks", "view_all_active_tasks", "get_all_tasks", "get_balance", "chat", "greeting", "view_my_timesheets",
                   "view_team_attendance", "get_team_attendance", "get_attendance", "view_team_tasks", "view_team_leaves", "view_team_timesheets", "give_performance_feedback", "approve_timesheet", "raise_correction",
                   "get_employees", "view_employees", "get_all_employees", "view_all_employees", "get_pending_leaves", "view_pending_leaves", "get_all_leaves", "view_all_leaves",
                   "add_dept_employee", "add_employee", "create_employee", "manager_approve_leave", "manager_reject_leave", "approve_leave", "reject_leave", "create_team", "assign_team_lead", "assign_task", "create_task", "view_dept_analytics",
-                  "create_department", "assign_manager", "approve_any_leave", "reject_any_leave", "upload_payslip", "post_announcement", "configure_policy", "assign_role", "access_ai_insights", "view_all_data", "view_all_active_tasks"]
+                  "create_department", "assign_manager", "approve_any_leave", "reject_any_leave", "upload_payslip", "post_announcement", "configure_policy", "assign_role", "access_ai_insights", "view_all_data", "view_all_active_tasks", "schedule_meeting",
+                  "request_task_validation", "approve_task", "reject_task", "get_validation_queue", "get_task_history"]
 }
 
 # ==========================================
@@ -578,6 +587,44 @@ def detect_hard_action(user_text, user_role, logged_in_user_id):
                         year = datetime.now(IST).year
                         params["event_date"] = f"{year}-{i+1:02d}-{int(day):02d}"
                         break
+    
+    elif "meeting" in lower_text and ("schedule" in lower_text or "book" in lower_text or "set" in lower_text or "arrange" in lower_text or "with" in lower_text):
+        action = "schedule_meeting"
+        
+        # Extract title from quotes or after "for"/"about"/"titled"
+        title_match = re.search(r"(?:for|about|titled)\s+['\"]?([^'\"]+?)['\"]?(?:\s+(?:with|on|at|tomorrow|today)|$)", lower_text)
+        if title_match:
+            params["title"] = title_match.group(1).strip().title()
+        else:
+            # Default title
+            params["title"] = "Team Meeting"
+        
+        # Extract attendees - look for "with [names]"
+        with_match = re.search(r"with\s+([a-zA-Z,\s]+?)(?:\s+(?:on|at|tomorrow|today|for|about)|$)", lower_text)
+        if with_match:
+            params["attendees"] = with_match.group(1).strip()
+        
+        # Extract date
+        if "tomorrow" in lower_text:
+            params["date"] = "tomorrow"
+        elif "today" in lower_text:
+            params["date"] = "today"
+        elif "next week" in lower_text:
+            params["date"] = "next week"
+        else:
+            # Look for YYYY-MM-DD format
+            date_match = re.search(r"(\d{4}-\d{2}-\d{2})", user_text)
+            if date_match:
+                params["date"] = date_match.group(1)
+        
+        # Extract time
+        time_match = re.search(r"(?:at\s+)?(\d{1,2})\s*(?::(\d{2}))?\s*(am|pm|AM|PM)?", lower_text)
+        if time_match:
+            hour = time_match.group(1)
+            minutes = time_match.group(2) or "00"
+            meridiem = time_match.group(3) or ""
+            params["time"] = f"{hour}:{minutes}{meridiem}".strip()
+
     elif "department" in lower_text and ("add" in lower_text or "create" in lower_text):
         action = "create_department"
         name_match = re.search(r"['\"](.*?)['\"]", user_text)
@@ -734,6 +781,277 @@ def process_request(json_str, user_text, logged_in_user_id, user_role=None, team
                 return f"Success! I've marked the {table.rstrip('s')} request as **{status_display}**."
             
             return "I understood your request but I couldn't find a pending record to update. Please provide a specific ID or name."
+
+        # --- SCENARIO A.5: SCHEDULE MEETING ---
+        if action == "schedule_meeting":
+            role_display = user_role.replace("_", " ").title()
+            
+            # Permission check (redundant but safe)
+            if user_role == "employee":
+                return f"**Role: {role_display}**\n\n❌ As an Employee, you cannot schedule meetings. Please contact your manager."
+            
+            title = params.get("title", "")
+            meeting_date = params.get("date", "")
+            meeting_time = params.get("time", "")
+            attendees = params.get("attendees", "")
+            
+            # Convert relative dates to actual dates
+            if meeting_date:
+                meeting_date_lower = meeting_date.lower()
+                if 'tomorrow' in meeting_date_lower:
+                    meeting_date = (datetime.now(IST) + timedelta(days=1)).strftime("%Y-%m-%d")
+                elif 'today' in meeting_date_lower:
+                    meeting_date = datetime.now(IST).strftime("%Y-%m-%d")
+                elif 'next week' in meeting_date_lower:
+                    meeting_date = (datetime.now(IST) + timedelta(days=7)).strftime("%Y-%m-%d")
+            
+            # Check missing fields
+            missing_fields = []
+            if not title: missing_fields.append("title")
+            if not meeting_date: missing_fields.append("date")
+            if not meeting_time: missing_fields.append("time")
+            if not attendees: missing_fields.append("attendees")
+            
+            if missing_fields:
+                return f"**Role: {role_display}**\n\nTo schedule this meeting, I need: **{', '.join(missing_fields)}**. Please provide these details."
+            
+            # Find attendees in profiles
+            attendee_names = [name.strip() for name in attendees.split(',')]
+            attendee_full_names = []
+            
+            for name in attendee_names:
+                try:
+                    find_res = supabase.table("profiles").select("id", "full_name").ilike("full_name", f"%{name}%").limit(1).execute()
+                    if find_res.data and len(find_res.data) > 0:
+                        attendee_full_names.append(find_res.data[0]['full_name'])
+                except Exception as e:
+                    print(f"Error finding attendee '{name}': {e}")
+            
+            if not attendee_full_names:
+                return f"**Role: {role_display}**\n\n❌ I couldn't find any employees matching: **{attendees}**. Please check the names."
+            
+            # Convert time format (3pm -> 15:00)
+            formatted_time = meeting_time
+            if 'am' in meeting_time.lower() or 'pm' in meeting_time.lower():
+                try:
+                    # Handle formats like "3pm", "3 pm", "10am"
+                    time_str = meeting_time.lower().replace(' ', '')
+                    if 'pm' in time_str:
+                        hour = int(re.search(r'(\d+)', time_str).group(1))
+                        if hour != 12:
+                            hour += 12
+                        formatted_time = f"{hour:02d}:00"
+                    elif 'am' in time_str:
+                        hour = int(re.search(r'(\d+)', time_str).group(1))
+                        if hour == 12:
+                            hour = 0
+                        formatted_time = f"{hour:02d}:00"
+                except:
+                    formatted_time = meeting_time.replace('am', ':00').replace('pm', ':00')
+            
+            # Determine initial status based on date
+            today_str = datetime.now(IST).strftime("%Y-%m-%d")
+            if meeting_date == today_str:
+                initial_status = "active"
+            elif meeting_date < today_str:
+                initial_status = "completed"
+            else:
+                initial_status = "future"
+            
+            # Create announcement for the meeting
+            employees_str = ', '.join(attendee_full_names)
+            announcement_data = {
+                "title": title,
+                "message": f"Meeting scheduled with {employees_str}",
+                "event_for": "Employee Event",
+                "employees": attendee_full_names,
+                "event_date": meeting_date,
+                "event_time": formatted_time,
+                "status": initial_status
+            }
+            
+            print(f"[MEETING] Creating announcement: {announcement_data}")
+            
+            try:
+                res = supabase.table("announcements").insert(announcement_data).execute()
+                
+                if res.data:
+                    return f"**Role: {role_display}**\n\n✅ **Meeting Scheduled!**\n\n📌 **{title}**\n📅 Date: {meeting_date}\n⏰ Time: {formatted_time}\n👥 Attendees: {employees_str}"
+                else:
+                    return f"**Role: {role_display}**\n\n❌ Failed to schedule meeting. Please try again."
+            except Exception as e:
+                print(f"[MEETING ERROR] {e}")
+                return f"**Role: {role_display}**\n\n❌ Failed to schedule meeting. Error: {str(e)}"
+
+        # --- SCENARIO A.6: TASK LIFECYCLE ACTIONS ---
+        
+        # Request Task Validation (All roles can request for their own tasks)
+        if action == "request_task_validation":
+            role_display = user_role.replace("_", " ").title()
+            task_title = params.get("task_title", "")
+            
+            if not task_title:
+                return f"**Role: {role_display}**\n\nPlease specify which task you want to request validation for."
+            
+            # Find the task by title
+            try:
+                task_res = supabase.table("tasks").select("id", "title", "assigned_to", "lifecycle_state", "sub_state").ilike("title", f"%{task_title}%").limit(1).execute()
+                
+                if not task_res.data:
+                    return f"**Role: {role_display}**\n\n❌ Could not find a task matching '{task_title}'."
+                
+                task = task_res.data[0]
+                task_id = task['id']
+                
+                # Call the RPC function
+                result = supabase.rpc("request_task_validation", {"p_task_id": task_id, "p_user_id": logged_in_user_id}).execute()
+                
+                if result.data and result.data.get('success'):
+                    return f"**Role: {role_display}**\n\n✅ **Validation Requested!**\n\n📌 Task: **{task['title']}**\n📊 Current State: {task.get('lifecycle_state', 'requirement_refiner')}\n➡️ Requesting: {result.data.get('requested_next_state', 'next phase')}\n\n⏳ Awaiting manager approval."
+                else:
+                    return f"**Role: {role_display}**\n\n❌ {result.data.get('message', 'Failed to request validation')}"
+            except Exception as e:
+                print(f"[VALIDATION REQUEST ERROR] {e}")
+                return f"**Role: {role_display}**\n\n❌ Error requesting validation: {str(e)}"
+        
+        # Approve Task (Manager/Executive only)
+        if action == "approve_task":
+            role_display = user_role.replace("_", " ").title()
+            
+            if user_role not in ["manager", "executive"]:
+                return f"**Role: {role_display}**\n\n❌ Only Managers and Executives can approve tasks."
+            
+            task_title = params.get("task_title", "")
+            comment = params.get("comment", "")
+            
+            if not task_title:
+                return f"**Role: {role_display}**\n\nPlease specify which task you want to approve."
+            
+            try:
+                # Find the task
+                task_res = supabase.table("tasks").select("id", "title", "assigned_to", "lifecycle_state").ilike("title", f"%{task_title}%").eq("sub_state", "pending_validation").limit(1).execute()
+                
+                if not task_res.data:
+                    return f"**Role: {role_display}**\n\n❌ Could not find a pending task matching '{task_title}'."
+                
+                task = task_res.data[0]
+                task_id = task['id']
+                
+                # Call the RPC function
+                result = supabase.rpc("approve_task", {"p_task_id": task_id, "p_manager_id": logged_in_user_id, "p_comment": comment or None}).execute()
+                
+                if result.data and result.data.get('success'):
+                    return f"**Role: {role_display}**\n\n✅ **Task Approved!**\n\n📌 Task: **{task['title']}**\n➡️ Advanced to: **{result.data.get('new_lifecycle_state', 'next phase')}**"
+                else:
+                    return f"**Role: {role_display}**\n\n❌ {result.data.get('message', 'Failed to approve task')}"
+            except Exception as e:
+                print(f"[APPROVE TASK ERROR] {e}")
+                return f"**Role: {role_display}**\n\n❌ Error approving task: {str(e)}"
+        
+        # Reject Task (Manager/Executive only)
+        if action == "reject_task":
+            role_display = user_role.replace("_", " ").title()
+            
+            if user_role not in ["manager", "executive"]:
+                return f"**Role: {role_display}**\n\n❌ Only Managers and Executives can reject tasks."
+            
+            task_title = params.get("task_title", "")
+            reason = params.get("reason", "")
+            
+            if not task_title:
+                return f"**Role: {role_display}**\n\nPlease specify which task you want to reject."
+            
+            if not reason:
+                return f"**Role: {role_display}**\n\n⚠️ A rejection reason is required. Please provide feedback for the task owner."
+            
+            try:
+                # Find the task
+                task_res = supabase.table("tasks").select("id", "title", "assigned_to", "lifecycle_state").ilike("title", f"%{task_title}%").eq("sub_state", "pending_validation").limit(1).execute()
+                
+                if not task_res.data:
+                    return f"**Role: {role_display}**\n\n❌ Could not find a pending task matching '{task_title}'."
+                
+                task = task_res.data[0]
+                task_id = task['id']
+                
+                # Call the RPC function
+                result = supabase.rpc("reject_task", {"p_task_id": task_id, "p_manager_id": logged_in_user_id, "p_reason": reason}).execute()
+                
+                if result.data and result.data.get('success'):
+                    return f"**Role: {role_display}**\n\n❌ **Task Rejected**\n\n📌 Task: **{task['title']}**\n📝 Feedback: {reason}\n\nTask has been sent back for revision."
+                else:
+                    return f"**Role: {role_display}**\n\n❌ {result.data.get('message', 'Failed to reject task')}"
+            except Exception as e:
+                print(f"[REJECT TASK ERROR] {e}")
+                return f"**Role: {role_display}**\n\n❌ Error rejecting task: {str(e)}"
+        
+        # Get Validation Queue (Manager/Executive only)
+        if action == "get_validation_queue":
+            role_display = user_role.replace("_", " ").title()
+            
+            if user_role not in ["manager", "executive"]:
+                return f"**Role: {role_display}**\n\n❌ Only Managers and Executives can view the validation queue."
+            
+            try:
+                result = supabase.rpc("get_validation_queue", {"p_manager_id": logged_in_user_id}).execute()
+                
+                if not result.data or len(result.data) == 0:
+                    return f"**Role: {role_display}**\n\n✅ No tasks pending your validation. All caught up!"
+                
+                # Format the queue
+                lines = [f"**Role: {role_display}**\n\n📋 **Tasks Pending Your Validation** ({len(result.data)} total)\n"]
+                for i, task in enumerate(result.data, 1):
+                    lines.append(f"{i}. **{task['title']}**")
+                    lines.append(f"   👤 Assigned to: {task.get('assigned_to_name', 'Unknown')}")
+                    lines.append(f"   📊 Current: {task.get('lifecycle_state', 'N/A')} → Requesting: {task.get('requested_next_state', 'N/A')}")
+                    lines.append(f"   🕐 Requested: {task.get('validation_requested_at', 'N/A')[:10] if task.get('validation_requested_at') else 'N/A'}")
+                    lines.append("")
+                
+                return "\n".join(lines)
+            except Exception as e:
+                print(f"[VALIDATION QUEUE ERROR] {e}")
+                return f"**Role: {role_display}**\n\n❌ Error fetching validation queue: {str(e)}"
+        
+        # Get Task History
+        if action == "get_task_history":
+            role_display = user_role.replace("_", " ").title()
+            task_title = params.get("task_title", "")
+            
+            if not task_title:
+                return f"**Role: {role_display}**\n\nPlease specify which task's history you want to view."
+            
+            try:
+                # Find the task
+                task_res = supabase.table("tasks").select("id", "title").ilike("title", f"%{task_title}%").limit(1).execute()
+                
+                if not task_res.data:
+                    return f"**Role: {role_display}**\n\n❌ Could not find a task matching '{task_title}'."
+                
+                task = task_res.data[0]
+                task_id = task['id']
+                
+                # Call the RPC function
+                result = supabase.rpc("get_task_history", {"p_task_id": task_id}).execute()
+                
+                if not result.data or len(result.data) == 0:
+                    return f"**Role: {role_display}**\n\n📋 **{task['title']}** - No state transitions recorded yet."
+                
+                # Format history
+                lines = [f"**Role: {role_display}**\n\n📜 **History for: {task['title']}**\n"]
+                for entry in result.data:
+                    action_emoji = {"request_validation": "📤", "approve": "✅", "reject": "❌", "cancel_request": "🔙"}.get(entry.get('action', ''), "📌")
+                    lines.append(f"{action_emoji} **{entry.get('action', 'N/A').replace('_', ' ').title()}**")
+                    lines.append(f"   {entry.get('from_lifecycle_state', '')} → {entry.get('to_lifecycle_state', '')}")
+                    lines.append(f"   👤 By: {entry.get('actor_name', 'Unknown')} ({entry.get('actor_role', '')})")
+                    if entry.get('comment'):
+                        lines.append(f"   💬 {entry['comment']}")
+                    lines.append(f"   🕐 {entry.get('created_at', 'N/A')[:16] if entry.get('created_at') else 'N/A'}")
+                    lines.append("")
+                
+                return "\n".join(lines)
+            except Exception as e:
+                print(f"[TASK HISTORY ERROR] {e}")
+                return f"**Role: {role_display}**\n\n❌ Error fetching task history: {str(e)}"
 
         # --- SCENARIO B: READS (Fetching Data) ---
         read_actions = ["get_tasks", "view_tasks", "show_tasks", "get_active_tasks", "view_active_tasks", "get_all_tasks", "get_policies", "view_policies", "get_payroll", "view_payslips", "get_payslips", "get_pending_leaves", "view_pending_leaves", "get_all_leaves", "view_all_leaves", "get_employees", "view_employees", "get_all_employees", "view_all_employees", "get_team_attendance", "view_team_attendance", "get_attendance", "view_team_tasks", "view_team_leaves", "view_team_timesheets", "view_my_tasks", "view_all_active_tasks", "view_dept_leaves"]
@@ -927,6 +1245,9 @@ class ChatRequest(BaseModel):
     role: str
     user_id: str
     team_id: str = None
+    # Project context for multi-project role-based permissions
+    project_id: str = None
+    project_role: str = None
 
 SYSTEM_PROMPT = """SYSTEM PROMPT — TALENTOPS ROLE-BASED CHATBOT BEHAVIOR
 
@@ -1075,10 +1396,16 @@ Roles: Executive, Manager, Team Lead, Employee.
 @app.post("/chat")
 async def chat_endpoint(req: ChatRequest):
     try:
-        # Standardize Role
-        req.role = req.role.lower().strip() if req.role else "employee"
-        if req.role in ["executor", "executive"]: req.role = "executive"
-        if req.role in ["team_lead", "teamlead"]: req.role = "team_lead"
+        # Standardize Role - prefer project_role if provided
+        effective_role = req.project_role if req.project_role else req.role
+        effective_role = effective_role.lower().strip() if effective_role else "employee"
+        if effective_role in ["executor", "executive"]: effective_role = "executive"
+        if effective_role in ["team_lead", "teamlead"]: effective_role = "team_lead"
+        req.role = effective_role  # Update req.role for downstream logic
+        
+        # Log project context for debugging
+        if req.project_id:
+            print(f"📁 Project context: {req.project_id} | Role: {effective_role}")
         
         # [CRITICAL] BEHAVIORAL REDIRECT: Team Leads cannot approve leaves
         # This is the primary entry point for behavior enforcement.

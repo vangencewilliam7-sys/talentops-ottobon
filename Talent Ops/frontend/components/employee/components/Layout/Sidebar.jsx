@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     LayoutDashboard,
     BarChart2,
@@ -7,9 +7,7 @@ import {
     CalendarOff,
     Receipt,
     FileText,
-    Briefcase,
     Network,
-    ClipboardList,
     Settings,
     ChevronLeft,
     ChevronRight,
@@ -17,15 +15,29 @@ import {
     LogOut,
     UserCheck,
     Megaphone,
-    MessageCircle
+    MessageCircle,
+    Building2,
+    FolderKanban,
+    Check,
+    ClipboardCheck,
+    TrendingUp,
+    UserPlus,
+    CalendarCheck,
+    Shield
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useProject } from '../../context/ProjectContext';
 
 const Sidebar = ({ isCollapsed, toggleSidebar }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { currentProject, setCurrentProject, userProjects, projectRole } = useProject();
 
-    const [expandedMenus, setExpandedMenus] = React.useState({});
+    const [expandedMenus, setExpandedMenus] = useState({
+        organization: true,
+        project: true
+    });
+    const [showProjectPicker, setShowProjectPicker] = useState(false);
 
     const toggleMenu = (label) => {
         if (isCollapsed) return;
@@ -35,32 +47,142 @@ const Sidebar = ({ isCollapsed, toggleSidebar }) => {
         }));
     };
 
-    const menuItems = [
+    // Organization-level menu items (same for all roles)
+    const orgMenuItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/employee-dashboard/dashboard' },
-        { icon: BarChart2, label: 'Analytics', path: '/employee-dashboard/analytics' },
-        { icon: Users, label: 'Team Members', path: '/employee-dashboard/employees' },
-        { icon: ListTodo, label: 'Your Tasks', path: '/employee-dashboard/tasks' },
-        { icon: CalendarOff, label: 'Leave Requests', path: '/employee-dashboard/leaves' },
-        { icon: UserCheck, label: 'Your Status', path: '/employee-dashboard/team-status' },
-        { icon: Receipt, label: 'Your Payslip', path: '/employee-dashboard/payslips' },
+        { icon: UserCheck, label: 'My Attendance', path: '/employee-dashboard/team-status' },
+        { icon: CalendarOff, label: 'Leaves', path: '/employee-dashboard/leaves' },
+        { icon: Receipt, label: 'Payslip', path: '/employee-dashboard/payslips' },
         { icon: FileText, label: 'Policies', path: '/employee-dashboard/policies' },
-        {
-            icon: Network,
-            label: 'Hierarchy',
-            subItems: [
-                { label: 'Organizational', path: '/employee-dashboard/hierarchy' },
-                { label: 'Project', path: '/employee-dashboard/project-hierarchy' }
-            ]
-        },
-        { icon: MessageCircle, label: 'Messages', path: '/employee-dashboard/messages' },
         { icon: Megaphone, label: 'Announcements', path: '/employee-dashboard/announcements' },
+        { icon: MessageCircle, label: 'Messages', path: '/employee-dashboard/messages' },
         { icon: Settings, label: 'Profile', path: '/employee-dashboard/settings' },
     ];
 
+    // Role-based project menu configurations
+    const projectMenusByRole = {
+        employee: [
+            { icon: ListTodo, label: 'My Tasks', path: '/employee-dashboard/tasks' },
+            { icon: Users, label: 'Team', path: '/employee-dashboard/employees' },
+            { icon: BarChart2, label: 'Analytics', path: '/employee-dashboard/analytics' },
+            { icon: Network, label: 'Hierarchy', path: '/employee-dashboard/project-hierarchy' },
+        ],
+        team_lead: [
+            { icon: ListTodo, label: 'All Tasks', path: '/employee-dashboard/tasks' },
+            { icon: Users, label: 'My Team', path: '/employee-dashboard/employees' },
+            { icon: ClipboardCheck, label: 'Assign Tasks', path: '/employee-dashboard/assign-tasks' },
+            { icon: TrendingUp, label: 'Performance', path: '/employee-dashboard/performance' },
+            { icon: BarChart2, label: 'Analytics', path: '/employee-dashboard/analytics' },
+            { icon: Network, label: 'Hierarchy', path: '/employee-dashboard/project-hierarchy' },
+        ],
+        manager: [
+            { icon: ListTodo, label: 'All Tasks', path: '/employee-dashboard/tasks' },
+            { icon: Users, label: 'Team', path: '/employee-dashboard/employees' },
+            { icon: ClipboardCheck, label: 'Assign Tasks', path: '/employee-dashboard/assign-tasks' },
+            { icon: CalendarCheck, label: 'Approve Leaves', path: '/employee-dashboard/approve-leaves' },
+            { icon: UserPlus, label: 'Manage Members', path: '/employee-dashboard/manage-members' },
+            { icon: TrendingUp, label: 'Performance', path: '/employee-dashboard/performance' },
+            { icon: BarChart2, label: 'Analytics', path: '/employee-dashboard/analytics' },
+            { icon: Network, label: 'Hierarchy', path: '/employee-dashboard/project-hierarchy' },
+        ]
+    };
+
+    // Get menu items based on current project role
+    const projectMenuItems = projectMenusByRole[projectRole] || projectMenusByRole.employee;
+
+    // Role badge colors
+    const getRoleBadge = (role) => {
+        switch (role) {
+            case 'manager': return { color: '#ef4444', label: 'Manager', emoji: '🔴' };
+            case 'team_lead': return { color: '#eab308', label: 'Team Lead', emoji: '🟡' };
+            default: return { color: '#22c55e', label: 'Employee', emoji: '🟢' };
+        }
+    };
+
+    // Menu item renderer
+    const renderMenuItem = (item, index, keyPrefix) => {
+        const isActive = location.pathname === item.path;
+        return (
+            <button
+                key={`${keyPrefix}-${index}`}
+                onClick={() => navigate(item.path)}
+                title={isCollapsed ? item.label : ''}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: isCollapsed ? 'center' : 'flex-start',
+                    gap: '10px',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    backgroundColor: isActive ? 'rgba(139, 92, 246, 0.3)' : 'transparent',
+                    color: isActive ? 'white' : 'rgba(255,255,255,0.7)',
+                    transition: 'all 0.2s ease',
+                    width: '100%',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem'
+                }}
+                onMouseEnter={(e) => {
+                    if (!isActive) {
+                        e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)';
+                        e.currentTarget.style.color = 'white';
+                    }
+                }}
+                onMouseLeave={(e) => {
+                    if (!isActive) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
+                    }
+                }}
+            >
+                <item.icon size={18} style={{ flexShrink: 0 }} />
+                {!isCollapsed && <span>{item.label}</span>}
+            </button>
+        );
+    };
+
+    // Section header (collapsible)
+    const renderSectionHeader = (icon, label, sectionKey, emoji) => (
+        <button
+            onClick={() => toggleMenu(sectionKey)}
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: isCollapsed ? 'center' : 'space-between',
+                width: '100%',
+                padding: '8px 12px',
+                marginBottom: '4px',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '8px',
+                color: 'rgba(255,255,255,0.9)',
+                cursor: 'pointer',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+            }}
+        >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {React.createElement(icon, { size: 14 })}
+                {!isCollapsed && <span>{emoji} {label}</span>}
+            </div>
+            {!isCollapsed && (
+                <ChevronDown
+                    size={14}
+                    style={{
+                        transform: expandedMenus[sectionKey] ? 'rotate(0deg)' : 'rotate(-90deg)',
+                        transition: 'transform 0.2s'
+                    }}
+                />
+            )}
+        </button>
+    );
+
     return (
         <aside style={{
-            width: isCollapsed ? '80px' : '260px',
-            backgroundColor: 'var(--primary)',
+            width: isCollapsed ? '80px' : '280px',
+            backgroundColor: '#1a1a2e',
             color: 'white',
             height: '100vh',
             position: 'fixed',
@@ -68,215 +190,206 @@ const Sidebar = ({ isCollapsed, toggleSidebar }) => {
             top: 0,
             display: 'flex',
             flexDirection: 'column',
-            padding: 'var(--spacing-lg)',
+            padding: '16px',
             zIndex: 1000,
             transition: 'width 0.3s ease'
         }}>
+            {/* Logo */}
             <div style={{
-                marginBottom: 'var(--spacing-xl)',
+                marginBottom: '20px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: isCollapsed ? 'center' : 'space-between',
-                gap: 'var(--spacing-sm)',
                 height: '40px'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                    {!isCollapsed && (
-                        <>
-                            <div style={{ width: '32px', height: '32px', background: 'var(--accent)', borderRadius: '8px', flexShrink: 0 }}></div>
-                            <h1 style={{ fontSize: '1.25rem', fontWeight: 'bold', letterSpacing: '-0.025em', whiteSpace: 'nowrap', overflow: 'hidden' }}>
-                                Talent Ops
-                            </h1>
-                        </>
-                    )}
-                </div>
-
+                {!isCollapsed && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg, #8b5cf6, #6366f1)', borderRadius: '8px' }} />
+                        <h1 style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Talent Ops</h1>
+                    </div>
+                )}
                 <button
                     onClick={toggleSidebar}
                     style={{
-                        background: 'transparent',
+                        background: 'rgba(255,255,255,0.1)',
                         border: 'none',
                         color: 'white',
                         cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '4px',
-                        borderRadius: '4px',
-                        transition: 'background 0.2s'
+                        padding: '6px',
+                        borderRadius: '6px',
+                        display: 'flex'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                 >
-                    {isCollapsed ? <ChevronRight size={24} /> : <ChevronLeft size={20} />}
+                    {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
                 </button>
             </div>
 
+            {/* Scrollable Nav */}
             <nav style={{
                 flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 'var(--spacing-xs)',
+                gap: '8px',
                 overflowY: 'auto',
                 overflowX: 'hidden',
-                paddingRight: '4px',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
+                paddingRight: '4px'
             }}>
-                <style>
-                    {`
-                        nav::-webkit-scrollbar { 
-                            width: 0px;
-                            background: transparent;
-                        }
-                    `}
-                </style>
-                {menuItems.map((item, index) => {
-                    const isActive = item.path ? location.pathname === item.path : false;
-                    const isExpanded = expandedMenus[item.label];
-                    const isChildActive = item.subItems?.some(sub => location.pathname === sub.path);
+                {/* Organization Section */}
+                {renderSectionHeader(Building2, 'Organization', 'organization', '🏢')}
+                {expandedMenus.organization && !isCollapsed && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '8px' }}>
+                        {orgMenuItems.map((item, idx) => renderMenuItem(item, idx, 'org'))}
+                    </div>
+                )}
+                {isCollapsed && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '8px' }}>
+                        {orgMenuItems.slice(0, 4).map((item, idx) => renderMenuItem(item, idx, 'org'))}
+                    </div>
+                )}
 
-                    if (item.subItems) {
-                        return (
-                            <React.Fragment key={index}>
+                {/* Project Section */}
+                {userProjects.length > 0 && (
+                    <>
+                        {/* Project Switcher Card */}
+                        {!isCollapsed && (
+                            <div style={{
+                                background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+                                borderRadius: '12px',
+                                padding: '12px',
+                                marginBottom: '8px',
+                                position: 'relative'
+                            }}>
+                                <div style={{ fontSize: '0.65rem', opacity: 0.8, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                                    📁 Current Project
+                                </div>
                                 <button
-                                    onClick={() => toggleMenu(item.label)}
-                                    title={isCollapsed ? item.label : ''}
+                                    onClick={() => setShowProjectPicker(!showProjectPicker)}
                                     style={{
+                                        width: '100%',
                                         display: 'flex',
                                         alignItems: 'center',
-                                        justifyContent: isCollapsed ? 'center' : 'space-between',
-                                        gap: 'var(--spacing-md)',
-                                        padding: 'var(--spacing-md)',
+                                        justifyContent: 'space-between',
+                                        background: 'rgba(0,0,0,0.2)',
+                                        border: 'none',
                                         borderRadius: '8px',
-                                        backgroundColor: (isActive || isChildActive) ? 'var(--accent)' : 'transparent',
-                                        color: (isActive || isChildActive) ? 'white' : 'var(--text-secondary)',
-                                        transition: 'all 0.2s ease',
-                                        textAlign: 'left',
-                                        width: '100%',
-                                        cursor: 'pointer'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        if (!isActive && !isChildActive) {
-                                            e.currentTarget.style.backgroundColor = 'var(--primary-light)';
-                                            e.currentTarget.style.color = 'white';
-                                        }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        if (!isActive && !isChildActive) {
-                                            e.currentTarget.style.backgroundColor = 'transparent';
-                                            e.currentTarget.style.color = 'var(--text-secondary)';
-                                        }
+                                        padding: '10px 12px',
+                                        color: 'white',
+                                        cursor: 'pointer',
+                                        fontSize: '0.9rem',
+                                        fontWeight: 600
                                     }}
                                 >
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-                                        <item.icon size={20} style={{ flexShrink: 0 }} />
-                                        {!isCollapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>{item.label}</span>}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{
+                                            width: '8px',
+                                            height: '8px',
+                                            borderRadius: '50%',
+                                            background: getRoleBadge(projectRole).color
+                                        }} />
+                                        <span>{currentProject?.name || 'Select...'}</span>
                                     </div>
-                                    {!isCollapsed && (
-                                        <ChevronDown
-                                            size={16}
-                                            style={{
-                                                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                                                transition: 'transform 0.2s'
-                                            }}
-                                        />
-                                    )}
+                                    <ChevronDown size={16} style={{ transform: showProjectPicker ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
                                 </button>
-                                {!isCollapsed && isExpanded && (
-                                    <div style={{ paddingLeft: '44px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        {item.subItems.map((sub, subIndex) => {
-                                            const isSubActive = location.pathname === sub.path;
-                                            return (
-                                                <button
-                                                    key={subIndex}
-                                                    onClick={() => navigate(sub.path)}
-                                                    style={{
-                                                        padding: '8px 12px',
-                                                        borderRadius: '6px',
-                                                        backgroundColor: isSubActive ? 'rgba(255,255,255,0.1)' : 'transparent',
-                                                        color: isSubActive ? 'white' : 'var(--text-secondary)',
-                                                        border: 'none',
-                                                        textAlign: 'left',
-                                                        cursor: 'pointer',
-                                                        fontSize: '0.9rem',
-                                                        transition: 'all 0.2s'
-                                                    }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.color = isSubActive ? 'white' : 'var(--text-secondary)'}
-                                                >
-                                                    {sub.label}
-                                                </button>
-                                            )
-                                        })}
+
+                                {/* Dropdown */}
+                                {showProjectPicker && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        left: 0,
+                                        right: 0,
+                                        background: '#2a2a4a',
+                                        borderRadius: '8px',
+                                        marginTop: '4px',
+                                        boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+                                        zIndex: 100,
+                                        overflow: 'hidden'
+                                    }}>
+                                        {userProjects.map((project) => (
+                                            <button
+                                                key={project.id}
+                                                onClick={() => {
+                                                    setCurrentProject(project.id);
+                                                    setShowProjectPicker(false);
+                                                }}
+                                                style={{
+                                                    width: '100%',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    padding: '12px 14px',
+                                                    border: 'none',
+                                                    background: currentProject?.id === project.id ? 'rgba(139,92,246,0.3)' : 'transparent',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                    textAlign: 'left',
+                                                    borderBottom: '1px solid rgba(255,255,255,0.1)'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = currentProject?.id === project.id ? 'rgba(139,92,246,0.3)' : 'transparent'}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <span style={{
+                                                        width: '10px',
+                                                        height: '10px',
+                                                        borderRadius: '50%',
+                                                        background: getRoleBadge(project.role).color,
+                                                        flexShrink: 0
+                                                    }} />
+                                                    <div>
+                                                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{project.name}</div>
+                                                        <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>{getRoleBadge(project.role).label}</div>
+                                                    </div>
+                                                </div>
+                                                {currentProject?.id === project.id && <Check size={16} style={{ color: '#8b5cf6' }} />}
+                                            </button>
+                                        ))}
                                     </div>
                                 )}
-                            </React.Fragment>
-                        );
-                    }
+                            </div>
+                        )}
 
-                    return (
-                        <button
-                            key={index}
-                            onClick={() => navigate(item.path)}
-                            title={isCollapsed ? item.label : ''}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: isCollapsed ? 'center' : 'flex-start',
-                                gap: 'var(--spacing-md)',
-                                padding: 'var(--spacing-md)',
-                                borderRadius: '8px',
-                                backgroundColor: isActive ? 'var(--accent)' : 'transparent',
-                                color: isActive ? 'white' : 'var(--text-secondary)',
-                                transition: 'all 0.2s ease',
-                                textAlign: 'left',
-                                width: '100%'
-                            }}
-                            onMouseEnter={(e) => {
-                                if (!isActive) {
-                                    e.currentTarget.style.backgroundColor = 'var(--primary-light)';
-                                    e.currentTarget.style.color = 'white';
-                                }
-                            }}
-                            onMouseLeave={(e) => {
-                                if (!isActive) {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = isActive ? 'white' : 'var(--text-secondary)';
-                                }
-                            }}
-                        >
-                            <item.icon size={20} style={{ flexShrink: 0 }} />
-                            {!isCollapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>{item.label}</span>}
-                        </button>
-                    );
-                })}
+                        {/* Project Menu Items */}
+                        {renderSectionHeader(FolderKanban, currentProject?.name || 'Project', 'project', '📂')}
+                        {expandedMenus.project && !isCollapsed && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                {projectMenuItems.map((item, idx) => renderMenuItem(item, idx, 'proj'))}
+                            </div>
+                        )}
+                        {isCollapsed && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                {projectMenuItems.map((item, idx) => renderMenuItem(item, idx, 'proj'))}
+                            </div>
+                        )}
+                    </>
+                )}
             </nav>
 
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 'var(--spacing-md)', marginTop: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+            {/* Logout */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px', marginTop: '12px' }}>
                 <button
+                    onClick={() => navigate('/login')}
                     style={{
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: isCollapsed ? 'center' : 'flex-start',
-                        gap: 'var(--spacing-md)',
-                        padding: 'var(--spacing-md)',
+                        gap: '10px',
+                        padding: '12px',
                         borderRadius: '8px',
-                        color: 'var(--danger)',
                         width: '100%',
+                        border: 'none',
                         cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)'
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        color: '#f87171',
+                        fontWeight: 600,
+                        fontSize: '0.9rem'
                     }}
-                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--danger)'; e.currentTarget.style.color = 'white'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.1)'; e.currentTarget.style.color = 'var(--danger)'; }}
-                    onClick={() => navigate('/login')}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = '#ef4444'; e.currentTarget.style.color = 'white'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; e.currentTarget.style.color = '#f87171'; }}
                 >
-                    <LogOut size={20} style={{ flexShrink: 0 }} />
-                    {!isCollapsed && <span style={{ fontWeight: 600 }}>Logout</span>}
+                    <LogOut size={18} />
+                    {!isCollapsed && <span>Logout</span>}
                 </button>
-
-
             </div>
         </aside>
     );

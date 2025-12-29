@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { useUser } from '../context/UserContext';
 import AnalyticsDemo from '../components/Demo/AnalyticsDemo';
 import KanbanDemo from '../components/Demo/KanbanDemo';
+import TaskLifecyclePage from '../../shared/TaskLifecyclePage';
 import HierarchyDemo from '../components/Demo/HierarchyDemo';
 import SettingsDemo from '../components/Demo/SettingsDemo';
 import AuditLogsDemo from '../components/Demo/AuditLogsDemo';
@@ -691,7 +692,7 @@ const ModulePage = ({ title, type }) => {
     // Render specific demos for certain types
     if (type === 'team_tasks') return <TeamTasks />;
     if (type === 'analytics') return <AnalyticsDemo />;
-    if (type === 'tasks') return <KanbanDemo />;
+    if (type === 'tasks') return <TaskLifecyclePage userRole={userRole} userId={userId} addToast={addToast} />;
     if (title === 'Team Hierarchy' || title === 'Organizational Hierarchy') return <HierarchyDemo />;
     if (title === 'Project Hierarchy') return <ProjectHierarchyDemo />;
     if (title === 'Settings') return <SettingsDemo />;

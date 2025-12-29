@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, MessageSquare, X, Move, Loader } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
+import { useProject } from '../../context/ProjectContext';
 
 const CHATBOT_API_URL = 'http://localhost:8035/chat';
 
@@ -13,6 +14,9 @@ const Chatbot = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [userProfile, setUserProfile] = useState(null);
     const messagesEndRef = useRef(null);
+
+    // Get project context
+    const { currentProject, projectRole } = useProject();
 
     // Dragging state
     const [position, setPosition] = useState(() => {
@@ -89,7 +93,10 @@ const Chatbot = () => {
                     user_id: userProfile?.id || 'guest',
                     role: userProfile?.role || 'employee',
                     team_id: userProfile?.team_id || null,
-                    message: userMessage
+                    message: userMessage,
+                    // Project context for role-based permissions
+                    project_id: currentProject?.id || null,
+                    project_role: projectRole || null
                 })
             });
 

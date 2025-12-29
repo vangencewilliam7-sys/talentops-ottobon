@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageCircle, Users, Building2, Search, Paperclip, Send, X, Plus } from 'lucide-react';
+import { MessageCircle, Users, Building2, Search, Paperclip, Send, X, Plus, User } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import {
     getConversationsByCategory,
@@ -497,6 +497,24 @@ const MessagingHub = () => {
             {/* Conversation List */}
             <div className="conversation-sidebar">
                 <div className="conversation-header">
+                    {activeCategory === 'myself' && (
+                        <button
+                            className="new-dm-button"
+                            onClick={() => setShowNewDMModal(true)}
+                            title="New conversation"
+                        >
+                            +
+                        </button>
+                    )}
+                    {activeCategory === 'team' && (
+                        <button
+                            className="new-dm-button"
+                            onClick={() => setShowTeamModal(true)}
+                            title="Create team chat"
+                        >
+                            +
+                        </button>
+                    )}
                     <div className="search-box">
                         <Search size={18} />
                         <input
@@ -506,14 +524,6 @@ const MessagingHub = () => {
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
-                    {activeCategory === 'myself' && (
-                        <button
-                            className="new-dm-button"
-                            onClick={() => setShowNewDMModal(true)}
-                        >
-                            + New DM
-                        </button>
-                    )}
                 </div>
 
                 <div className="conversation-list">
@@ -588,52 +598,25 @@ const MessagingHub = () => {
                                     key={conv.id}
                                     className={`conversation-item ${selectedConversation?.id === conv.id ? 'active' : ''} ${isUnread ? 'unread' : ''}`}
                                     onClick={() => loadMessages(conv)}
-                                    style={{
-                                        background: isUnread ? '#f0f4ff' : undefined,
-                                        borderLeft: isUnread ? '3px solid #6366f1' : '3px solid transparent'
-                                    }}
                                 >
-                                    <div className="conversation-avatar" style={{ position: 'relative' }}>
-                                        {conv.type === 'dm' ? '👤' : conv.type === 'team' ? '👥' : '🏢'}
-                                        {isUnread && (
-                                            <div style={{
-                                                position: 'absolute',
-                                                top: '-2px',
-                                                right: '-2px',
-                                                width: '10px',
-                                                height: '10px',
-                                                background: '#6366f1',
-                                                borderRadius: '50%',
-                                                border: '2px solid white'
-                                            }} />
-                                        )}
+                                    <div className="conversation-avatar">
+                                        {conv.type === 'dm' ? <User size={20} /> : conv.type === 'team' ? <Users size={20} /> : <Building2 size={20} />}
                                     </div>
                                     <div className="conversation-info">
-                                        <div className="conversation-name" style={{
-                                            fontWeight: isUnread ? '700' : '500',
-                                            color: isUnread ? '#1f2937' : undefined
-                                        }}>
+                                        <div className="conversation-name">
                                             {conv.name || 'Conversation'}
                                         </div>
-                                        <div className="conversation-preview" style={{
-                                            fontWeight: isUnread ? '600' : 'normal',
-                                            color: isUnread ? '#374151' : '#6b7280'
-                                        }}>
+                                        <div className="conversation-preview">
                                             {conv.conversation_indexes?.[0]?.last_message || 'No messages yet'}
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                                        {conv.conversation_indexes?.[0]?.last_message_at && (
-                                            <div className="conversation-time" style={{
-                                                color: isUnread ? '#6366f1' : '#9ca3af',
-                                                fontWeight: isUnread ? '600' : 'normal'
-                                            }}>
-                                                {new Date(conv.conversation_indexes[0].last_message_at).toLocaleTimeString([], {
-                                                    hour: '2-digit',
-                                                    minute: '2-digit'
-                                                })}
-                                            </div>
-                                        )}
+                                    <div className="conversation-time">
+                                        {conv.conversation_indexes?.[0]?.last_message_at ? (
+                                            new Date(conv.conversation_indexes[0].last_message_at).toLocaleTimeString([], {
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            })
+                                        ) : ''}
                                     </div>
                                 </div>
                             );
@@ -792,266 +775,270 @@ const MessagingHub = () => {
             </div>
 
             {/* New DM Modal */}
-            {showNewDMModal && (
-                <div className="modal-overlay" onClick={() => { setShowNewDMModal(false); setUserSearchQuery(''); setErrorMessage(null); }}>
-                    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ minWidth: '400px' }}>
-                        <div className="modal-header">
-                            <h3>Start a new conversation</h3>
-                            <button onClick={() => { setShowNewDMModal(false); setUserSearchQuery(''); setErrorMessage(null); }}>
-                                <X size={20} />
-                            </button>
+            {
+                showNewDMModal && (
+                    <div className="modal-overlay" onClick={() => { setShowNewDMModal(false); setUserSearchQuery(''); setErrorMessage(null); }}>
+                        <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ minWidth: '400px' }}>
+                            <div className="modal-header">
+                                <h3>Start a new conversation</h3>
+                                <button onClick={() => { setShowNewDMModal(false); setUserSearchQuery(''); setErrorMessage(null); }}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="modal-body">
+                                {/* Error Message Display */}
+                                {errorMessage && (
+                                    <div style={{
+                                        padding: '0.75rem 1rem',
+                                        marginBottom: '1rem',
+                                        background: '#fee2e2',
+                                        border: '1px solid #fca5a5',
+                                        borderRadius: '8px',
+                                        color: '#b91c1c',
+                                        fontSize: '14px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                    }}>
+                                        <span>{errorMessage}</span>
+                                        <button
+                                            onClick={() => setErrorMessage(null)}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                )}
+
+                                <div className="user-search" style={{ marginBottom: '1rem' }}>
+                                    <div className="search-box" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: '#f5f5f5', borderRadius: '8px' }}>
+                                        <Search size={18} style={{ color: '#888' }} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search employees by name or role..."
+                                            value={userSearchQuery}
+                                            onChange={(e) => setUserSearchQuery(e.target.value)}
+                                            style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '14px' }}
+                                            autoFocus
+                                        />
+                                        {userSearchQuery && (
+                                            <button
+                                                onClick={() => setUserSearchQuery('')}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+                                            >
+                                                <X size={16} style={{ color: '#888' }} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {loading && (
+                                    <div style={{ textAlign: 'center', padding: '1rem', color: '#888' }}>
+                                        <div className="spinner" style={{
+                                            width: '24px',
+                                            height: '24px',
+                                            border: '3px solid #f3f3f3',
+                                            borderTop: '3px solid var(--accent, #6366f1)',
+                                            borderRadius: '50%',
+                                            animation: 'spin 1s linear infinite',
+                                            margin: '0 auto 0.5rem'
+                                        }} />
+                                        <p>Starting conversation...</p>
+                                    </div>
+                                )}
+
+                                <div className="user-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                                    {orgUsers.length === 0 ? (
+                                        <div style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
+                                            <Users size={48} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                                            <p>No employees found</p>
+                                        </div>
+                                    ) : (
+                                        orgUsers
+                                            .filter(user => {
+                                                if (!userSearchQuery) return true;
+                                                const query = userSearchQuery.toLowerCase();
+                                                return (
+                                                    (user.full_name?.toLowerCase() || '').includes(query) ||
+                                                    (user.email?.toLowerCase() || '').includes(query) ||
+                                                    (user.role?.toLowerCase() || '').includes(query)
+                                                );
+                                            })
+                                            .map(user => (
+                                                <div
+                                                    key={user.id}
+                                                    className="user-item"
+                                                    onClick={() => startChatWithUser(user)}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '12px',
+                                                        padding: '12px',
+                                                        cursor: 'pointer',
+                                                        borderRadius: '8px',
+                                                        transition: 'background 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                                >
+                                                    <div className="user-avatar" style={{
+                                                        width: '40px',
+                                                        height: '40px',
+                                                        borderRadius: '50%',
+                                                        background: '#e5e7eb',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '16px',
+                                                        fontWeight: 'bold',
+                                                        color: '#6366f1'
+                                                    }}>
+                                                        {user.avatar_url ? (
+                                                            <img src={user.avatar_url} alt={user.full_name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                                        ) : (
+                                                            (user.full_name?.[0] || user.email?.[0] || '?').toUpperCase()
+                                                        )}
+                                                    </div>
+                                                    <div className="user-info" style={{ flex: 1 }}>
+                                                        <div className="user-name" style={{ fontWeight: '500', color: '#1f2937' }}>
+                                                            {user.full_name || user.email}
+                                                        </div>
+                                                        <div className="user-role" style={{ fontSize: '12px', color: '#6b7280', textTransform: 'capitalize' }}>
+                                                            {user.role}
+                                                        </div>
+                                                    </div>
+                                                    <MessageCircle size={18} style={{ color: '#9ca3af' }} />
+                                                </div>
+                                            ))
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                        <div className="modal-body">
-                            {/* Error Message Display */}
+                    </div>
+                )
+            }
+
+            {/* Team Chat Modal */}
+            {
+                showTeamModal && (
+                    <div className="modal-overlay" onClick={() => { setShowTeamModal(false); setTeamName(''); setSelectedTeamMembers([]); setErrorMessage(null); }}>
+                        <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', width: '90%', maxHeight: '80vh', background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+                            <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Create Team Chat</h2>
+                                <button onClick={() => { setShowTeamModal(false); setTeamName(''); setSelectedTeamMembers([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            {/* Error Message */}
                             {errorMessage && (
-                                <div style={{
-                                    padding: '0.75rem 1rem',
-                                    marginBottom: '1rem',
-                                    background: '#fee2e2',
-                                    border: '1px solid #fca5a5',
-                                    borderRadius: '8px',
-                                    color: '#b91c1c',
-                                    fontSize: '14px',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center'
-                                }}>
-                                    <span>{errorMessage}</span>
-                                    <button
-                                        onClick={() => setErrorMessage(null)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
-                                    >
-                                        <X size={16} />
-                                    </button>
+                                <div style={{ padding: '0.75rem', marginBottom: '1rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', color: '#b91c1c', fontSize: '14px' }}>
+                                    {errorMessage}
                                 </div>
                             )}
 
-                            <div className="user-search" style={{ marginBottom: '1rem' }}>
-                                <div className="search-box" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', background: '#f5f5f5', borderRadius: '8px' }}>
-                                    <Search size={18} style={{ color: '#888' }} />
-                                    <input
-                                        type="text"
-                                        placeholder="Search employees by name or role..."
-                                        value={userSearchQuery}
-                                        onChange={(e) => setUserSearchQuery(e.target.value)}
-                                        style={{ border: 'none', background: 'transparent', outline: 'none', width: '100%', fontSize: '14px' }}
-                                        autoFocus
-                                    />
-                                    {userSearchQuery && (
-                                        <button
-                                            onClick={() => setUserSearchQuery('')}
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
-                                        >
-                                            <X size={16} style={{ color: '#888' }} />
-                                        </button>
+                            {/* Team Name Input */}
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>Team Name</label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter team name..."
+                                    value={teamName}
+                                    onChange={(e) => setTeamName(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        border: '1px solid #d1d5db',
+                                        borderRadius: '8px',
+                                        fontSize: '14px'
+                                    }}
+                                />
+                            </div>
+
+                            {/* Member Selection */}
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>
+                                    Select Members ({selectedTeamMembers.length} selected)
+                                </label>
+                                <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                                    {orgUsers.filter(u => u.id !== currentUserId).length === 0 ? (
+                                        <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
+                                            No team members available
+                                        </div>
+                                    ) : (
+                                        orgUsers
+                                            .filter(u => u.id !== currentUserId)
+                                            .map(user => (
+                                                <div
+                                                    key={user.id}
+                                                    onClick={() => toggleTeamMember(user.id)}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '12px',
+                                                        padding: '12px',
+                                                        cursor: 'pointer',
+                                                        borderBottom: '1px solid #f3f4f6',
+                                                        background: selectedTeamMembers.includes(user.id) ? '#eef2ff' : 'transparent'
+                                                    }}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedTeamMembers.includes(user.id)}
+                                                        onChange={() => { }}
+                                                        style={{ width: '18px', height: '18px', accentColor: '#6366f1' }}
+                                                    />
+                                                    <div style={{
+                                                        width: '36px',
+                                                        height: '36px',
+                                                        borderRadius: '50%',
+                                                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        color: 'white',
+                                                        fontWeight: '600',
+                                                        fontSize: '14px'
+                                                    }}>
+                                                        {(user.full_name || user.email || '?').charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ fontWeight: '500', color: '#1f2937' }}>
+                                                            {user.full_name || user.email}
+                                                        </div>
+                                                        <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'capitalize' }}>
+                                                            {user.role}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))
                                     )}
                                 </div>
                             </div>
 
-                            {loading && (
-                                <div style={{ textAlign: 'center', padding: '1rem', color: '#888' }}>
-                                    <div className="spinner" style={{
-                                        width: '24px',
-                                        height: '24px',
-                                        border: '3px solid #f3f3f3',
-                                        borderTop: '3px solid var(--accent, #6366f1)',
-                                        borderRadius: '50%',
-                                        animation: 'spin 1s linear infinite',
-                                        margin: '0 auto 0.5rem'
-                                    }} />
-                                    <p>Starting conversation...</p>
-                                </div>
-                            )}
-
-                            <div className="user-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                                {orgUsers.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: '2rem', color: '#888' }}>
-                                        <Users size={48} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
-                                        <p>No employees found</p>
-                                    </div>
-                                ) : (
-                                    orgUsers
-                                        .filter(user => {
-                                            if (!userSearchQuery) return true;
-                                            const query = userSearchQuery.toLowerCase();
-                                            return (
-                                                (user.full_name?.toLowerCase() || '').includes(query) ||
-                                                (user.email?.toLowerCase() || '').includes(query) ||
-                                                (user.role?.toLowerCase() || '').includes(query)
-                                            );
-                                        })
-                                        .map(user => (
-                                            <div
-                                                key={user.id}
-                                                className="user-item"
-                                                onClick={() => startChatWithUser(user)}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '12px',
-                                                    padding: '12px',
-                                                    cursor: 'pointer',
-                                                    borderRadius: '8px',
-                                                    transition: 'background 0.2s'
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
-                                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                            >
-                                                <div className="user-avatar" style={{
-                                                    width: '40px',
-                                                    height: '40px',
-                                                    borderRadius: '50%',
-                                                    background: '#e5e7eb',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    fontSize: '16px',
-                                                    fontWeight: 'bold',
-                                                    color: '#6366f1'
-                                                }}>
-                                                    {user.avatar_url ? (
-                                                        <img src={user.avatar_url} alt={user.full_name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                                                    ) : (
-                                                        (user.full_name?.[0] || user.email?.[0] || '?').toUpperCase()
-                                                    )}
-                                                </div>
-                                                <div className="user-info" style={{ flex: 1 }}>
-                                                    <div className="user-name" style={{ fontWeight: '500', color: '#1f2937' }}>
-                                                        {user.full_name || user.email}
-                                                    </div>
-                                                    <div className="user-role" style={{ fontSize: '12px', color: '#6b7280', textTransform: 'capitalize' }}>
-                                                        {user.role}
-                                                    </div>
-                                                </div>
-                                                <MessageCircle size={18} style={{ color: '#9ca3af' }} />
-                                            </div>
-                                        ))
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Team Chat Modal */}
-            {showTeamModal && (
-                <div className="modal-overlay" onClick={() => { setShowTeamModal(false); setTeamName(''); setSelectedTeamMembers([]); setErrorMessage(null); }}>
-                    <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', width: '90%', maxHeight: '80vh', background: 'white', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
-                        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Create Team Chat</h2>
-                            <button onClick={() => { setShowTeamModal(false); setTeamName(''); setSelectedTeamMembers([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}>
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        {/* Error Message */}
-                        {errorMessage && (
-                            <div style={{ padding: '0.75rem', marginBottom: '1rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '8px', color: '#b91c1c', fontSize: '14px' }}>
-                                {errorMessage}
-                            </div>
-                        )}
-
-                        {/* Team Name Input */}
-                        <div style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>Team Name</label>
-                            <input
-                                type="text"
-                                placeholder="Enter team name..."
-                                value={teamName}
-                                onChange={(e) => setTeamName(e.target.value)}
+                            {/* Create Button */}
+                            <button
+                                onClick={createNewTeamChat}
+                                disabled={loading || !teamName.trim() || selectedTeamMembers.length === 0}
                                 style={{
                                     width: '100%',
-                                    padding: '0.75rem',
-                                    border: '1px solid #d1d5db',
+                                    padding: '0.875rem',
+                                    background: loading || !teamName.trim() || selectedTeamMembers.length === 0 ? '#d1d5db' : 'var(--accent, #6366f1)',
+                                    color: 'white',
+                                    border: 'none',
                                     borderRadius: '8px',
-                                    fontSize: '14px'
+                                    cursor: loading || !teamName.trim() || selectedTeamMembers.length === 0 ? 'not-allowed' : 'pointer',
+                                    fontWeight: '600',
+                                    fontSize: '15px'
                                 }}
-                            />
+                            >
+                                {loading ? 'Creating...' : 'Create Team Chat'}
+                            </button>
                         </div>
-
-                        {/* Member Selection */}
-                        <div style={{ marginBottom: '1rem' }}>
-                            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>
-                                Select Members ({selectedTeamMembers.length} selected)
-                            </label>
-                            <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
-                                {orgUsers.filter(u => u.id !== currentUserId).length === 0 ? (
-                                    <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>
-                                        No team members available
-                                    </div>
-                                ) : (
-                                    orgUsers
-                                        .filter(u => u.id !== currentUserId)
-                                        .map(user => (
-                                            <div
-                                                key={user.id}
-                                                onClick={() => toggleTeamMember(user.id)}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '12px',
-                                                    padding: '12px',
-                                                    cursor: 'pointer',
-                                                    borderBottom: '1px solid #f3f4f6',
-                                                    background: selectedTeamMembers.includes(user.id) ? '#eef2ff' : 'transparent'
-                                                }}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedTeamMembers.includes(user.id)}
-                                                    onChange={() => { }}
-                                                    style={{ width: '18px', height: '18px', accentColor: '#6366f1' }}
-                                                />
-                                                <div style={{
-                                                    width: '36px',
-                                                    height: '36px',
-                                                    borderRadius: '50%',
-                                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    color: 'white',
-                                                    fontWeight: '600',
-                                                    fontSize: '14px'
-                                                }}>
-                                                    {(user.full_name || user.email || '?').charAt(0).toUpperCase()}
-                                                </div>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ fontWeight: '500', color: '#1f2937' }}>
-                                                        {user.full_name || user.email}
-                                                    </div>
-                                                    <div style={{ fontSize: '12px', color: '#6b7280', textTransform: 'capitalize' }}>
-                                                        {user.role}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Create Button */}
-                        <button
-                            onClick={createNewTeamChat}
-                            disabled={loading || !teamName.trim() || selectedTeamMembers.length === 0}
-                            style={{
-                                width: '100%',
-                                padding: '0.875rem',
-                                background: loading || !teamName.trim() || selectedTeamMembers.length === 0 ? '#d1d5db' : 'var(--accent, #6366f1)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '8px',
-                                cursor: loading || !teamName.trim() || selectedTeamMembers.length === 0 ? 'not-allowed' : 'pointer',
-                                fontWeight: '600',
-                                fontSize: '15px'
-                            }}
-                        >
-                            {loading ? 'Creating...' : 'Create Team Chat'}
-                        </button>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

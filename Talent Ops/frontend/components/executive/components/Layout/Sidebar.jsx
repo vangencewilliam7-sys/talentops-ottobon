@@ -19,7 +19,9 @@ import {
     LogOut,
     UserCheck,
     Megaphone,
-    MessageCircle
+    MessageCircle,
+    FolderOpen,
+    TrendingUp
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -40,6 +42,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar }) => {
     const menuItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/executive-dashboard/dashboard' },
         { icon: BarChart2, label: 'Analytics', path: '/executive-dashboard/analytics' },
+        { icon: FolderOpen, label: 'Projects', path: '/executive-dashboard/projects' },
         { icon: Users, label: 'Employees', path: '/executive-dashboard/employees' },
         { icon: ListTodo, label: 'Tasks', path: '/executive-dashboard/tasks' },
         { icon: CalendarOff, label: 'Leave Requests', path: '/executive-dashboard/leaves' },
@@ -48,6 +51,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar }) => {
         { icon: FileCheck, label: 'Policies', path: '/executive-dashboard/policies' },
         { icon: DollarSign, label: 'Payroll', path: '/executive-dashboard/payroll' },
         { icon: FileText, label: 'Invoice', path: '/executive-dashboard/invoice' },
+        { icon: TrendingUp, label: 'Project Analytics', path: '/executive-dashboard/project-analytics' },
         { icon: Briefcase, label: 'Hiring Portal', path: '/executive-dashboard/hiring' },
         {
             icon: Network,

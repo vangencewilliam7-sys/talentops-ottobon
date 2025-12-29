@@ -15,7 +15,10 @@ TABLE profiles:
 TABLE tasks:
   - id (uuid), title (text), description (text), status (text)
   - priority (text), assigned_to (uuid), assigned_by (uuid)
-  - start_date (date), due_date (date), team_id (uuid), due_time (time), assigned_by_name (text), assigned_to_name (text)
+  - start_date (date), due_date (date), team_id (uuid), due_time (time)
+  - lifecycle_state (text): requirement_refiner, design_guidance, build_guidance, acceptance_criteria, deployment, closed
+  - sub_state (text): in_progress, pending_validation, approved, rejected
+  - validated_by (uuid), validated_at (timestamp), validation_comment (text)
 
 TABLE leaves:
   - id (uuid), employee_id (uuid), team_id (uuid), from_date (date), to_date (date), reason (text), status (text)
@@ -95,12 +98,36 @@ INTENT DETECTION (Prefer JSON for actions that CHANGE data, prefer SQL for VIEWI
 - Assign Task: {{"action": "create_task", "params": {{"title": "...", "assigned_to": "...", "priority": "...", "due_date": "..."}}}}
 - Create Dept: {{"action": "create_department", "params": {{"department_name": "..."}}}}
 - Post Announcement: {{"action": "post_announcement", "params": {{"title": "...", "message": "...", "event_date": "YYYY-MM-DD"}}}}
+- Schedule Meeting: {{"action": "schedule_meeting", "params": {{"title": "...", "date": "YYYY-MM-DD or tomorrow/today/next week", "time": "HH:MM or 3pm", "attendees": "name1, name2"}}}}
+- Request Task Validation: {{"action": "request_task_validation", "params": {{"task_title": "..."}}}}
+- Approve Task: {{"action": "approve_task", "params": {{"task_title": "...", "comment": "optional"}}}}
+- Reject Task: {{"action": "reject_task", "params": {{"task_title": "...", "reason": "required"}}}}
+- View Pending Validations: {{"action": "get_validation_queue", "params": {{}}}}
+- View Task History: {{"action": "get_task_history", "params": {{"task_title": "..."}}}}
 - Payroll/Payslip: {{"action": "view_payslips", "params": {{"month": "December"}}}}
 
 TECHNICAL GUIDANCE FOR SQL:
 - For "today's", "current", or "active" actions (e.g., "who is on leave", "how many people are in leave today", "list names of people out"), you MUST use date range logic and check for 'approved' status. Use DISTINCT to avoid duplicates: 
   `SELECT DISTINCT p.full_name, l.status, l.reason FROM leaves l JOIN profiles p ON l.employee_id = p.id WHERE l.from_date <= 'YYYY-MM-DD' AND l.to_date >= 'YYYY-MM-DD' AND l.status = 'approved'`
 - Use the TODAY date provided in the prompt for comparisons.
+
+COMMON QUERY PATTERNS (USE ILIKE FOR NAME SEARCHES):
+- "Which team is [name] in?" / "What team does [name] belong to?":
+  `SELECT p.full_name, t.team_name FROM profiles p JOIN teams t ON p.team_id = t.id WHERE p.full_name ILIKE '%[name]%'`
+- "How many leaves does [name] have?" / "[name]'s leave balance":
+  `SELECT full_name, leaves_remaining, leaves_taken_this_month, monthly_leave_quota FROM profiles WHERE full_name ILIKE '%[name]%'`
+- "Who is [name]?" / "Tell me about [name]" / "[name]'s profile":
+  `SELECT full_name, email, role, location, phone FROM profiles WHERE full_name ILIKE '%[name]%'`
+- "What is [name]'s role?":
+  `SELECT full_name, role FROM profiles WHERE full_name ILIKE '%[name]%'`
+- "Who are the employees in [team] team?":
+  `SELECT p.full_name, p.role FROM profiles p JOIN teams t ON p.team_id = t.id WHERE t.team_name ILIKE '%[team]%'`
+- "List all employees" / "Show all people":
+  `SELECT full_name, role, email FROM profiles`
+- "How many leaves has [name] taken?":
+  `SELECT full_name, leaves_taken_this_month FROM profiles WHERE full_name ILIKE '%[name]%'`
+
+IMPORTANT: Always use ILIKE with % wildcards for name matching (e.g., ILIKE '%pavan%' NOT = 'pavan'). Names may be partial.
 
 CRITICAL: Return ONLY SQL or JSON. Start response with role if returning JSON is not possible.
 """

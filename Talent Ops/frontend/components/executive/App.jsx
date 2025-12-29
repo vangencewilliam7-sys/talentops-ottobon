@@ -31,6 +31,7 @@ function App() {
               <Route path="/hierarchy" element={<ModulePage title="Team Hierarchy" type="default" />} />
               <Route path="/audit" element={<ModulePage title="Audit Logs" type="default" />} />
               <Route path="/settings" element={<ModulePage title="Settings" type="default" />} />
+              <Route path="/project-analytics" element={<ModulePage title="Project Analytics" type="project-analytics" />} />
             </Routes>
           </Layout>
         </Router>

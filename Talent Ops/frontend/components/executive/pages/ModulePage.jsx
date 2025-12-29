@@ -4,6 +4,8 @@ import DataTable from '../components/UI/DataTable';
 import { useToast } from '../context/ToastContext';
 import AnalyticsDemo from '../components/Demo/AnalyticsDemo';
 import KanbanDemo from '../components/Demo/KanbanDemo';
+import TaskLifecyclePage from '../../shared/TaskLifecyclePage';
+import ManagerTaskDashboard from '../../shared/ManagerTaskDashboard';
 import HierarchyDemo from '../components/Demo/HierarchyDemo';
 import SettingsDemo from '../components/Demo/SettingsDemo';
 import AuditLogsDemo from '../components/Demo/AuditLogsDemo';
@@ -18,6 +20,7 @@ import InvoiceGenerator from '../components/Invoice/InvoiceGenerator';
 import { AddPolicyModal } from '../../shared/AddPolicyModal';
 import { EditPolicyModal } from '../../shared/EditPolicyModal';
 import { useUser } from '../context/UserContext';
+import ProjectAnalytics from '../../shared/ProjectAnalytics/ProjectAnalytics';
 
 
 const ModulePage = ({ title, type }) => {
@@ -798,7 +801,7 @@ const ModulePage = ({ title, type }) => {
 
     // Render specific demos for certain types
     if (type === 'analytics') return <AnalyticsDemo />;
-    if (type === 'tasks') return <KanbanDemo />;
+    if (type === 'tasks') return <ManagerTaskDashboard userRole={userRole} userId={userId} addToast={addToast} />;
     if (title === 'Team Hierarchy' || title === 'Organizational Hierarchy') return <HierarchyDemo />;
     if (title === 'Project Hierarchy') return <ProjectHierarchyDemo isEditingEnabled={true} />;
     if (title === 'Settings') return <SettingsDemo />;
@@ -806,6 +809,7 @@ const ModulePage = ({ title, type }) => {
     if (type === 'payroll') return <PayslipsPage userRole={userRole} userId={userId} addToast={addToast} />;
     if (type === 'payroll-generation') return <PayrollPage userRole={userRole} userId={userId} addToast={addToast} />;
     if (type === 'invoice') return <InvoiceGenerator />;
+    if (type === 'project-analytics') return <ProjectAnalytics userRole="executive" dashboardPrefix="/executive-dashboard" />;
 
     // Mock Data Configurations
     const configs = {
