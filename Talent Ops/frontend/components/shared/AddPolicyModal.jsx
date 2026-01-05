@@ -182,6 +182,28 @@ export const AddPolicyModal = ({ isOpen, onClose, onSuccess }) => {
             // Success!
             console.log('Policy created successfully:', policyData);
 
+            // 4. Send Notification to All Employees
+            const { data: allEmployees } = await supabase
+                .from('profiles')
+                .select('id');
+
+            if (allEmployees && allEmployees.length > 0) {
+                const { data: { user } } = await supabase.auth.getUser();
+
+                const notifications = allEmployees.map(emp => ({
+                    receiver_id: emp.id,
+                    sender_id: user?.id,
+                    sender_name: 'HR Department',
+                    message: `New policy added: ${formData.title}`,
+                    type: 'policy',
+                    is_read: false,
+                    created_at: new Date().toISOString()
+                }));
+
+                const { error: notifError } = await supabase.from('notifications').insert(notifications);
+                if (notifError) console.error('Error sending policy notifications:', notifError);
+            }
+
             // Reset form
             setFormData({
                 title: '',

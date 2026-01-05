@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MoreHorizontal, Plus, X, User, Users, Filter, Search, Calendar, CheckCircle2, Circle, Clock, AlertCircle, ChevronLeft, ChevronRight, Eye, Shield, FileText, ExternalLink, XCircle } from 'lucide-react';
+import { MoreHorizontal, Plus, X, User, Users, Filter, Search, Calendar, CheckCircle2, Circle, Clock, AlertCircle, ChevronLeft, ChevronRight, Eye, Shield, FileText, ExternalLink, XCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { useUser } from '../../context/UserContext';
 import { supabase } from '../../../../lib/supabaseClient';
@@ -45,6 +45,11 @@ const ManagerTasks = () => {
     const [taskReview, setTaskReview] = useState(null);
     const [loadingReview, setLoadingReview] = useState(false);
     const [rejectionRemark, setRejectionRemark] = useState('');
+
+    // Issue Resolution State
+    const [showIssueModal, setShowIssueModal] = useState(false);
+    const [taskWithIssue, setTaskWithIssue] = useState(null);
+    const [resolvingIssue, setResolvingIssue] = useState(false);
     const [isRejecting, setIsRejecting] = useState(false);
 
     useEffect(() => {
@@ -131,6 +136,55 @@ const ManagerTasks = () => {
         } catch (error) {
             console.error('Rejection Error:', error);
             addToast('Failed to reject task', 'error');
+        }
+    };
+
+    const openIssueModal = (task) => {
+        setTaskWithIssue(task);
+        setShowIssueModal(true);
+    };
+
+    const resolveIssue = async () => {
+        if (!taskWithIssue) return;
+
+        setResolvingIssue(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Not authenticated');
+
+            // Get user profile for name
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name, email')
+                .eq('id', user.id)
+                .single();
+
+            const userName = profile?.full_name || profile?.email || 'Manager';
+            const timestamp = new Date().toISOString();
+
+            // Add resolution note to issues
+            const resolutionEntry = `\n\n[${new Date(timestamp).toLocaleString()}] RESOLVED by ${userName}`;
+            const updatedIssues = (taskWithIssue.issues || '') + resolutionEntry;
+
+            const { error } = await supabase
+                .from('tasks')
+                .update({
+                    issues: updatedIssues,
+                    updated_at: timestamp
+                })
+                .eq('id', taskWithIssue.id);
+
+            if (error) throw error;
+
+            addToast('Issue marked as resolved!', 'success');
+            setShowIssueModal(false);
+            setTaskWithIssue(null);
+            fetchTasks(); // Refresh tasks
+        } catch (error) {
+            console.error('Error resolving issue:', error);
+            addToast('Failed to resolve issue: ' + error.message, 'error');
+        } finally {
+            setResolvingIssue(false);
         }
     };
 
@@ -326,6 +380,8 @@ const ManagerTasks = () => {
                 if (blueprintError) console.error('Error creating blueprint:', blueprintError);
             }
 
+
+
             addToast('Task created successfully', 'success');
             setShowModal(false);
             setNewTask({ ...newTask, title: '', description: '' });
@@ -468,8 +524,7 @@ const ManagerTasks = () => {
                                 <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', width: '20%' }}>ASSIGNEE</th>
                                 <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', width: '18%' }}>DUE DATE</th>
                                 <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', width: '16%' }}>PRIORITY</th>
-                                <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', width: '16%' }}>STATUS</th>
-                                <th style={{ padding: '16px', textAlign: 'center', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', width: '8%' }}>ACTIONS</th>
+                                <th style={{ padding: '16px', textAlign: 'center', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', minWidth: '160px' }}>ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -488,7 +543,9 @@ const ManagerTasks = () => {
                                         style={{ borderBottom: '1px solid var(--border)', transition: 'background-color 0.1s' }}
                                     >
                                         <td style={{ padding: '16px' }}>
-                                            <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{task.title}</div>
+                                            <div style={{ fontWeight: 500, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                {task.title}
+                                            </div>
                                             {task.description && (
                                                 <div style={{
                                                     fontSize: '0.8rem',
@@ -537,56 +594,65 @@ const ManagerTasks = () => {
                                                 <option value="high">HIGH</option>
                                             </select>
                                         </td>
-                                        <td style={{ padding: '16px' }}>
-                                            <select
-                                                className="status-dropdown"
-                                                value={task.status}
-                                                onChange={(e) => handleUpdateTask(task.id, 'status', e.target.value)}
-                                                style={{
-                                                    padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 500,
-                                                    backgroundColor: ['completed', 'done'].includes(task.status?.toLowerCase()) ? '#dcfce7' : ['in_progress', 'in progress'].includes(task.status?.toLowerCase()) ? '#dbeafe' : '#fef3c7',
-                                                    color: ['completed', 'done'].includes(task.status?.toLowerCase()) ? '#15803d' : ['in_progress', 'in progress'].includes(task.status?.toLowerCase()) ? '#1d4ed8' : '#a16207',
-                                                    border: 'none',
-                                                    cursor: 'pointer',
-                                                    outline: 'none'
-                                                }}
-                                            >
-                                                <option value="pending">Pending</option>
-                                                <option value="in_progress">In Progress</option>
-                                                <option value="completed">Completed</option>
-                                            </select>
-                                        </td>
                                         <td style={{ padding: '16px', textAlign: 'center' }}>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setShowTaskDetailsModal(true); }}
-                                                style={{
-                                                    padding: '8px 16px',
-                                                    borderRadius: '8px',
-                                                    border: '1px solid var(--border)',
-                                                    backgroundColor: 'var(--background)',
-                                                    color: 'var(--text-primary)',
-                                                    cursor: 'pointer',
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: '6px',
-                                                    fontSize: '0.85rem',
-                                                    fontWeight: 500,
-                                                    transition: 'all 0.2s'
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    e.currentTarget.style.backgroundColor = '#7c3aed';
-                                                    e.currentTarget.style.color = 'white';
-                                                    e.currentTarget.style.borderColor = '#7c3aed';
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.currentTarget.style.backgroundColor = 'var(--background)';
-                                                    e.currentTarget.style.color = 'var(--text-primary)';
-                                                    e.currentTarget.style.borderColor = 'var(--border)';
-                                                }}
-                                            >
-                                                <Eye size={16} />
-                                                View
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', whiteSpace: 'nowrap' }}>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setSelectedTask(task); setShowTaskDetailsModal(true); }}
+                                                    style={{
+                                                        padding: '6px 12px',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid var(--border)',
+                                                        backgroundColor: 'var(--background)',
+                                                        color: 'var(--text-primary)',
+                                                        cursor: 'pointer',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        fontSize: '0.8rem',
+                                                        fontWeight: 500,
+                                                        transition: 'all 0.2s',
+                                                        whiteSpace: 'nowrap'
+                                                    }}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.backgroundColor = '#7c3aed';
+                                                        e.currentTarget.style.color = 'white';
+                                                        e.currentTarget.style.borderColor = '#7c3aed';
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.backgroundColor = 'var(--background)';
+                                                        e.currentTarget.style.color = 'var(--text-primary)';
+                                                        e.currentTarget.style.borderColor = 'var(--border)';
+                                                    }}
+                                                >
+                                                    <Eye size={14} />
+                                                    View
+                                                </button>
+                                                {task.issues && !task.issues.includes('RESOLVED') && (
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); openIssueModal(task); }}
+                                                        style={{
+                                                            padding: '6px 12px',
+                                                            borderRadius: '6px',
+                                                            border: 'none',
+                                                            backgroundColor: '#f59e0b',
+                                                            color: 'white',
+                                                            cursor: 'pointer',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                            fontSize: '0.8rem',
+                                                            fontWeight: 500,
+                                                            transition: 'all 0.2s',
+                                                            whiteSpace: 'nowrap'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#d97706'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f59e0b'}
+                                                    >
+                                                        <AlertTriangle size={14} />
+                                                        Resolve
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))
@@ -1107,6 +1173,69 @@ const ManagerTasks = () => {
                                     Close
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Issue Resolution Modal */}
+            {showIssueModal && taskWithIssue && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1002, backdropFilter: 'blur(4px)' }}>
+                    <div style={{ backgroundColor: 'var(--surface)', padding: '32px', borderRadius: '20px', width: '600px', maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                            <div style={{ backgroundColor: '#fef2f2', borderRadius: '12px', padding: '12px' }}>
+                                <AlertTriangle size={24} color="#f59e0b" />
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>Task Issue Details</h3>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{taskWithIssue.title}</p>
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '2px solid #fecaca' }}>
+                            <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#991b1b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <AlertCircle size={18} /> Issue Log
+                            </h4>
+                            <div style={{ fontSize: '0.9rem', color: '#7f1d1d', whiteSpace: 'pre-wrap', lineHeight: '1.8', maxHeight: '300px', overflowY: 'auto' }}>
+                                {taskWithIssue.issues || 'No issues reported'}
+                            </div>
+                        </div>
+
+                        <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '12px', marginBottom: '24px', border: '1px solid #fde047' }}>
+                            <p style={{ fontSize: '0.9rem', color: '#92400e', lineHeight: '1.6' }}>
+                                <strong>Note:</strong> Clicking "Mark as Resolved" will add a resolution timestamp to this issue log.
+                                The employee will be able to see that the issue has been acknowledged and resolved.
+                            </p>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button
+                                onClick={() => { setShowIssueModal(false); setTaskWithIssue(null); }}
+                                disabled={resolvingIssue}
+                                style={{ padding: '12px 24px', borderRadius: '10px', backgroundColor: 'var(--background)', border: '1px solid var(--border)', cursor: 'pointer', fontWeight: 600 }}
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={resolveIssue}
+                                disabled={resolvingIssue}
+                                style={{
+                                    padding: '12px 24px',
+                                    borderRadius: '10px',
+                                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                                    color: 'white',
+                                    border: 'none',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)'
+                                }}
+                            >
+                                <CheckCircle2 size={16} />
+                                {resolvingIssue ? 'Resolving...' : 'Mark as Resolved'}
+                            </button>
                         </div>
                     </div>
                 </div>

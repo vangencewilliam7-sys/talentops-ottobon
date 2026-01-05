@@ -18,6 +18,7 @@ import './MessagingHub.css';
 const MessagingHub = () => {
     const [activeCategory, setActiveCategory] = useState('myself');
     const [conversations, setConversations] = useState([]);
+    const [conversationCache, setConversationCache] = useState({}); // Cache conversations by category
     const [selectedConversation, setSelectedConversation] = useState(null);
     const [messages, setMessages] = useState([]);
     const [messageInput, setMessageInput] = useState('');
@@ -89,92 +90,25 @@ const MessagingHub = () => {
         return () => subscription.unsubscribe();
     }, []);
 
-    // Load organization users for new DM
-    // For executives, load ALL employees; for others, load based on hierarchy
+    // Load all users for messaging (Everyone can see everyone)
     const loadOrgUsers = async (orgId, userRole, userId) => {
         try {
-            let users = [];
-            console.log('Loading org users:', { orgId, userRole, userId });
+            console.log('Loading all users for messaging...');
 
-            // Executive/Admin can see ALL employees in the organization (or all if org_id is null)
-            if (userRole === 'executive' || userRole === 'admin') {
-                let query = supabase
-                    .from('profiles')
-                    .select('id, email, full_name, avatar_url, role')
-                    .neq('id', userId);
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, email, full_name, avatar_url, role')
+                .neq('id', userId)
+                .order('full_name', { ascending: true, nullsFirst: false });
 
-                // Only filter by org_id if it exists
-                if (orgId) {
-                    query = query.eq('org_id', orgId);
-                }
-
-                const { data, error } = await query.order('full_name', { ascending: true, nullsFirst: false });
-
-                if (error) {
-                    console.error('Error fetching profiles for executive:', error);
-                } else {
-                    console.log('Found profiles for executive:', data?.length);
-                    users = data || [];
-                }
+            if (error) {
+                console.error('Error fetching users:', error);
+            } else {
+                console.log('Found users:', data?.length);
+                setOrgUsers(data || []);
             }
-            // Manager can see team leads and employees
-            else if (userRole === 'manager') {
-                let query = supabase
-                    .from('profiles')
-                    .select('id, email, full_name, avatar_url, role')
-                    .neq('id', userId)
-                    .in('role', ['team_lead', 'Team Lead', 'employee', 'Employee']);
-
-                if (orgId) {
-                    query = query.eq('org_id', orgId);
-                }
-
-                const { data, error } = await query.order('full_name', { ascending: true, nullsFirst: false });
-
-                if (!error && data) {
-                    users = data;
-                }
-            }
-            // Team Lead can see employees in their team
-            else if (userRole === 'team_lead') {
-                let query = supabase
-                    .from('profiles')
-                    .select('id, email, full_name, avatar_url, role')
-                    .neq('id', userId)
-                    .in('role', ['employee', 'Employee']);
-
-                if (orgId) {
-                    query = query.eq('org_id', orgId);
-                }
-
-                const { data, error } = await query.order('full_name', { ascending: true, nullsFirst: false });
-
-                if (!error && data) {
-                    users = data;
-                }
-            }
-            // Employee can see team leads and other employees
-            else {
-                let query = supabase
-                    .from('profiles')
-                    .select('id, email, full_name, avatar_url, role')
-                    .neq('id', userId);
-
-                if (orgId) {
-                    query = query.eq('org_id', orgId);
-                }
-
-                const { data, error } = await query.order('full_name', { ascending: true, nullsFirst: false });
-
-                if (!error && data) {
-                    users = data;
-                }
-            }
-
-            console.log('Setting org users:', users.length);
-            setOrgUsers(users);
         } catch (error) {
-            console.error('Error loading org users:', error);
+            console.error('Error loading users:', error);
         }
     };
 
@@ -191,7 +125,14 @@ const MessagingHub = () => {
 
         if (selectedConversation) {
             subscription = subscribeToConversation(selectedConversation.id, (newMessage) => {
-                setMessages(prev => [...prev, newMessage]);
+                // Prevent duplicate messages by checking if message already exists
+                setMessages(prev => {
+                    const messageExists = prev.some(msg => msg.id === newMessage.id);
+                    if (messageExists) {
+                        return prev; // Don't add duplicate
+                    }
+                    return [...prev, newMessage];
+                });
             });
         }
 
@@ -208,11 +149,20 @@ const MessagingHub = () => {
             return;
         }
 
+        // Check if we have cached conversations for this category
+        if (conversationCache[activeCategory]) {
+            console.log('Using cached conversations for', activeCategory);
+            setConversations(conversationCache[activeCategory]);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         try {
             const convs = await getConversationsByCategory(currentUserId, activeCategory);
 
             // For DM conversations, fetch the other user's name
+            let finalConvs = convs;
             if (activeCategory === 'myself') {
                 const convsWithNames = await Promise.all(convs.map(async (conv) => {
                     if (conv.type === 'dm' && !conv.name) {
@@ -242,10 +192,15 @@ const MessagingHub = () => {
                     }
                     return conv;
                 }));
-                setConversations(convsWithNames);
-            } else {
-                setConversations(convs);
+                finalConvs = convsWithNames;
             }
+
+            setConversations(finalConvs);
+            // Cache the conversations for this category
+            setConversationCache(prev => ({
+                ...prev,
+                [activeCategory]: finalConvs
+            }));
         } catch (error) {
             console.error('Error loading conversations:', error);
             // Don't crash the app, just show empty state
@@ -304,12 +259,18 @@ const MessagingHub = () => {
                 messageInput,
                 attachments
             );
-            setMessages(prev => [...prev, newMessage]);
+            // Don't manually add the message - let the real-time subscription handle it
+            // This prevents duplicates
             setMessageInput('');
             setAttachments([]);
             setErrorMessage(null);
 
-            // Reload conversations to show the new one
+            // Invalidate cache and reload conversations to show the new message
+            setConversationCache(prev => {
+                const newCache = { ...prev };
+                delete newCache[activeCategory];
+                return newCache;
+            });
             loadConversations();
         } catch (error) {
             console.error('Error sending message:', error);
@@ -353,6 +314,12 @@ const MessagingHub = () => {
             setShowNewDMModal(false);
             setUserSearchQuery('');
             setErrorMessage(null);
+            // Invalidate cache for 'myself' category
+            setConversationCache(prev => {
+                const newCache = { ...prev };
+                delete newCache['myself'];
+                return newCache;
+            });
             loadConversations();
             loadMessages(conversation);
         } catch (error) {
@@ -404,6 +371,12 @@ const MessagingHub = () => {
             setTeamName('');
             setSelectedTeamMembers([]);
             setErrorMessage(null);
+            // Invalidate cache for 'team' category
+            setConversationCache(prev => {
+                const newCache = { ...prev };
+                delete newCache['team'];
+                return newCache;
+            });
             loadConversations();
             loadMessages(conversation);
         } catch (error) {
@@ -420,6 +393,12 @@ const MessagingHub = () => {
             setLoading(true);
             const conversation = await getOrCreateOrgConversation(currentUserId, currentUserOrgId);
             setErrorMessage(null);
+            // Invalidate cache for 'organization' category
+            setConversationCache(prev => {
+                const newCache = { ...prev };
+                delete newCache['organization'];
+                return newCache;
+            });
             loadConversations();
             loadMessages(conversation);
         } catch (error) {
@@ -452,7 +431,7 @@ const MessagingHub = () => {
     ];
 
     return (
-        <div className="messaging-hub">
+        <div className="messaging-hub" style={{ margin: 0, padding: 0, display: 'grid' }}>
             {authLoading ? (
                 <div className="loading-auth" style={{ padding: '2rem', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
                     <div className="spinner" style={{ width: '40px', height: '40px', border: '3px solid #f3f3f3', borderTop: '3px solid var(--accent, #6366f1)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
@@ -649,18 +628,7 @@ const MessagingHub = () => {
                                     <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
                                         Send a message to start the conversation!
                                     </p>
-                                    <div style={{
-                                        padding: '1rem',
-                                        background: '#fef3c7',
-                                        border: '1px solid #fcd34d',
-                                        borderRadius: '8px',
-                                        fontSize: '13px',
-                                        color: '#92400e',
-                                        maxWidth: '400px',
-                                        margin: '0 auto'
-                                    }}>
-                                        <strong>Note:</strong> To enable persistent messaging, run the <code>setup_messaging_database.sql</code> script in Supabase.
-                                    </div>
+
                                 </div>
                             ) : messages.length === 0 ? (
                                 <div className="empty-messages">

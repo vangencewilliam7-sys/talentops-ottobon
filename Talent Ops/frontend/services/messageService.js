@@ -52,14 +52,39 @@ export const getConversationsByCategory = async (userId, category) => {
             query = query.eq('type', 'everyone');
         }
 
-        const { data, error } = await query.order('created_at', { ascending: false });
+        const { data: conversations, error } = await query.order('created_at', { ascending: false });
 
         if (error) {
             console.error('Error fetching conversations:', error);
             return [];
         }
 
-        return data || [];
+        if (!conversations || conversations.length === 0) {
+            return [];
+        }
+
+        // Step 3: Fetch conversation indexes for these conversations
+        const { data: indexes, error: indexError } = await supabase
+            .from('conversation_indexes')
+            .select('*')
+            .in('conversation_id', conversations.map(c => c.id));
+
+        if (indexError) {
+            console.error('Error fetching conversation indexes:', indexError);
+            // Return conversations without indexes rather than failing completely
+            return conversations;
+        }
+
+        // Step 4: Merge indexes into conversations
+        const conversationsWithIndexes = conversations.map(conv => {
+            const index = indexes?.find(idx => idx.conversation_id === conv.id);
+            return {
+                ...conv,
+                conversation_indexes: index ? [index] : []
+            };
+        });
+
+        return conversationsWithIndexes;
     } catch (error) {
         console.error('Error in getConversationsByCategory:', error);
         return [];
@@ -219,25 +244,36 @@ export const updateConversationIndex = async (conversationId, lastMessage) => {
  */
 export const createDMConversation = async (userId1, userId2, orgId) => {
     try {
-        // Check if DM already exists
-        const { data: existing } = await supabase
-            .from('conversations')
-            .select(`
-                *,
-                conversation_members!inner(user_id)
-            `)
-            .eq('type', 'dm')
-            .eq('org_id', orgId);
+        // Strategy: Find existing DM between these two users regardless of org_id or context
 
-        // Find existing DM between these two users
-        const existingDM = existing?.find(conv => {
-            const members = conv.conversation_members.map(m => m.user_id);
-            return members.includes(userId1) && members.includes(userId2);
-        });
+        // 1. Get all conversation IDs for User 1
+        const { data: user1Convs } = await supabase
+            .from('conversation_members')
+            .select('conversation_id')
+            .eq('user_id', userId1);
 
-        if (existingDM) {
-            return existingDM;
+        const candidateIds = user1Convs?.map(c => c.conversation_id) || [];
+
+        if (candidateIds.length > 0) {
+            // 2. Search for a DM conversation in these candidates that ALSO includes User 2
+            const { data: existingDM } = await supabase
+                .from('conversations')
+                .select(`
+                    *,
+                    conversation_members!inner(user_id)
+                `)
+                .in('id', candidateIds) // Must be one of User 1's conversations
+                .eq('type', 'dm')       // Must be a DM
+                .eq('conversation_members.user_id', userId2) // Must include User 2 (inner join filters for this)
+                .maybeSingle();
+
+            if (existingDM) {
+                console.log('Found existing DM:', existingDM.id);
+                return existingDM;
+            }
         }
+
+        console.log('Creating new DM conversation...');
 
         // Create new DM conversation
         const { data: conversation, error: convError } = await supabase

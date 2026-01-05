@@ -21,6 +21,7 @@ const AnnouncementsPage = ({ userRole, userId }) => {
     const [allEmployees, setAllEmployees] = useState([]);
     const [loadingOptions, setLoadingOptions] = useState(false);
     const [userTeamId, setUserTeamId] = useState(null);
+    const [senderName, setSenderName] = useState('');
 
     // Form Data
     const [newEvent, setNewEvent] = useState({
@@ -46,10 +47,13 @@ const AnnouncementsPage = ({ userRole, userId }) => {
             // 1. Fetch User Profile to get team_id
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('team_id')
+                .select('team_id, full_name')
                 .eq('id', userId)
                 .single();
-            if (profile) setUserTeamId(profile.team_id);
+            if (profile) {
+                setUserTeamId(profile.team_id);
+                setSenderName(profile.full_name || 'System Announcement');
+            }
 
             // 2. Fetch Announcements
             const { data, error } = await supabase
@@ -321,6 +325,50 @@ const AnnouncementsPage = ({ userRole, userId }) => {
             setSelectedTeams([]);
             setSelectedEmployees([]);
             fetchData(); // Refresh list
+
+            // --- Send Notifications ---
+            if (senderName) {
+                let recipientIds = [];
+
+                if (eventScope === 'all') {
+                    // Send to everyone (except self, optional, but usually good to notify self too or filter out)
+                    recipientIds = allEmployees.map(e => e.id);
+                } else if (eventScope === 'team') {
+                    // Send to employees in selected teams
+                    recipientIds = allEmployees
+                        .filter(e => selectedTeams.includes(e.teamId))
+                        .map(e => e.id);
+                } else if (eventScope === 'employee' || eventScope === 'my_team') {
+                    // Send to specific employees
+                    recipientIds = selectedEmployees; // these are IDs
+                }
+
+                // Filter out the sender if you don't want to notify yourself (optional, keeping it commented out for testing so you see the notification)
+                // recipientIds = recipientIds.filter(id => id !== userId);
+
+                console.log('Sending notifications to:', recipientIds);
+
+                if (recipientIds.length > 0) {
+                    const notificationsData = recipientIds.map(receiverId => ({
+                        sender_id: userId,
+                        sender_name: senderName,
+                        receiver_id: receiverId,
+                        message: `New Announcement: ${newEvent.title}`,
+                        type: 'announcement',
+                        is_read: false,
+                        created_at: new Date().toISOString()
+                    }));
+
+                    const { error: notifError } = await supabase
+                        .from('notifications')
+                        .insert(notificationsData);
+
+                    if (notifError) {
+                        console.error("Error creating notifications:", notifError);
+                    }
+                }
+            }
+            // --------------------------
 
         } catch (err) {
             console.error("Error adding event:", err);

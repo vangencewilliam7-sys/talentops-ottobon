@@ -475,7 +475,8 @@ const ModulePage = ({ title, type }) => {
                     sender_name: userName || 'Manager',
                     message: `Your leave request has been ${action} by ${userName || 'Manager'}`,
                     type: 'leave_status_update',
-                    is_read: false
+                    is_read: false,
+                    created_at: new Date().toISOString()
                 };
 
                 const { error } = await supabase.from('notifications').insert([notification]);
@@ -583,7 +584,8 @@ const ModulePage = ({ title, type }) => {
                         sender_name: userName || 'Employee',
                         message: `${userName || 'Employee'} has applied for ${leaveFormData.leaveType}`,
                         type: 'leave_request',
-                        is_read: false
+                        is_read: false,
+                        created_at: new Date().toISOString()
                     }));
 
                     const { error: notifError } = await supabase

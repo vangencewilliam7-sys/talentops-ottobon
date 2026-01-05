@@ -326,6 +326,8 @@ const TeamTasks = () => {
                 if (blueprintError) console.error('Error creating blueprint:', blueprintError);
             }
 
+
+
             addToast('Task created successfully', 'success');
             setShowModal(false);
             setNewTask({ ...newTask, title: '', description: '' });

@@ -1,10 +1,19 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import Chatbot from '../UI/Chatbot';
 
 const Layout = ({ children }) => {
     const [isCollapsed, setIsCollapsed] = React.useState(false);
+    const location = useLocation();
+
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsCollapsed(true);
+        }, 5000);
+        return () => clearTimeout(timer);
+    }, [location.pathname]);
 
     return (
         <div style={{ display: 'flex', minHeight: '100vh' }}>

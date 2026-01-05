@@ -268,7 +268,7 @@ const Sidebar = ({ isCollapsed, toggleSidebar }) => {
                 )}
                 {isCollapsed && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '8px' }}>
-                        {orgMenuItems.slice(0, 4).map((item, idx) => renderMenuItem(item, idx, 'org'))}
+                        {orgMenuItems.map((item, idx) => renderMenuItem(item, idx, 'org'))}
                     </div>
                 )}
 

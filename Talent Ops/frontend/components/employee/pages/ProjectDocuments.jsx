@@ -145,6 +145,35 @@ const ProjectDocuments = ({ userRole, addToast: parentAddToast = null }) => {
 
             if (error) throw error;
 
+            // Send Notifications to Team Members
+            try {
+                const { data: members, error: membersError } = await supabase
+                    .from('project_members')
+                    .select('user_id')
+                    .eq('project_id', currentProject.id);
+
+                if (!membersError && members) {
+                    const recipients = members
+                        .map(m => m.user_id)
+                        .filter(uid => uid !== user.id);
+
+                    if (recipients.length > 0) {
+                        const notifications = recipients.map(uid => ({
+                            receiver_id: uid,
+                            sender_id: user.id,
+                            sender_name: 'Project Documents',
+                            message: `New document added: ${newDoc.title}`,
+                            type: 'document_upload',
+                            is_read: false,
+                            created_at: new Date().toISOString()
+                        }));
+                        await supabase.from('notifications').insert(notifications);
+                    }
+                }
+            } catch (notifyErr) {
+                console.error('Error sending document notifications:', notifyErr);
+            }
+
             addToast('Document added successfully', 'success');
             setShowAddModal(false);
             setNewDoc({ title: '', content: '', doc_type: 'requirements' });

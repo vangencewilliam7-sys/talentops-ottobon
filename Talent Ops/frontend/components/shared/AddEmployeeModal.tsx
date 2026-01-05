@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
 interface AddEmployeeModalProps {
@@ -43,6 +43,7 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
     });
     const [projectRole, setProjectRole] = useState('employee');
     const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -338,21 +339,43 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ isOpen, onCl
                             <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>
                                 Password *
                             </label>
-                            <input
-                                type="password"
-                                required
-                                minLength={6}
-                                value={formData.password}
-                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                style={{
-                                    width: '100%',
-                                    padding: '10px',
-                                    borderRadius: '8px',
-                                    border: '1px solid var(--border)',
-                                    backgroundColor: 'var(--background)',
-                                    color: 'var(--text-primary)',
-                                }}
-                            />
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    required
+                                    minLength={6}
+                                    autoComplete="new-password"
+                                    value={formData.password}
+                                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        paddingRight: '40px', // Space for the eye icon
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border)',
+                                        backgroundColor: 'var(--background)',
+                                        color: 'var(--text-primary)',
+                                    }}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '10px',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: 'var(--text-secondary)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                    }}
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
                             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
                                 Minimum 6 characters
                             </p>

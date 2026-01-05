@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, Eye, Calendar, ChevronDown, X, Clock, ExternalLink, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Search, Plus, Eye, Calendar, ChevronDown, X, Clock, ExternalLink, ThumbsUp, ThumbsDown, AlertTriangle, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useProject } from '../employee/context/ProjectContext';
 
@@ -7,12 +7,18 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
     const { currentProject } = useProject();
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [employees, setEmployees] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [showAddTaskModal, setShowAddTaskModal] = useState(false);
     const [selectedTask, setSelectedTask] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [processingApproval, setProcessingApproval] = useState(false);
+
+    // Issue Resolution State
+    const [showIssueModal, setShowIssueModal] = useState(false);
+    const [taskWithIssue, setTaskWithIssue] = useState(null);
+    const [resolvingIssue, setResolvingIssue] = useState(false);
 
     // New Task Form State
     const [newTask, setNewTask] = useState({
@@ -29,7 +35,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
     useEffect(() => {
         if (currentProject?.id || userRole === 'executive') {
             fetchData();
-            if (userRole === 'manager') {
+            if (userRole === 'manager' || userRole === 'executive') {
                 fetchEmployees();
             }
         } else {
@@ -39,19 +45,32 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
 
     const fetchEmployees = async () => {
         try {
-            // Fetch only members of the current project
-            const { data, error } = await supabase
-                .from('project_members')
-                .select('user_id, profiles!inner(id, full_name)')
-                .eq('project_id', currentProject.id);
+            let formattedEmployees = [];
 
-            if (error) throw error;
+            if (userRole === 'executive') {
+                // Fetch ALL employees for executives
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('id, full_name')
+                    .neq('id', userId); // Exclude self? Maybe not required but good practice
 
-            // Map to flat structure expected by the UI
-            const formattedEmployees = data?.map(item => ({
-                id: item.profiles.id,
-                full_name: item.profiles.full_name
-            })) || [];
+                if (error) throw error;
+                formattedEmployees = data || [];
+            } else if (currentProject?.id) {
+                // Fetch only members of the current project
+                const { data, error } = await supabase
+                    .from('project_members')
+                    .select('user_id, profiles!inner(id, full_name)')
+                    .eq('project_id', currentProject.id);
+
+                if (error) throw error;
+
+                // Map to flat structure expected by the UI
+                formattedEmployees = data?.map(item => ({
+                    id: item.profiles.id,
+                    full_name: item.profiles.full_name
+                })) || [];
+            }
 
             setEmployees(formattedEmployees);
         } catch (error) {
@@ -184,6 +203,25 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
             const { error } = await supabase.from('tasks').insert([taskToInsert]);
             if (error) throw error;
 
+            // Send Notification (Only for Team tasks if not covered by triggers)
+            try {
+                if (newTask.assignType === 'team' && employees.length > 0) {
+                    const senderName = userRole === 'manager' ? 'Management' : (userRole === 'team_lead' ? 'Team Lead' : 'Task Manager');
+                    const notifications = employees.map(emp => ({
+                        receiver_id: emp.id,
+                        sender_id: user.id,
+                        sender_name: senderName,
+                        message: `New team task created: ${newTask.title}`,
+                        type: 'task_assignment',
+                        is_read: false,
+                        created_at: new Date().toISOString()
+                    }));
+                    await supabase.from('notifications').insert(notifications);
+                }
+            } catch (notifyError) {
+                console.error('Error sending notification:', notifyError);
+            }
+
             addToast?.('Task assigned successfully!', 'success');
             setShowAddTaskModal(false);
             setNewTask({
@@ -208,40 +246,58 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
     const handleApproveTask = async () => {
         if (!selectedTask) return;
 
-        // Validate that task is in pending_validation state
-        if (selectedTask.sub_state !== 'pending_validation') {
-            addToast?.('Task is not pending validation', 'error');
+        // Check phase_validations for any 'pending' status
+        const validations = selectedTask.phase_validations || {};
+        const pendingPhases = Object.keys(validations).filter(key => validations[key].status === 'pending');
+
+        // Allow approval if legacy sub_state is pending OR if we have pending phases using new system
+        if (pendingPhases.length === 0 && selectedTask.sub_state !== 'pending_validation') {
+            addToast?.('No pending validations to approve', 'error');
             return;
         }
 
-        if (processingApproval) return; // Prevent double-clicks
+        if (processingApproval) return;
 
         setProcessingApproval(true);
         try {
-            const phases = ['requirement_refiner', 'design_guidance', 'build_guidance', 'acceptance_criteria', 'deployment', 'closed'];
-            const currentIdx = phases.indexOf(selectedTask.lifecycle_state || 'requirement_refiner');
-            const nextPhase = phases[currentIdx + 1] || 'closed';
+            // Update all pending phases to approved
+            const updatedValidations = { ...validations };
+            pendingPhases.forEach(key => {
+                updatedValidations[key] = { ...updatedValidations[key], status: 'approved', approved_at: new Date().toISOString() };
+            });
 
             const updates = {
-                sub_state: 'in_progress', // Reset to in_progress for next phase
-                lifecycle_state: nextPhase,
+                phase_validations: updatedValidations,
                 updated_at: new Date().toISOString()
             };
 
-            if (nextPhase === 'closed') {
-                updates.status = 'completed';
-                updates.sub_state = 'approved';
+            // Legacy Support/Cleanup:
+            // If the task was strictly in 'pending_validation' sub_state (legacy blocking), we advance it?
+            // User said "all yellow become green".
+            // If we are in legacy mode, we might need to advance.
+            if (selectedTask.sub_state === 'pending_validation') {
+                // Advance logic for legacy blocking tasks
+                const phases = ['requirement_refiner', 'design_guidance', 'build_guidance', 'acceptance_criteria', 'deployment', 'closed'];
+                const currentIdx = phases.indexOf(selectedTask.lifecycle_state || 'requirement_refiner');
+                const nextPhase = phases[currentIdx + 1] || 'closed';
+
+                updates.sub_state = 'in_progress';
+                updates.lifecycle_state = nextPhase;
+
+                if (nextPhase === 'closed') {
+                    updates.status = 'completed';
+                    updates.sub_state = 'approved';
+                }
             }
 
             const { error } = await supabase
                 .from('tasks')
                 .update(updates)
-                .eq('id', selectedTask.id)
-                .eq('sub_state', 'pending_validation'); // Double-check in DB query
+                .eq('id', selectedTask.id);
 
             if (error) throw error;
 
-            addToast?.('Task approved and moved to next phase!', 'success');
+            addToast?.('Task validations approved!', 'success');
             setSelectedTask(null);
             fetchData();
         } catch (error) {
@@ -288,6 +344,55 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
         }
     };
 
+    const openIssueModal = (task) => {
+        setTaskWithIssue(task);
+        setShowIssueModal(true);
+    };
+
+    const resolveIssue = async () => {
+        if (!taskWithIssue) return;
+
+        setResolvingIssue(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Not authenticated');
+
+            // Get user profile for name
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name, email')
+                .eq('id', user.id)
+                .single();
+
+            const userName = profile?.full_name || profile?.email || 'Manager';
+            const timestamp = new Date().toISOString();
+
+            // Add resolution note to issues
+            const resolutionEntry = `\n\n[${new Date(timestamp).toLocaleString()}] RESOLVED by ${userName}`;
+            const updatedIssues = (taskWithIssue.issues || '') + resolutionEntry;
+
+            const { error } = await supabase
+                .from('tasks')
+                .update({
+                    issues: updatedIssues,
+                    updated_at: timestamp
+                })
+                .eq('id', taskWithIssue.id);
+
+            if (error) throw error;
+
+            addToast?.('Issue marked as resolved!', 'success');
+            setShowIssueModal(false);
+            setTaskWithIssue(null);
+            fetchData(); // Refresh tasks
+        } catch (error) {
+            console.error('Error resolving issue:', error);
+            addToast?.('Failed to resolve issue: ' + error.message, 'error');
+        } finally {
+            setResolvingIssue(false);
+        }
+    };
+
     const getPriorityStyle = (priority) => {
         const styles = {
             high: { bg: '#fee2e2', text: '#991b1b', label: 'HIGH' },
@@ -318,32 +423,53 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
 
     const getPhaseIndex = (phase) => LIFECYCLE_PHASES.findIndex(p => p.key === phase);
 
-    const LifecycleProgress = ({ currentPhase, subState }) => {
+    const LifecycleProgress = ({ currentPhase, subState, validations }) => {
         const currentIndex = getPhaseIndex(currentPhase || 'requirement_refiner');
         return (
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                {LIFECYCLE_PHASES.map((phase, idx) => (
-                    <React.Fragment key={phase.key}>
-                        <div style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '50%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '0.65rem',
-                            fontWeight: 600,
-                            backgroundColor: idx < currentIndex ? '#10b981' : idx === currentIndex ? (subState === 'pending_validation' ? '#f59e0b' : '#3b82f6') : '#e5e7eb',
-                            color: idx <= currentIndex ? 'white' : '#9ca3af',
-                            transition: 'all 0.3s'
-                        }} title={phase.label}>
-                            {idx < currentIndex ? '✓' : phase.short}
-                        </div>
-                        {idx < LIFECYCLE_PHASES.length - 1 && (
-                            <div style={{ width: '12px', height: '2px', backgroundColor: idx < currentIndex ? '#10b981' : '#e5e7eb' }} />
-                        )}
-                    </React.Fragment>
-                ))}
+                {LIFECYCLE_PHASES.map((phase, idx) => {
+                    const validation = validations?.[phase.key];
+                    const status = validation?.status;
+                    let color = '#e5e7eb'; // Default Grey
+                    let isYellow = false;
+
+                    if (idx < currentIndex) {
+                        // Past Phase
+                        if (status === 'pending') { color = '#f59e0b'; isYellow = true; }
+                        else if (status === 'rejected') color = '#fee2e2';
+                        else color = '#10b981';
+                    } else if (idx === currentIndex) {
+                        // Current Phase
+                        if (status === 'pending' || subState === 'pending_validation') { color = '#f59e0b'; isYellow = true; }
+                        else color = '#3b82f6';
+                    }
+
+                    const isCompleted = color === '#10b981';
+                    // Note: We don't distinguish isCurrent purely by index anymore for color, but for checks
+
+                    return (
+                        <React.Fragment key={phase.key}>
+                            <div style={{
+                                width: '24px',
+                                height: '24px',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '0.65rem',
+                                fontWeight: 600,
+                                backgroundColor: color,
+                                color: color === '#e5e7eb' ? '#9ca3af' : color === '#fee2e2' ? '#991b1b' : 'white',
+                                transition: 'all 0.3s'
+                            }} title={phase.label}>
+                                {isCompleted ? '✓' : phase.short}
+                            </div>
+                            {idx < LIFECYCLE_PHASES.length - 1 && (
+                                <div style={{ width: '12px', height: '2px', backgroundColor: idx < currentIndex && !isYellow ? '#10b981' : '#e5e7eb' }} />
+                            )}
+                        </React.Fragment>
+                    );
+                })}
             </div>
         );
     };
@@ -373,7 +499,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                             : 'Track your tasks through the lifecycle'}
                     </p>
                 </div>
-                {userRole === 'manager' && (
+                {(userRole === 'manager' || userRole === 'executive') && (
                     <button
                         onClick={() => setShowAddTaskModal(true)}
                         style={{
@@ -487,7 +613,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                 <th style={{ padding: '16px', textAlign: 'left', fontWeight: 600, fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Lifecycle</th>
                                 <th style={{ padding: '16px', textAlign: 'left', fontWeight: 600, fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Due Date</th>
                                 <th style={{ padding: '16px', textAlign: 'left', fontWeight: 600, fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Priority</th>
-                                <th style={{ padding: '16px', textAlign: 'center', fontWeight: 600, fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
+                                <th style={{ padding: '16px', textAlign: 'center', fontWeight: 600, fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: '160px' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -519,13 +645,15 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                                     WebkitBoxOrient: 'vertical',
                                                     overflow: 'hidden',
                                                     textOverflow: 'ellipsis'
-                                                }}>{task.title}</div>
+                                                }}>
+                                                    {task.title}
+                                                </div>
                                             </td>
                                             <td style={{ padding: '16px', verticalAlign: 'middle' }}>
                                                 <span style={{ fontWeight: 500, color: '#0f172a', whiteSpace: 'nowrap' }}>{task.assignee_name}</span>
                                             </td>
                                             <td style={{ padding: '16px', verticalAlign: 'middle' }}>
-                                                <LifecycleProgress currentPhase={task.lifecycle_state} subState={task.sub_state} />
+                                                <LifecycleProgress currentPhase={task.lifecycle_state} subState={task.sub_state} validations={task.phase_validations} />
                                             </td>
                                             <td style={{ padding: '16px', verticalAlign: 'middle' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', whiteSpace: 'nowrap' }}>
@@ -576,7 +704,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                                         display: 'inline-flex',
                                                         alignItems: 'center',
                                                         gap: '6px',
-                                                        padding: '8px 16px',
+                                                        padding: '8px 12px',
                                                         backgroundColor: '#f1f5f9',
                                                         color: '#0f172a',
                                                         border: 'none',
@@ -592,6 +720,31 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                                     <Eye size={14} />
                                                     View
                                                 </button>
+                                                {(userRole === 'manager' || userRole === 'team_lead') && task.issues && !task.issues.includes('RESOLVED') && (
+                                                    <button
+                                                        onClick={() => openIssueModal(task)}
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            gap: '6px',
+                                                            padding: '8px 12px',
+                                                            backgroundColor: '#f59e0b',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            fontSize: '0.85rem',
+                                                            fontWeight: 600,
+                                                            cursor: 'pointer',
+                                                            marginLeft: '8px',
+                                                            whiteSpace: 'nowrap'
+                                                        }}
+                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#d97706'}
+                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#f59e0b'}
+                                                    >
+                                                        <AlertTriangle size={14} />
+                                                        Resolve
+                                                    </button>
+                                                )}
                                             </td>
                                         </tr>
                                     );
@@ -716,7 +869,8 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                             type="radio"
                                             checked={newTask.assignType === 'team'}
                                             onChange={() => setNewTask({ ...newTask, assignType: 'team', assignedTo: currentProject?.id })}
-                                            style={{ cursor: 'pointer' }}
+                                            disabled={!currentProject?.id}
+                                            style={{ cursor: !currentProject?.id ? 'not-allowed' : 'pointer' }}
                                         />
                                         Entire Team
                                     </label>
@@ -967,9 +1121,26 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                     {LIFECYCLE_PHASES.map((phase, idx) => {
                                         const currentIndex = getPhaseIndex(selectedTask.lifecycle_state || 'requirement_refiner');
-                                        const isCompleted = idx < currentIndex;
+                                        const validation = selectedTask.phase_validations?.[phase.key];
+                                        const status = validation?.status;
+
+                                        // Color Logic
+                                        let color = '#e5e7eb'; // Default Grey
+                                        let isYellow = false;
+
+                                        if (idx < currentIndex) {
+                                            // Past Phase
+                                            if (status === 'pending') { color = '#f59e0b'; isYellow = true; } // Yellow
+                                            else if (status === 'rejected') color = '#fee2e2'; // Red
+                                            else color = '#10b981'; // Green
+                                        } else if (idx === currentIndex) {
+                                            // Current Phase
+                                            if (status === 'pending' || selectedTask.sub_state === 'pending_validation') { color = '#f59e0b'; isYellow = true; } // Yellow
+                                            else color = '#3b82f6'; // Blue
+                                        }
+
+                                        const isCompleted = color === '#10b981';
                                         const isCurrent = idx === currentIndex;
-                                        const isPending = idx > currentIndex;
 
                                         return (
                                             <React.Fragment key={phase.key}>
@@ -983,8 +1154,8 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                                         justifyContent: 'center',
                                                         fontSize: '0.75rem',
                                                         fontWeight: 700,
-                                                        backgroundColor: isCompleted ? '#10b981' : isCurrent ? (selectedTask.sub_state === 'pending_validation' ? '#f59e0b' : '#3b82f6') : '#e5e7eb',
-                                                        color: isCompleted || isCurrent ? 'white' : '#9ca3af',
+                                                        backgroundColor: color,
+                                                        color: color === '#e5e7eb' ? '#9ca3af' : color === '#fee2e2' ? '#991b1b' : 'white',
                                                         transition: 'all 0.3s',
                                                         boxShadow: isCurrent ? '0 4px 12px rgba(59, 130, 246, 0.3)' : 'none'
                                                     }}>
@@ -993,7 +1164,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                                     <span style={{
                                                         fontSize: '0.7rem',
                                                         fontWeight: isCurrent ? 600 : 500,
-                                                        color: isCompleted || isCurrent ? '#0f172a' : '#94a3b8',
+                                                        color: isCompleted || isCurrent || isYellow ? '#0f172a' : '#94a3b8',
                                                         textAlign: 'center',
                                                         maxWidth: '70px'
                                                     }}>
@@ -1004,7 +1175,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                                     <div style={{
                                                         width: '24px',
                                                         height: '3px',
-                                                        backgroundColor: isCompleted ? '#10b981' : '#e5e7eb',
+                                                        backgroundColor: idx < currentIndex && !isYellow ? '#10b981' : '#e5e7eb',
                                                         borderRadius: '2px',
                                                         marginBottom: '28px'
                                                     }} />
@@ -1102,21 +1273,46 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                 </div>
                             </div>
 
-                            {/* Proof Selection Section */}
-                            {selectedTask.proof_url && (
+                            {/* Validations History */}
+                            {(selectedTask.phase_validations || selectedTask.proof_url) && (
                                 <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
-                                        Submitted Proof
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px' }}>
+                                        <CheckCircle2 size={16} /> Submitted Proofs
                                     </label>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                                            <ExternalLink size={16} color="#3b82f6" />
-                                            <span style={{ fontSize: '0.9rem', color: '#3b82f6', textDecoration: 'underline', cursor: 'pointer', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                                                onClick={() => window.open(selectedTask.proof_url, '_blank')}
-                                            >
-                                                View Submitted Document
-                                            </span>
-                                        </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        {/* New System */}
+                                        {selectedTask.phase_validations && Object.entries(selectedTask.phase_validations).map(([phaseKey, data]) => {
+                                            if (!data.proof_url) return null;
+                                            const phaseLabel = LIFECYCLE_PHASES.find(p => p.key === phaseKey)?.label || phaseKey;
+                                            return (
+                                                <div key={phaseKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>{phaseLabel}:</span>
+                                                        <span style={{ fontSize: '0.9rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
+                                                            {data.proof_url.split('/').pop()}
+                                                        </span>
+                                                    </div>
+                                                    <a href={data.proof_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#3b82f6', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none' }}>
+                                                        View <ExternalLink size={12} />
+                                                    </a>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {/* Legacy Support - ONLY if no validations entries found */}
+                                        {(!selectedTask.phase_validations || Object.keys(selectedTask.phase_validations).length === 0) && selectedTask.proof_url && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', backgroundColor: 'white', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>[Legacy]</span>
+                                                    <span style={{ fontSize: '0.9rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '200px' }}>
+                                                        {selectedTask.proof_url.split('/').pop()}
+                                                    </span>
+                                                </div>
+                                                <a href={selectedTask.proof_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#3b82f6', fontSize: '0.85rem', fontWeight: 600, textDecoration: 'none' }}>
+                                                    View <ExternalLink size={12} />
+                                                </a>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -1139,7 +1335,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                 Close
                             </button>
 
-                            {(userRole === 'manager' || userRole === 'team_lead') && selectedTask.sub_state === 'pending_validation' && (
+                            {(userRole === 'manager' || userRole === 'team_lead') && (selectedTask.sub_state === 'pending_validation' || (selectedTask.phase_validations && Object.values(selectedTask.phase_validations).some(v => v.status === 'pending'))) && (
                                 <>
                                     <button
                                         onClick={handleRejectTask}
@@ -1181,6 +1377,69 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                     </button>
                                 </>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Issue Resolution Modal */}
+            {showIssueModal && taskWithIssue && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1002, backdropFilter: 'blur(4px)' }}>
+                    <div style={{ backgroundColor: 'white', padding: '32px', borderRadius: '20px', width: '600px', maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                            <div style={{ backgroundColor: '#fef2f2', borderRadius: '12px', padding: '12px' }}>
+                                <AlertTriangle size={24} color="#f59e0b" />
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1e293b' }}>Task Issue Details</h3>
+                                <p style={{ color: '#64748b', fontSize: '0.9rem' }}>{taskWithIssue.title}</p>
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '2px solid #fecaca' }}>
+                            <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#991b1b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <AlertCircle size={18} /> Issue Log
+                            </h4>
+                            <div style={{ fontSize: '0.9rem', color: '#7f1d1d', whiteSpace: 'pre-wrap', lineHeight: '1.8', maxHeight: '300px', overflowY: 'auto' }}>
+                                {taskWithIssue.issues || 'No issues reported'}
+                            </div>
+                        </div>
+
+                        <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '12px', marginBottom: '24px', border: '1px solid #fde047' }}>
+                            <p style={{ fontSize: '0.9rem', color: '#92400e', lineHeight: '1.6' }}>
+                                <strong>Note:</strong> Clicking "Mark as Resolved" will add a resolution timestamp to this issue log.
+                                The employee will be able to see that the issue has been acknowledged and resolved.
+                            </p>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button
+                                onClick={() => { setShowIssueModal(false); setTaskWithIssue(null); }}
+                                disabled={resolvingIssue}
+                                style={{ padding: '12px 24px', borderRadius: '10px', backgroundColor: 'white', border: '1px solid #e2e8f0', cursor: 'pointer', fontWeight: 600, color: '#64748b' }}
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={resolveIssue}
+                                disabled={resolvingIssue}
+                                style={{
+                                    padding: '12px 24px',
+                                    borderRadius: '10px',
+                                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                                    color: 'white',
+                                    border: 'none',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)'
+                                }}
+                            >
+                                <CheckCircle2 size={16} />
+                                {resolvingIssue ? 'Resolving...' : 'Mark as Resolved'}
+                            </button>
                         </div>
                     </div>
                 </div>

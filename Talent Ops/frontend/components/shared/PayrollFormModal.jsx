@@ -237,6 +237,19 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess }) => {
                     });
 
                 if (error) throw error;
+
+                // Send Payslip Notification
+                const notificationMessage = `Your payslip for ${monthYear} has been generated.`;
+                await supabase.from('notifications').insert({
+                    receiver_id: item.employee_id,
+                    sender_id: user?.id,
+                    sender_name: 'Finance Department',
+                    message: notificationMessage,
+                    type: 'payslip',
+                    is_read: false,
+                    created_at: new Date().toISOString()
+                });
+
                 successCount++;
             } catch (error) {
                 console.error(`Error generating payroll for ${item.employee_name}:`, error);

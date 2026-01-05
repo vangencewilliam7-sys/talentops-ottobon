@@ -135,38 +135,26 @@ const NotificationsPage = () => {
     };
 
     const formatDate = (dateString) => {
-        if (!dateString) return 'Just now';
+        if (!dateString) return '';
 
-        // Parse the UTC timestamp from Supabase
         const date = new Date(dateString);
-
-        // Check if date is valid
-        if (isNaN(date.getTime()) || date.getTime() === 0) return 'Just now';
+        if (isNaN(date.getTime())) return '';
 
         const now = new Date();
+        const isToday = date.toDateString() === now.toDateString();
 
-        // Calculate difference in milliseconds
-        const diffMs = now.getTime() - date.getTime();
-
-        // Handle future dates or clock skew
-        if (diffMs < 0) return 'Just now';
-
-        const diffMins = Math.floor(diffMs / 60000);
-        const diffHours = Math.floor(diffMs / 3600000);
-        const diffDays = Math.floor(diffMs / 86400000);
-
-        if (diffMins < 1) return 'Just now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
-        if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
-
-        // For older notifications, show formatted date
-        return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+        const timeString = date.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
         });
+
+        if (isToday) {
+            return timeString;
+        }
+
+        // For older notifications
+        return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${timeString}`;
     };
 
     const filteredNotifications = notifications.filter(notif =>

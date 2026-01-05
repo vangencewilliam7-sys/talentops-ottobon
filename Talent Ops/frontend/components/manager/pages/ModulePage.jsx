@@ -603,6 +603,22 @@ const ModulePage = ({ title, type }) => {
                     }
                 }
 
+                // Send Notification to the Employee
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user && item.employee_id) {
+                    const notificationMessage = `Your leave request for ${item.dates} has been ${action === 'Approve' ? 'Approved' : 'Rejected'}.`;
+
+                    await supabase.from('notifications').insert({
+                        receiver_id: item.employee_id,
+                        sender_id: user.id,
+                        sender_name: 'Management',
+                        message: notificationMessage,
+                        type: 'leave_status',
+                        is_read: false,
+                        created_at: new Date().toISOString()
+                    });
+                }
+
                 addToast(`Leave request ${action.toLowerCase()}d for ${item.name}`, 'success');
             } catch (error) {
                 console.error('Error updating leave request:', error);

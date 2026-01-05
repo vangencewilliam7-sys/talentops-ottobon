@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, CheckCircle, XCircle, Clock, User, ChevronRight, Eye, History, X, Send, AlertTriangle, Inbox, Users, ArrowRight, BarChart3, Paperclip, FileText, ExternalLink } from 'lucide-react';
+import { Search, Filter, CheckCircle, XCircle, Clock, User, ChevronRight, Eye, History, X, Send, AlertTriangle, Inbox, Users, ArrowRight, BarChart3, Paperclip, FileText, ExternalLink, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
 // Lifecycle phases
@@ -42,6 +42,11 @@ const ManagerTaskDashboard = ({ userRole = 'manager', userId, addToast }) => {
     // Proof preview modal state
     const [showProofPreview, setShowProofPreview] = useState(false);
     const [proofPreviewUrl, setProofPreviewUrl] = useState('');
+
+    // Issue resolution state
+    const [showIssueModal, setShowIssueModal] = useState(false);
+    const [taskWithIssue, setTaskWithIssue] = useState(null);
+    const [resolvingIssue, setResolvingIssue] = useState(false);
 
     useEffect(() => {
         fetchAllData();
@@ -209,6 +214,53 @@ const ManagerTaskDashboard = ({ userRole = 'manager', userId, addToast }) => {
             addToast?.('Failed to reject task', 'error');
         } finally {
             setActionLoading(false);
+        }
+    };
+
+    const openIssueModal = (task) => {
+        setTaskWithIssue(task);
+        setShowIssueModal(true);
+    };
+
+    const resolveIssue = async () => {
+        if (!taskWithIssue) return;
+
+        setResolvingIssue(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('Not authenticated');
+
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name, email')
+                .eq('id', user.id)
+                .single();
+
+            const userName = profile?.full_name || profile?.email || 'Manager';
+            const timestamp = new Date().toISOString();
+
+            const resolutionEntry = `\n\n[${new Date(timestamp).toLocaleString()}] RESOLVED by ${userName}`;
+            const updatedIssues = (taskWithIssue.issues || '') + resolutionEntry;
+
+            const { error } = await supabase
+                .from('tasks')
+                .update({
+                    issues: updatedIssues,
+                    updated_at: timestamp
+                })
+                .eq('id', taskWithIssue.task_id || taskWithIssue.id);
+
+            if (error) throw error;
+
+            addToast?.('Issue marked as resolved!', 'success');
+            setShowIssueModal(false);
+            setTaskWithIssue(null);
+            fetchAllData();
+        } catch (error) {
+            console.error('Error resolving issue:', error);
+            addToast?.('Failed to resolve issue: ' + error.message, 'error');
+        } finally {
+            setResolvingIssue(false);
         }
     };
 
@@ -437,7 +489,9 @@ const ManagerTaskDashboard = ({ userRole = 'manager', userId, addToast }) => {
                                             textTransform: 'uppercase'
                                         }}>Awaiting Approval</span>
                                     </div>
-                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>{task.title}</h3>
+                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {task.title}
+                                    </h3>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--text-secondary)', fontSize: '0.9rem', flexWrap: 'wrap' }}>
                                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             <User size={14} /> {task.assigned_to_name || 'Unknown'}
@@ -449,6 +503,12 @@ const ManagerTaskDashboard = ({ userRole = 'manager', userId, addToast }) => {
                                             <button onClick={() => { setProofPreviewUrl(task.proof_url); setShowProofPreview(true); }}
                                                 style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#16a34a', fontWeight: 600, backgroundColor: '#f0fdf4', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer' }}>
                                                 <FileText size={14} /> View Proof <Eye size={12} />
+                                            </button>
+                                        )}
+                                        {task.issues && !task.issues.includes('RESOLVED') && (
+                                            <button onClick={(e) => { e.stopPropagation(); openIssueModal(task); }}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#dc2626', fontWeight: 600, backgroundColor: '#fef2f2', padding: '4px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer' }}>
+                                                <AlertTriangle size={14} /> View Issues
                                             </button>
                                         )}
                                     </div>
@@ -855,6 +915,69 @@ const ManagerTaskDashboard = ({ userRole = 'manager', userId, addToast }) => {
                                     title="Document Preview"
                                 />
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Issue Resolution Modal */}
+            {showIssueModal && taskWithIssue && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1002, backdropFilter: 'blur(4px)' }}>
+                    <div style={{ backgroundColor: 'var(--surface)', padding: '32px', borderRadius: '20px', width: '600px', maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+                            <div style={{ backgroundColor: '#fef2f2', borderRadius: '12px', padding: '12px' }}>
+                                <AlertTriangle size={24} color="#f59e0b" />
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>Task Issue Details</h3>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{taskWithIssue.title}</p>
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '2px solid #fecaca' }}>
+                            <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#991b1b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <AlertCircle size={18} /> Issue Log
+                            </h4>
+                            <div style={{ fontSize: '0.9rem', color: '#7f1d1d', whiteSpace: 'pre-wrap', lineHeight: '1.8', maxHeight: '300px', overflowY: 'auto' }}>
+                                {taskWithIssue.issues || 'No issues reported'}
+                            </div>
+                        </div>
+
+                        <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '12px', marginBottom: '24px', border: '1px solid #fde047' }}>
+                            <p style={{ fontSize: '0.9rem', color: '#92400e', lineHeight: '1.6' }}>
+                                <strong>Note:</strong> Clicking "Mark as Resolved" will add a resolution timestamp to this issue log.
+                                The employee will be able to see that the issue has been acknowledged and resolved.
+                            </p>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button
+                                onClick={() => { setShowIssueModal(false); setTaskWithIssue(null); }}
+                                disabled={resolvingIssue}
+                                style={{ padding: '12px 24px', borderRadius: '10px', backgroundColor: 'var(--background)', border: '1px solid var(--border)', cursor: 'pointer', fontWeight: 600 }}
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={resolveIssue}
+                                disabled={resolvingIssue}
+                                style={{
+                                    padding: '12px 24px',
+                                    borderRadius: '10px',
+                                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                                    color: 'white',
+                                    border: 'none',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)'
+                                }}
+                            >
+                                <CheckCircle size={16} />
+                                {resolvingIssue ? 'Resolving...' : 'Mark as Resolved'}
+                            </button>
                         </div>
                     </div>
                 </div>
