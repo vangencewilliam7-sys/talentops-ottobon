@@ -139,33 +139,42 @@ const MyTasksPage = () => {
             // 1. Update phase_validations JSON
             // 2. Advance lifecycle_state to next phase
 
-            const currentPhase = taskForProof.lifecycle_state;
+            // Get active phases for this task (from phase_validations.active_phases)
+            const activePhases = taskForProof.phase_validations?.active_phases || LIFECYCLE_PHASES.map(p => p.key);
+
+            // Filter to only include valid phase keys (exclude 'closed')
+            const validActivePhases = activePhases.filter(pk => pk !== 'closed' && LIFECYCLE_PHASES.some(p => p.key === pk));
+
+            // If the current lifecycle_state is not in active phases, use the first active phase
+            let currentPhase = taskForProof.lifecycle_state;
+            if (!validActivePhases.includes(currentPhase)) {
+                currentPhase = validActivePhases[0] || LIFECYCLE_PHASES[0].key;
+                console.log(`Lifecycle state '${taskForProof.lifecycle_state}' not in active phases. Using '${currentPhase}' instead.`);
+            }
+
             const currentIndex = getPhaseIndex(currentPhase);
 
+            // Find current phase index within active phases
+            const currentActiveIndex = validActivePhases.indexOf(currentPhase);
+
             // Auto-Advance Logic:
-            // Find the next phase that DOES NOT have a proof yet.
-            // Start checking from currentIndex + 1.
+            // Find the next ACTIVE phase that DOES NOT have a proof yet.
             let nextPhase = currentPhase;
             let foundNext = false;
 
-            if (currentIndex < LIFECYCLE_PHASES.length - 2) { // Ensure we don't go past Deployment
-                let probeIndex = currentIndex + 1;
-                while (probeIndex < LIFECYCLE_PHASES.length - 1) {
-                    const probePhaseKey = LIFECYCLE_PHASES[probeIndex].key;
-                    // Check if this phase already has a proof in the EXISTING validations (before this upload)
-                    // OR if we are just submitting it now (which is handled by the initial loop start)
-                    // Actually, we just need to skip phases that HAVE proofs.
+            if (currentActiveIndex < validActivePhases.length - 1) { // Not at the last active phase
+                let probeActiveIndex = currentActiveIndex + 1;
+                while (probeActiveIndex < validActivePhases.length) {
+                    const probePhaseKey = validActivePhases[probeActiveIndex];
 
-                    // Helper: Check if task has proof for this phase
-                    // We use the currentValidations (which doesn't include the one we are uploading yet, but that's for currentPhase)
-                    // We check if FUTURE phases have proofs.
+                    // Check if this phase already has a proof
                     const hasProof = taskForProof.phase_validations &&
                         taskForProof.phase_validations[probePhaseKey] &&
                         (taskForProof.phase_validations[probePhaseKey].proof_url || taskForProof.phase_validations[probePhaseKey].proof_text);
 
                     if (hasProof) {
                         // This phase is already done, check next
-                        probeIndex++;
+                        probeActiveIndex++;
                     } else {
                         // Found a phase with no proof, this is our next target
                         nextPhase = probePhaseKey;
@@ -174,17 +183,14 @@ const MyTasksPage = () => {
                     }
                 }
 
-                // If we went through all subsequent phases and they ALL had proofs, 
-                // we should probably be at the very end (Deployment or Completed).
-                if (!foundNext && probeIndex >= LIFECYCLE_PHASES.length - 1) {
-                    // All intermediate phases done. 
-                    // If probeIndex reached "deployment" (last one usually), maybe set to deployment?
-                    // LIFECYCLE_PHASES usually ends with Deployment.
-                    // If we skipped everything up to Deployment, we should be AT Deployment.
-                    nextPhase = LIFECYCLE_PHASES[LIFECYCLE_PHASES.length - 1].key;
+                // If we went through all subsequent active phases and they ALL had proofs,
+                // stay at current phase or mark as complete
+                if (!foundNext && probeActiveIndex >= validActivePhases.length) {
+                    // All active phases done - could mark as 'closed' if desired
+                    nextPhase = validActivePhases[validActivePhases.length - 1]; // Stay at last active phase
                 }
             } else {
-                // Already at end
+                // Already at the last active phase
                 nextPhase = currentPhase;
             }
 
