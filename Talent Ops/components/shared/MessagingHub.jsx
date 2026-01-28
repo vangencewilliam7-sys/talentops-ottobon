@@ -1271,21 +1271,79 @@ const MessagingHub = () => {
                             )}
 
                             {/* Team Name Input */}
-                            <div style={{ marginBottom: '1rem' }}>
+                            <div style={{ marginBottom: '1rem', position: 'relative' }}>
                                 <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500', color: '#374151' }}>Team Name</label>
                                 <input
                                     type="text"
                                     placeholder="Enter team name..."
                                     value={teamName}
-                                    onChange={(e) => setTeamName(e.target.value)}
+                                    onChange={(e) => { setTeamName(e.target.value); setErrorMessage(null); }}
                                     style={{
                                         width: '100%',
                                         padding: '0.75rem',
-                                        border: '1px solid #d1d5db',
+                                        border: selectedTeamMembers.length > 0 && !teamName.trim()
+                                            ? '2px solid #fbbf24'
+                                            : '1px solid #d1d5db',
                                         borderRadius: '8px',
-                                        fontSize: '14px'
+                                        fontSize: '14px',
+                                        outline: 'none',
+                                        transition: 'all 0.3s ease',
+                                        boxShadow: selectedTeamMembers.length > 0 && !teamName.trim()
+                                            ? '0 0 0 3px rgba(251, 191, 36, 0.1)'
+                                            : 'none'
                                     }}
+                                    autoFocus
                                 />
+                                {/* Animated indicator when members selected but no name */}
+                                {selectedTeamMembers.length > 0 && !teamName.trim() && (
+                                    <div style={{
+                                        marginTop: '8px',
+                                        padding: '10px 14px',
+                                        background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+                                        border: '1px solid #fbbf24',
+                                        borderRadius: '8px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        animation: 'pulseGlow 2s ease-in-out infinite',
+                                        boxShadow: '0 4px 12px rgba(251, 191, 36, 0.2)'
+                                    }}>
+                                        <div style={{
+                                            fontSize: '18px',
+                                            animation: 'bounce 1s ease-in-out infinite'
+                                        }}>
+                                            ✏️
+                                        </div>
+                                        <div style={{
+                                            flex: 1,
+                                            fontSize: '13px',
+                                            fontWeight: 600,
+                                            color: '#92400e'
+                                        }}>
+                                            Don't forget to give your team a name!
+                                        </div>
+                                    </div>
+                                )}
+                                <style>{`
+                                    @keyframes pulseGlow {
+                                        0%, 100% {
+                                            transform: scale(1);
+                                            opacity: 1;
+                                        }
+                                        50% {
+                                            transform: scale(1.02);
+                                            opacity: 0.95;
+                                        }
+                                    }
+                                    @keyframes bounce {
+                                        0%, 100% {
+                                            transform: translateY(0);
+                                        }
+                                        50% {
+                                            transform: translateY(-3px);
+                                        }
+                                    }
+                                `}</style>
                             </div>
 
                             {/* Member Selection */}

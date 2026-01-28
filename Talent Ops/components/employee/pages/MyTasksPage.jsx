@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { useProject } from '../context/ProjectContext';
 import { useUser } from '../context/UserContext';
 import { useToast } from '../context/ToastContext';
+import SkillSelectionModal from '../components/UI/SkillSelectionModal';
 
 const MyTasksPage = () => {
     // We don't need projectRole, but we use useProject context for consistency (or future use)
@@ -39,6 +40,10 @@ const MyTasksPage = () => {
     const [taskForAccess, setTaskForAccess] = useState(null);
     const [accessReason, setAccessReason] = useState('');
     const [requestingAccess, setRequestingAccess] = useState(false);
+
+    // Skill Selection State
+    const [showSkillModal, setShowSkillModal] = useState(false);
+    const [taskForSkills, setTaskForSkills] = useState(null);
 
     useEffect(() => {
         if (orgId) {
@@ -217,11 +222,92 @@ const MyTasksPage = () => {
 
             setUploadProgress(100);
             addToast('Proof submitted successfully!', 'success');
+
+            // Capture task ID before clearing state
+            const completedTaskId = taskForProof.id;
+
             setShowProofModal(false);
             setTaskForProof(null);
             setProofFile(null);
             setProofText('');
-            fetchTasks();
+
+            // Fetch latest task state
+            await fetchTasks();
+
+            // After fetching, check if we should prompt for skills
+            setTimeout(async () => {
+                console.log('Checking for skill prompt...', completedTaskId);
+
+                // Re-fetch the updated task
+                const { data: updatedTask, error: taskError } = await supabase
+                    .from('tasks')
+                    .select('*')
+                    .eq('id', completedTaskId)
+                    .single();
+
+                if (taskError) {
+                    console.error('Error fetching updated task:', taskError);
+                    return;
+                }
+
+                if (updatedTask) {
+                    console.log('Updated task:', updatedTask);
+                    console.log('Phase validations:', updatedTask.phase_validations);
+
+                    // Check if skills already recorded
+                    const { data: existingSkills } = await supabase
+                        .from('task_skills')
+                        .select('id')
+                        .eq('task_id', updatedTask.id)
+                        .eq('employee_id', user.id);
+
+                    console.log('Existing skills:', existingSkills);
+
+                    // Get the task's active phases
+                    const validations = updatedTask.phase_validations || {};
+                    const activePhases = validations.active_phases || [
+                        'requirement_refiner',
+                        'design_guidance',
+                        'build_guidance',
+                        'acceptance_criteria',
+                        'deployment'
+                    ];
+
+                    // Filter out 'closed' phase
+                    const requiredPhases = activePhases.filter(p => p !== 'closed');
+
+                    console.log('Required active phases:', requiredPhases);
+
+                    // Check if ALL active phases have proof
+                    const allPhasesComplete = requiredPhases.every(phaseKey => {
+                        const phaseData = validations[phaseKey];
+                        const hasProof = phaseData && (phaseData.proof_url || phaseData.proof_text);
+                        console.log(`  ${phaseKey}: ${hasProof ? '✅' : '❌'}`);
+                        return hasProof;
+                    });
+
+                    console.log('All required phases complete?', allPhasesComplete);
+
+                    if (allPhasesComplete && (!existingSkills || existingSkills.length === 0)) {
+                        console.log('✅ Should show skill modal!');
+                        // Check if late
+                        if (!isOverdue || updatedTask.access_status === 'approved') {
+                            setTaskForSkills(updatedTask);
+                            setShowSkillModal(true);
+                        } else {
+                            console.log('❌ Task is overdue without approval');
+                        }
+                    } else {
+                        console.log('❌ Not showing modal - conditions not met');
+                        if (existingSkills && existingSkills.length > 0) {
+                            console.log('   Reason: Skills already recorded');
+                        }
+                        if (!allPhasesComplete) {
+                            console.log('   Reason: Not all phases complete');
+                        }
+                    }
+                }
+            }, 500);
 
         } catch (error) {
             console.error('Error submitting proof:', error);
@@ -1745,6 +1831,18 @@ const MyTasksPage = () => {
                     </div>
                 </div>
             )}
+            {/* Skill Selection Modal */}
+            <SkillSelectionModal
+                isOpen={showSkillModal}
+                onClose={() => {
+                    setShowSkillModal(false);
+                    setTaskForSkills(null);
+                }}
+                task={taskForSkills}
+                onSkillsSaved={() => {
+                    fetchTasks(); // Refresh tasks after skills saved
+                }}
+            />
         </div >
     );
 };
