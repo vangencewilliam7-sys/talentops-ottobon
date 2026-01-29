@@ -9,6 +9,27 @@ export const getDaysInMonth = (month, year) => {
 };
 
 /**
+ * Get total working days in a month (excluding Saturdays and Sundays)
+ */
+export const getWorkingDaysInMonth = (month, year) => {
+    const totalDays = getDaysInMonth(month, year);
+    let workingDays = 0;
+
+    for (let day = 1; day <= totalDays; day++) {
+        const date = new Date(year, month - 1, day); // month is 1-indexed
+        const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
+
+        // Count only Monday (1) to Friday (5)
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            workingDays++;
+        }
+    }
+
+    return workingDays;
+};
+
+
+/**
  * Calculate present days from attendance records for a given month
  */
 export const calculatePresentDays = async (employeeId, month, year, orgId) => {
@@ -152,11 +173,12 @@ export const calculateLOPAmount = (basicSalary, totalWorkingDays, lopDays) => {
 /**
  * Calculate net salary
  */
-export const calculateNetSalary = (basicSalary, hra, allowances, additionalDeductions, lopAmount) => {
+export const calculateNetSalary = (basicSalary, hra, allowances, professionalTax, additionalDeductions, lopAmount) => {
     const grossSalary = Number(basicSalary) + Number(hra) + Number(allowances);
-    const totalDeductions = Number(additionalDeductions) + Number(lopAmount);
+    const totalDeductions = Number(professionalTax) + Number(additionalDeductions) + Number(lopAmount);
     return Math.round(grossSalary - totalDeductions);
 };
+
 
 /**
  * Check if payroll already exists for employee and month
@@ -214,7 +236,7 @@ export const generatePayrollRecord = async (employeeId, month, year, additionalD
         }
 
         // Calculate working days, present days, and leave days
-        const totalWorkingDays = getDaysInMonth(month, year);
+        const totalWorkingDays = getWorkingDaysInMonth(month, year);
         const presentDays = await calculatePresentDays(employeeId, month, year, orgId);
         const leaveDays = await calculateApprovedLeaveDays(employeeId, month, year, orgId);
 
@@ -227,6 +249,7 @@ export const generatePayrollRecord = async (employeeId, month, year, additionalD
             financeData.basic_salary,
             financeData.hra,
             financeData.allowances,
+            financeData.professional_tax || 0,
             additionalDeductions,
             lopAmount
         );
@@ -240,6 +263,7 @@ export const generatePayrollRecord = async (employeeId, month, year, additionalD
                 basic_salary: financeData.basic_salary,
                 hra: financeData.hra,
                 allowances: financeData.allowances,
+                professional_tax: financeData.professional_tax || 0,
                 deductions: additionalDeductions,
                 lop_days: lopDays,
                 net_salary: netSalary,

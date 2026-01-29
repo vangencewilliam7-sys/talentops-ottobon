@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import {
     getDaysInMonth,
+    getWorkingDaysInMonth,
     calculatePresentDays,
     calculateApprovedLeaveDays,
     fetchEmployeeFinance,
@@ -130,7 +131,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                 }
 
                 // Calculate attendance and leaves
-                const totalWorkingDays = getDaysInMonth(parseInt(selectedMonth), selectedYear);
+                const totalWorkingDays = getWorkingDaysInMonth(parseInt(selectedMonth), selectedYear);
                 const presentDays = await calculatePresentDays(employeeId, parseInt(selectedMonth), selectedYear, orgId);
                 const leaveDays = await calculateApprovedLeaveDays(employeeId, parseInt(selectedMonth), selectedYear, orgId);
 
@@ -145,6 +146,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                     basic_salary: financeData.basic_salary,
                     hra: financeData.hra,
                     allowances: financeData.allowances,
+                    professional_tax: financeData.professional_tax || 0,
                     total_working_days: totalWorkingDays,
                     present_days: presentDays,
                     leave_days: leaveDays,
@@ -155,6 +157,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                         financeData.basic_salary,
                         financeData.hra,
                         financeData.allowances,
+                        financeData.professional_tax || 0,
                         0,
                         lopAmount
                     )
@@ -191,6 +194,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                         item.basic_salary,
                         item.hra,
                         item.allowances,
+                        item.professional_tax,
                         additionalDeductions,
                         item.lop_amount
                     )
@@ -214,6 +218,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                         item.basic_salary,
                         item.hra,
                         item.allowances,
+                        item.professional_tax,
                         item.additional_deductions,
                         lopAmount
                     )
@@ -253,6 +258,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                         basic_salary: item.basic_salary,
                         hra: item.hra,
                         allowances: item.allowances,
+                        professional_tax: item.professional_tax,
                         deductions: item.additional_deductions,
                         lop_days: item.lop_days,
                         net_salary: item.net_salary,

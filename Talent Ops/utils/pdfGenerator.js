@@ -209,21 +209,35 @@ export const generatePayslipPDF = async (payslipData, companySettings) => {
     pdf.setFontSize(9);
 
     // Draw outer border
-    pdf.rect(marginLeft, tableStartY, tableWidth, rowHeight * 4);
+    pdf.rect(marginLeft, tableStartY, tableWidth, rowHeight * 6);
+
+    // Date formatter helper
+    const formattedDate = (dateStr) => {
+        if (!dateStr || dateStr === 'N/A') return 'N/A';
+        try {
+            return new Date(dateStr).toLocaleDateString('en-IN');
+        } catch (e) {
+            return 'N/A';
+        }
+    };
 
     // Employee details data
     const leftDetails = [
-        ['Employee Code', `PAY-${safeText(payslipData.payslipNumber, 'N/A').replace('PAY-', '')}`],
-        ['Base Location', safeText(payslipData.employeeLocation, 'N/A')],
-        ['Date of Joining', 'N/A'],
-        ['Leaves', String(safeNumber(payslipData.leaveDays, 0))]
+        ['Employee Code', `: ${safeText(payslipData.employeeId, 'N/A')}`],
+        ['Base Location', `: ${safeText(payslipData.employeeLocation, 'N/A')}`],
+        ['Date of Joining', `: ${formattedDate(payslipData.dateOfJoining)}`],
+        ['Working Days', `: ${safeNumber(payslipData.totalWorkingDays, 0)}`],
+        ['Present Days', `: ${safeNumber(payslipData.presentDays, 0)}`],
+        ['LOP Days', `: ${safeNumber(payslipData.lopDays, 0)}`]
     ];
 
     const rightDetails = [
         ['Company:', safeText(companySettings?.company_name, 'Talent Ops')],
         ['Email:', safeText(payslipData.employeeEmail, 'N/A')],
         ['Employee Name:', safeText(payslipData.employeeName, 'N/A')],
-        ['Designation:', safeText(payslipData.employeeRole, 'Employee')]
+        ['Designation:', safeText(payslipData.employeeRole, 'Employee')],
+        ['Leave Days:', String(safeNumber(payslipData.leaveDays, 0))],
+        ['Payslip Number:', safeText(payslipData.payslipNumber, 'N/A')]
     ];
 
     // Draw employee details rows
@@ -232,22 +246,24 @@ export const generatePayslipPDF = async (payslipData, companySettings) => {
 
         // Left column
         pdf.text(row[0], marginLeft + 2, currentY + 5);
-        pdf.text(': ' + row[1], marginLeft + 30, currentY + 5);
+        pdf.text(row[1], marginLeft + 30, currentY + 5);
 
         // Right column
         pdf.text(rightDetails[index][0], marginLeft + col1Width + 2, currentY + 5);
         pdf.text(rightDetails[index][1], marginLeft + col1Width + 30, currentY + 5);
 
         // Horizontal line
-        if (index < 3) {
+        if (index < 5) {
             pdf.line(marginLeft, currentY + rowHeight, marginLeft + tableWidth, currentY + rowHeight);
         }
     });
 
     // Vertical divider
-    pdf.line(marginLeft + col1Width, tableStartY, marginLeft + col1Width, tableStartY + (rowHeight * 4));
+    pdf.line(marginLeft + col1Width, tableStartY, marginLeft + col1Width, tableStartY + (rowHeight * 6));
 
-    yPos = tableStartY + (rowHeight * 4) + 10;
+    yPos = tableStartY + (rowHeight * 6) + 10;
+
+
 
     // ===== EARNINGS/DEDUCTIONS TABLE =====
     const earningsDeductionsY = yPos;
@@ -288,8 +304,8 @@ export const generatePayslipPDF = async (payslipData, companySettings) => {
 
     // Deductions
     const deductions = [
-        ['Professional Tax', 0],
-        ['LOP', safeNumber(payslipData.lopAmount, 0)]
+        ['Professional Tax', safeNumber(payslipData.professionalTax, 0)],
+        [`LOP (${safeNumber(payslipData.lopDays, 0)} days)`, safeNumber(payslipData.lopAmount, 0)]
     ];
 
     const maxRows = Math.max(earnings.length, deductions.length);
@@ -315,7 +331,7 @@ export const generatePayslipPDF = async (payslipData, companySettings) => {
 
     // Total Earnings / Total Deductions
     const totalEarnings = safeNumber(payslipData.basicSalary, 0) + safeNumber(payslipData.hra, 0) + safeNumber(payslipData.allowances, 0);
-    const totalDeductions = safeNumber(payslipData.deductions, 0) + safeNumber(payslipData.lopAmount, 0);
+    const totalDeductions = safeNumber(payslipData.deductions, 0) + safeNumber(payslipData.lopAmount, 0) + safeNumber(payslipData.professionalTax, 0);
 
     pdf.setFont('helvetica', 'bold');
     pdf.rect(marginLeft, yPos, tableWidth, rowHeight);

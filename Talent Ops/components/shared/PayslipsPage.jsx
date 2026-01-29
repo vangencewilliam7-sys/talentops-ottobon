@@ -20,8 +20,14 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
     };
 
     useEffect(() => {
+        // Only fetch if orgId is available
+        if (!orgId || orgId === 'null' || orgId === 'undefined') {
+            setLoading(false);
+            return;
+        }
+
         fetchPayslips();
-    }, [userId, userRole, refreshTrigger]);
+    }, [userId, userRole, refreshTrigger, orgId]);
 
     // Realtime Payslips
     useEffect(() => {
@@ -41,12 +47,20 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, []);
+    }, [orgId]);
 
     const fetchPayslips = async () => {
         // Prevent fetching if core user data is missing
         if (!userId || !userRole) {
             console.log('Waiting for user ID and Role...');
+            return;
+        }
+
+        // Safety check: ensure orgId is valid
+        if (!orgId || orgId === 'null' || orgId === 'undefined') {
+            console.error('Invalid orgId:', orgId);
+            setPayslips([]);
+            setLoading(false);
             return;
         }
 

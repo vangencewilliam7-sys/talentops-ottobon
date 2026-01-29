@@ -12,6 +12,12 @@ const PayrollPage = ({ userRole, userId, addToast, orgId }) => {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
 
     useEffect(() => {
+        // Only fetch if orgId is available
+        if (!orgId || orgId === 'null' || orgId === 'undefined') {
+            setLoading(false);
+            return;
+        }
+
         fetchPayrolls();
 
         // Real-time subscription
@@ -29,11 +35,20 @@ const PayrollPage = ({ userRole, userId, addToast, orgId }) => {
         return () => {
             supabase.removeChannel(subscription);
         };
-    }, []);
+    }, [orgId]); // Add orgId as dependency
+
 
     const fetchPayrolls = async () => {
         try {
             setLoading(true);
+
+            // Safety check: ensure orgId is valid
+            if (!orgId || orgId === 'null' || orgId === 'undefined') {
+                console.error('Invalid orgId:', orgId);
+                setPayrolls([]);
+                setLoading(false);
+                return;
+            }
 
             // Fetch payroll records first
             const { data: payrollData, error: payrollError } = await supabase

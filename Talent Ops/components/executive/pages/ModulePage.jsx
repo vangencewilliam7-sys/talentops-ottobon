@@ -985,11 +985,77 @@ const ModulePage = ({ title, type }) => {
                 console.error('Error updating leave request:', error);
                 addToast(`Failed to ${action.toLowerCase()} leave request`, 'error');
             }
-        } else if (action === 'View Employee') {
-            setSelectedEmployee(item);
-            setShowEmployeeModal(true);
-            // Fetch employee salary
-            fetchEmployeeSalary(item.id);
+        } else if (action === 'View Employee' || action === 'View Status') {
+            // Fetch additional details for the employee
+            try {
+                const { data: financeData, error: financeError } = await supabase
+                    .from('employee_finance')
+                    .select('*')
+                    .eq('employee_id', item.id)
+                    .eq('org_id', orgId)
+                    .eq('is_active', true)
+                    .order('effective_from', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                // Fetch task completion count
+                const { data: tasksData } = await supabase
+                    .from('tasks')
+                    .select('id, status')
+                    .eq('assigned_to', item.id)
+                    .eq('org_id', orgId);
+
+                const completedTasks = tasksData?.filter(t => ['completed', 'done'].includes(t.status?.toLowerCase())).length || 0;
+                const totalTasks = tasksData?.length || 0;
+
+                // Calculate gross salary (basic + hra + allowances)
+                const basicSalary = financeData?.basic_salary || 0;
+                const hra = financeData?.hra || 0;
+                const allowances = financeData?.allowances || 0;
+                const grossSalary = basicSalary + hra + allowances;
+
+                // Merge finance data with employee data
+                const enrichedEmployee = {
+                    ...item,
+                    // Financial details from employee_finance
+                    basic_salary: basicSalary,
+                    hra: hra,
+                    allowances: allowances,
+                    gross_salary: grossSalary,
+                    professional_tax: financeData?.professional_tax || 0,
+                    effective_from: financeData?.effective_from || null,
+                    effective_to: financeData?.effective_to || null,
+                    // Task metrics
+                    tasksCompleted: completedTasks,
+                    totalTasks: totalTasks,
+                    // Calculate performance if not already present
+                    performance: item.performance || (totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 'N/A')
+                };
+
+                setSelectedEmployee(enrichedEmployee);
+                setShowEmployeeModal(true);
+
+                // Also set employeeSalary for the compensation section
+                if (financeData) {
+                    setEmployeeSalary(financeData);
+                }
+            } catch (error) {
+                console.error('Error fetching employee details:', error);
+                // Still show modal with basic data if fetch fails
+                setSelectedEmployee({
+                    ...item,
+                    basic_salary: 0,
+                    hra: 0,
+                    allowances: 0,
+                    gross_salary: 0,
+                    professional_tax: 0,
+                    tasksCompleted: 0,
+                    totalTasks: 0,
+                    performance: item.performance || 'N/A'
+                });
+                setShowEmployeeModal(true);
+                setEmployeeSalary(null);
+            }
         } else if (action === 'Edit Employee') {
             setSelectedEmployeeForEdit(item);
             setShowEditEmployeeModal(true);
@@ -2419,14 +2485,24 @@ const ModulePage = ({ title, type }) => {
                                             <span style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: 500 }}>House Rent Allowance</span>
                                             <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#111827' }}>₹{employeeSalary.hra?.toLocaleString()}</span>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '2px solid #e5e7eb' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
                                             <span style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: 500 }}>Other Allowances</span>
                                             <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#111827' }}>₹{employeeSalary.allowances?.toLocaleString() || '0'}</span>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px', backgroundColor: '#f9fafb' }}>
-                                            <span style={{ fontSize: '1.05rem', color: '#111827', fontWeight: 700 }}>Total Monthly Compensation</span>
-                                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--primary)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f3f4f6' }}>
+                                            <span style={{ fontSize: '1.05rem', color: '#111827', fontWeight: 700 }}>Gross Salary</span>
+                                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#6366f1' }}>
                                                 ₹{((employeeSalary.basic_salary || 0) + (employeeSalary.hra || 0) + (employeeSalary.allowances || 0)).toLocaleString()}
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '2px solid #e5e7eb', backgroundColor: '#fef2f2' }}>
+                                            <span style={{ fontSize: '0.95rem', color: '#991b1b', fontWeight: 500 }}>Professional Tax (Deduction)</span>
+                                            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#991b1b' }}>-₹{employeeSalary.professional_tax?.toLocaleString() || '0'}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px', backgroundColor: '#ecfdf5' }}>
+                                            <span style={{ fontSize: '1.05rem', color: '#065f46', fontWeight: 700 }}>Net Salary</span>
+                                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#059669' }}>
+                                                ₹{(((employeeSalary.basic_salary || 0) + (employeeSalary.hra || 0) + (employeeSalary.allowances || 0)) - (employeeSalary.professional_tax || 0)).toLocaleString()}
                                             </span>
                                         </div>
                                     </div>

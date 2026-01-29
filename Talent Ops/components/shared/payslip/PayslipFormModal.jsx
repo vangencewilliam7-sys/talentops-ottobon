@@ -5,7 +5,7 @@ import {
     calculatePresentDays,
     calculateLeaveDays
 } from '../../../utils/payslipHelpers';
-import { formatMonthYear } from '../../../utils/payrollCalculations';
+import { formatMonthYear, getWorkingDaysInMonth } from '../../../utils/payrollCalculations';
 import { generatePayslipPDF, uploadPayslipPDF } from '../../../utils/pdfGenerator';
 import { X, FileText, Plus, DollarSign } from 'lucide-react';
 import PayslipPreview from './PayslipPreview';
@@ -36,9 +36,11 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
 
     // Payslip data
     const [employeeData, setEmployeeData] = useState(null);
+    const [financeData, setFinanceData] = useState(null);
     const [payrollData, setPayrollData] = useState(null);
     const [presentDays, setPresentDays] = useState(0);
     const [leaveDays, setLeaveDays] = useState(0);
+    const [totalWorkingDays, setTotalWorkingDays] = useState(0);
 
     useEffect(() => {
         if (isOpen) {
@@ -146,6 +148,18 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
             if (empError) throw empError;
             setEmployeeData(employee);
 
+            // Fetch employee finance for additional details (like join date)
+            const { data: financeData } = await supabase
+                .from('employee_finance')
+                .select('date_of_joining')
+                .eq('employee_id', selectedEmployee)
+                .single();
+
+            if (financeData) {
+                setFinanceData(financeData);
+            }
+
+
             // Fetch payroll data
             const monthStr = formatMonthYear(parseInt(selectedMonth), selectedYear);
             console.log('Fetching payroll for employee:', selectedEmployee, 'month:', monthStr);
@@ -179,9 +193,11 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
             // Calculate attendance
             const present = await calculatePresentDays(selectedEmployee, parseInt(selectedMonth), selectedYear, orgId);
             const leaves = await calculateLeaveDays(selectedEmployee, parseInt(selectedMonth), selectedYear, orgId);
+            const workingDays = getWorkingDaysInMonth(parseInt(selectedMonth), selectedYear);
 
             setPresentDays(present);
             setLeaveDays(leaves);
+            setTotalWorkingDays(workingDays);
         } catch (err) {
             console.error('Error fetching data:', err);
             setError(err.message || 'Failed to fetch employee data');
@@ -209,24 +225,33 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         try {
             // Prepare payslip data with explicit number conversions to prevent NaN errors
             const monthStr = formatMonthYear(parseInt(selectedMonth), selectedYear);
+            // Calculate LOP amount - Use totalWorkingDays for consistency with payroll calculation
+            const workingDaysForCalc = totalWorkingDays || 30; // Fallback to 30 if 0
+            const lopAmount = payrollData.lop_days > 0
+                ? Math.round((payrollData.basic_salary / workingDaysForCalc) * payrollData.lop_days)
+                : 0;
+
             const payslipData = {
                 payslipNumber,
-                employeeId: selectedEmployee,
+                employeeId: employeeData.id || selectedEmployee,
                 employeeName: employeeData.full_name || 'N/A',
                 employeeEmail: employeeData.email || 'N/A',
                 employeeRole: employeeData.role || 'N/A',
                 employeeLocation: employeeData.location || 'N/A',
+                dateOfJoining: employeeData.join_date || employeeData.date_of_joining || (financeData && financeData.date_of_joining) || employeeData.created_at || 'N/A',
                 month: monthStr,
                 // Ensure all numeric fields are valid numbers, never null/undefined/NaN
                 basicSalary: Number(payrollData.basic_salary) || 0,
                 hra: Number(payrollData.hra) || 0,
                 allowances: Number(payrollData.allowances) || 0,
+                professionalTax: Number(payrollData.professional_tax) || 0,
                 deductions: Number(payrollData.deductions) || 0,
                 lopDays: Number(payrollData.lop_days) || 0,
-                lopAmount: 0,
+                lopAmount: lopAmount,
                 netSalary: Number(payrollData.net_salary) || 0,
                 presentDays: Number(presentDays) || 0,
-                leaveDays: Number(leaveDays) || 0
+                leaveDays: Number(leaveDays) || 0,
+                totalWorkingDays: Number(totalWorkingDays) || 0
             };
 
             // Company settings - use form values
@@ -348,28 +373,41 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         ? (payrollData.basic_salary || 0) + (payrollData.hra || 0) + (payrollData.allowances || 0)
         : 0;
 
-    const totalDeductions = payrollData ? (payrollData.deductions || 0) : 0;
+    // Calculate LOP amount for display and total deductions
+    const previewWorkingDays = totalWorkingDays || 30; // Fallback to 30 if 0
+    const previewLopAmount = payrollData && payrollData.lop_days > 0
+        ? Math.round((payrollData.basic_salary / previewWorkingDays) * payrollData.lop_days)
+        : 0;
+
+    const totalDeductions = payrollData
+        ? (payrollData.deductions || 0) + (payrollData.professional_tax || 0) + previewLopAmount
+        : 0;
 
     if (!isOpen) return null;
 
     // Prepare payslip data for preview - same data validation as handleSavePayslip
+    // LOP Amount is already calculated above as previewLopAmount
+
     const payslipDataForPreview = payrollData && employeeData ? {
         payslipNumber,
-        employeeId: selectedEmployee,
+        employeeId: employeeData.id || selectedEmployee,
         employeeName: employeeData.full_name || 'N/A',
         employeeEmail: employeeData.email || 'N/A',
         employeeRole: employeeData.role || 'N/A',
         employeeLocation: employeeData.location || 'N/A',
+        dateOfJoining: employeeData.join_date || employeeData.date_of_joining || (financeData && financeData.date_of_joining) || employeeData.created_at || 'N/A',
         month: formatMonthYear(parseInt(selectedMonth), selectedYear),
         basicSalary: Number(payrollData.basic_salary) || 0,
         hra: Number(payrollData.hra) || 0,
         allowances: Number(payrollData.allowances) || 0,
+        professionalTax: Number(payrollData.professional_tax) || 0,
         deductions: Number(payrollData.deductions) || 0,
         lopDays: Number(payrollData.lop_days) || 0,
-        lopAmount: 0,
+        lopAmount: previewLopAmount,
         netSalary: Number(payrollData.net_salary) || 0,
         presentDays: Number(presentDays) || 0,
-        leaveDays: Number(leaveDays) || 0
+        leaveDays: Number(leaveDays) || 0,
+        totalWorkingDays: Number(totalWorkingDays) || 0
     } : null;
 
     const companySettings = {
