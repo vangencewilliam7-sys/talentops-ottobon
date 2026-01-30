@@ -60,7 +60,7 @@ This will:
 docker-compose up -d
 ```
 
-The application will be available at: **http://localhost:3000**
+The application will be available at: **http://localhost:8881**
 
 ### 5. Verify Deployment
 
@@ -76,7 +76,7 @@ docker-compose logs -f talentops-app
 
 Check health:
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:8881/health
 ```
 
 ## Managing the Application
@@ -138,11 +138,11 @@ docker-compose logs -f talentops-app
 
 ### Port already in use
 
-If port 3000 is already in use, edit `docker-compose.yml`:
+If port 8881 is already in use, edit `docker-compose.yml`:
 
 ```yaml
 ports:
-  - "8080:80"  # Change 3000 to any available port
+  - "8080:80"  # Change 8881 to any available port
 ```
 
 ### Application not loading

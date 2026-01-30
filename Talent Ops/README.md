@@ -28,7 +28,7 @@ A comprehensive HR management system built with React, Vite, and Supabase.
    docker-compose up -d
    ```
 
-Access the application at **http://localhost:3000**
+Access the application at **http://localhost:8881**
 
 ## Documentation
 

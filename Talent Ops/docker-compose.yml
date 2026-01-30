@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: talentops-app
     ports:
-      - "3000:80"
+      - "8881:80"
     environment:
       - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
       - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
