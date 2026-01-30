@@ -98,6 +98,7 @@ const PayrollPage = ({ userRole, userId, addToast, orgId }) => {
                 basic_salary: payroll.basic_salary,
                 hra: payroll.hra,
                 allowances: payroll.allowances,
+                professional_tax: payroll.professional_tax,
                 deductions: payroll.deductions,
                 lop_days: payroll.lop_days,
                 net_salary: payroll.net_salary,
@@ -538,13 +539,40 @@ const PayrollPage = ({ userRole, userId, addToast, orgId }) => {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#fee2e2', borderRadius: '8px' }}>
                                     <span style={{ color: '#991b1b' }}>LOP Days</span>
-                                    <span style={{ fontWeight: 600, color: '#991b1b' }}>{selectedPayroll.lop_days || 0} days</span>
+                                    <span style={{ fontWeight: 600, color: '#991b1b' }}>
+                                        {selectedPayroll.lop_days || 0} days
+                                        {selectedPayroll.lop_days > 0 && (
+                                            <span style={{ marginLeft: '8px', fontSize: '0.9em', opacity: 0.8 }}>
+                                                (-₹{Math.round((selectedPayroll.basic_salary || 0) + (selectedPayroll.hra || 0) + (selectedPayroll.allowances || 0) - (selectedPayroll.deductions || 0) - (selectedPayroll.professional_tax || 0) - (selectedPayroll.net_salary || 0)).toLocaleString()})
+                                            </span>
+                                        )}
+                                    </span>
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#fee2e2', borderRadius: '8px' }}>
+                                    <span style={{ color: '#991b1b' }}>Professional Tax</span>
+                                    <span style={{ fontWeight: 600, color: '#991b1b' }}>₹{selectedPayroll.professional_tax?.toLocaleString() || 0}</span>
                                 </div>
 
                                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#fee2e2', borderRadius: '8px' }}>
                                     <span style={{ color: '#991b1b' }}>Additional Deductions</span>
                                     <span style={{ fontWeight: 600, color: '#991b1b' }}>₹{selectedPayroll.deductions?.toLocaleString()}</span>
                                 </div>
+                            </div>
+
+                            <div style={{
+                                height: '1px',
+                                backgroundColor: '#fca5a5',
+                                margin: '8px 0'
+                            }} />
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', backgroundColor: '#fee2e2', borderRadius: '8px' }}>
+                                <span style={{ color: '#7f1d1d', fontWeight: 700 }}>Total Deductions</span>
+                                <span style={{ fontWeight: 700, color: '#7f1d1d' }}>
+                                    - ₹{Math.round(
+                                        (selectedPayroll.basic_salary || 0) + (selectedPayroll.hra || 0) + (selectedPayroll.allowances || 0) - (selectedPayroll.net_salary || 0)
+                                    ).toLocaleString()}
+                                </span>
                             </div>
                         </div>
 

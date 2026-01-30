@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { Download, FileText, Calendar, DollarSign, Plus } from 'lucide-react';
+import { Download, FileText, Calendar, DollarSign, Plus, Eye } from 'lucide-react';
 import DataTable from '../employee/components/UI/DataTable';
 import PayslipFormModal from './payslip/PayslipFormModal';
 
@@ -9,6 +9,8 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const [savedCompanies, setSavedCompanies] = useState([]); // Lifted state for company details
+    const [employees, setEmployees] = useState([]); // Lifted state for employee dropdown
 
     // Safe toast function
     const showToast = (message, type) => {
@@ -28,6 +30,57 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
 
         fetchPayslips();
     }, [userId, userRole, refreshTrigger, orgId]);
+
+    // Fetch saved companies once on load to ensure instant dropdown availability
+    const fetchSavedCompanies = async () => {
+        if (!orgId) return;
+        try {
+            const { data, error } = await supabase
+                .from('company_details')
+                .select('*')
+                .eq('org_id', orgId)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            if (data) {
+                setSavedCompanies(data);
+                localStorage.setItem(`savedCompanies_${orgId}`, JSON.stringify(data));
+            }
+        } catch (err) {
+            console.error('Error fetching saved companies:', err);
+        }
+    };
+
+    useEffect(() => {
+        if (orgId) {
+            // Load from cache first for instant display
+            const cached = localStorage.getItem(`savedCompanies_${orgId}`);
+            if (cached) {
+                try {
+                    const parsed = JSON.parse(cached);
+                    setSavedCompanies(parsed);
+                } catch (e) { console.warn('Cache parse error', e); }
+            }
+
+            fetchSavedCompanies();
+            fetchEmployees();
+        }
+    }, [orgId]);
+
+    const fetchEmployees = async () => {
+        if (!orgId) return;
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('id, full_name, email, role')
+                .eq('org_id', orgId)
+                .order('full_name');
+
+            if (data) setEmployees(data);
+        } catch (err) {
+            console.error('Error fetching employees:', err);
+        }
+    };
 
     // Realtime Payslips
     useEffect(() => {
@@ -151,6 +204,14 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
         }
     };
 
+    const handleView = (payslip) => {
+        if (payslip.storage_url) {
+            window.open(payslip.storage_url, '_blank');
+        } else {
+            showToast('Payslip URL not found', 'error');
+        }
+    };
+
     const handleDownload = async (payslip) => {
         if (!payslip.storage_url) {
             showToast('Payslip file not available', 'warning');
@@ -158,61 +219,19 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
         }
 
         try {
-            showToast('Downloading payslip...', 'info');
-
-            console.log('Storage URL from DB:', payslip.storage_url);
-            console.log('Employee ID:', payslip.employee_id);
-
-            // Extract just the path after the bucket URL
-            // The storage_url looks like: "https://...supabase.co/storage/v1/object/public/PAYSLIPS/employeeId/filename.pdf"
-            // We need just the "employeeId/filename.pdf" part
-            let filePath;
-            if (payslip.storage_url.includes('/PAYSLIPS/')) {
-                filePath = payslip.storage_url.split('/PAYSLIPS/')[1];
-            } else {
-                // Fallback: construct the path from employee_id
-                const fileName = payslip.storage_url.split('/').pop();
-                filePath = `${payslip.employee_id}/${fileName}`;
-            }
-
-            console.log('Attempting to download from path:', filePath);
-
-            // Download from PAYSLIPS bucket (UPPERCASE - must match upload!)
-            const { data, error } = await supabase.storage
-                .from('PAYSLIPS')
-                .download(filePath);
-
-            if (error) {
-                console.error('Download error:', error);
-                throw error;
-            }
-
-            if (!data) {
-                throw new Error('No data returned from download');
-            }
-
-            console.log('Download successful, creating blob URL...');
-
-            // Ensure the blob is typed as PDF
-            const pdfBlob = new Blob([data], { type: 'application/pdf' });
-
-            // Create blob URL and force download
-            const url = window.URL.createObjectURL(pdfBlob);
+            // Direct download using the public URL - instant and efficient
             const link = document.createElement('a');
-            link.href = url;
+            link.href = payslip.storage_url;
             link.download = `Payslip_${payslip.month || 'doc'}_${payslip.name || 'employee'}.pdf`;
+            link.target = '_blank'; // Fallback if download attribute doesn't work
             document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link);
 
-            setTimeout(() => {
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(url);
-            }, 100);
-
-            showToast('Payslip downloaded successfully', 'success');
+            showToast('Payslip download started', 'success');
 
         } catch (error) {
-            console.error('Download Logic Error:', error);
+            console.error('Download error:', error);
             showToast(`Could not download: ${error.message || 'File missing'}`, 'error');
         }
     };
@@ -288,37 +307,49 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
             header: 'Payslip',
             accessor: 'action',
             render: (row) => (
-                <button
-                    onClick={() => handleDownload(row)}
-                    style={{
-                        padding: '8px 16px',
-                        borderRadius: '8px',
-                        fontSize: '0.875rem',
-                        fontWeight: 600,
-                        backgroundColor: '#7c3aed',
-                        color: 'white',
-                        border: 'none',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        transition: 'all 0.2s',
-                        boxShadow: 'var(--shadow-sm)'
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#6d28d9';
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = '#7c3aed';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                    }}
-                >
-                    <Download size={16} />
-                    Download
-                </button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                        onClick={() => handleView(row)}
+                        style={{
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem',
+                            fontWeight: 600,
+                            backgroundColor: 'white',
+                            color: '#7c3aed',
+                            border: '1px solid #7c3aed',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <Eye size={16} />
+                        View
+                    </button>
+                    <button
+                        onClick={() => handleDownload(row)}
+                        style={{
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            fontSize: '0.875rem',
+                            fontWeight: 600,
+                            backgroundColor: '#7c3aed',
+                            color: 'white',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            boxShadow: '0 2px 4px rgba(124, 58, 237, 0.2)',
+                            transition: 'transform 0.2s'
+                        }}
+                    >
+                        <Download size={16} />
+                        Download
+                    </button>
+                </div>
             )
         }
     ];
@@ -479,7 +510,11 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
                 onClose={() => setShowAddModal(false)}
                 onSuccess={handlePayslipSuccess}
                 orgId={orgId}
+                savedCompaniesProp={savedCompanies}
+                employeesProp={employees}
+                onRefreshCompanies={fetchSavedCompanies}
             />
+
         </div>
     );
 };

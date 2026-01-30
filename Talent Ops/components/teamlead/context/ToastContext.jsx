@@ -36,18 +36,19 @@ export const ToastProvider = ({ children }) => {
                     <div
                         key={toast.id}
                         style={{
-                            backgroundColor: 'var(--surface)',
-                            color: 'var(--text-main)',
+                            backgroundColor: '#ffffff',
+                            color: '#1e293b',
                             padding: '12px 16px',
-                            borderRadius: '8px',
-                            boxShadow: 'var(--shadow-lg)',
+                            borderRadius: '12px',
+                            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                            border: '1px solid #e2e8f0',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '12px',
                             minWidth: '300px',
                             borderLeft: `4px solid ${toast.type === 'success' ? 'var(--success)' :
-                                    toast.type === 'error' ? 'var(--danger)' :
-                                        'var(--accent)'
+                                toast.type === 'error' ? 'var(--danger)' :
+                                    'var(--accent)'
                                 }`,
                             animation: 'slideIn 0.3s ease'
                         }}
@@ -58,7 +59,7 @@ export const ToastProvider = ({ children }) => {
 
                         <span style={{ flex: 1, fontSize: '0.9rem', fontWeight: 500 }}>{toast.message}</span>
 
-                        <button onClick={() => removeToast(toast.id)} style={{ color: 'var(--text-secondary)' }}>
+                        <button onClick={() => removeToast(toast.id)} style={{ color: '#64748b', cursor: 'pointer', background: 'none', border: 'none', padding: 0, display: 'flex' }}>
                             <X size={16} />
                         </button>
                     </div>

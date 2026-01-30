@@ -1946,16 +1946,16 @@ const ModulePage = ({ title, type }) => {
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                    <div style={{ display: 'flex', gap: '8px', position: 'relative', zIndex: 10 }}>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleAction(type === 'workforce' ? 'View Employee' : 'View Status', emp); }}
-                                            style={{ width: '36px', height: '36px', borderRadius: '12px', border: '1px solid #f1f5f9', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', transition: 'all 0.2s', cursor: 'pointer' }}
+                                            style={{ width: '36px', height: '36px', borderRadius: '12px', border: '1px solid #f1f5f9', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', transition: 'all 0.2s', cursor: 'pointer' }}
                                         >
                                             <Eye size={18} />
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleAction('Edit Employee', emp); }}
-                                            style={{ width: '36px', height: '36px', borderRadius: '12px', border: '1px solid #f1f5f9', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', transition: 'all 0.2s', cursor: 'pointer' }}
+                                            style={{ width: '36px', height: '36px', borderRadius: '12px', border: '1px solid #f1f5f9', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', transition: 'all 0.2s', cursor: 'pointer' }}
                                         >
                                             <Edit size={18} />
                                         </button>

@@ -11,6 +11,7 @@ import SettingsDemo from '../components/Demo/SettingsDemo';
 import AuditLogsDemo from '../components/Demo/AuditLogsDemo';
 import ProjectHierarchyDemo from '../../shared/ProjectHierarchyDemo';
 import { AddEmployeeModal } from '../../shared/AddEmployeeModal';
+import { EditEmployeeModal } from '../../shared/EditEmployeeModal';
 import { supabase } from '../../../lib/supabaseClient';
 import PayslipsPage from '../../shared/PayslipsPage';
 import PayrollPage from '../../shared/PayrollPage';
@@ -87,6 +88,10 @@ const ModulePage = ({ title, type }) => {
     // State for Employee Details modal
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+
+    // State for Edit Employee modal
+    const [employeeToEdit, setEmployeeToEdit] = useState(null);
+    const [showEditEmployeeModal, setShowEditEmployeeModal] = useState(false);
 
     // State for Candidate Details modal
     const [selectedCandidate, setSelectedCandidate] = useState(null);
@@ -891,6 +896,9 @@ const ModulePage = ({ title, type }) => {
             setShowCandidateModal(true);
         } else if (type === 'policies' && action === 'Add Policy') {
             setShowAddPolicyModal(true);
+        } else if (action === 'Edit Employee') {
+            setEmployeeToEdit(item);
+            setShowEditEmployeeModal(true);
         } else {
             addToast(`${action} clicked${item ? ` for ${item.name || item.id}` : ''}`, 'info');
         }
@@ -2702,6 +2710,20 @@ const ModulePage = ({ title, type }) => {
                 onSuccess={handlePolicySuccess}
                 orgId={orgId}
             />
+
+            {showEditEmployeeModal && (
+                <EditEmployeeModal
+                    isOpen={showEditEmployeeModal}
+                    onClose={() => setShowEditEmployeeModal(false)}
+                    onSuccess={() => {
+                        setRefreshTrigger(prev => prev + 1);
+                        setShowEditEmployeeModal(false);
+                        addToast('Employee updated successfully', 'success');
+                    }}
+                    employee={employeeToEdit}
+                    orgId={orgId}
+                />
+            )}
         </div>
     );
 };
