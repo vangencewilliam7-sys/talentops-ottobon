@@ -228,6 +228,56 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         }));
     };
 
+    const handleWorkingDaysChange = (employeeId, value) => {
+        setPayrollPreview(prev => prev.map(item => {
+            if (item.employee_id === employeeId) {
+                const workingDays = Math.max(1, parseInt(value) || 1);
+                const lopAmount = calculateLOPAmount(item.basic_salary, workingDays, item.lop_days);
+
+                return {
+                    ...item,
+                    total_working_days: workingDays,
+                    lop_amount: lopAmount,
+                    net_salary: calculateNetSalary(
+                        item.basic_salary,
+                        item.hra,
+                        item.allowances,
+                        item.professional_tax,
+                        item.additional_deductions,
+                        lopAmount
+                    )
+                };
+            }
+            return item;
+        }));
+    };
+
+    const handlePresentDaysChange = (employeeId, value) => {
+        setPayrollPreview(prev => prev.map(item => {
+            if (item.employee_id === employeeId) {
+                const presentDays = Math.max(0, parseInt(value) || 0);
+                return {
+                    ...item,
+                    present_days: Math.min(presentDays, item.total_working_days)
+                };
+            }
+            return item;
+        }));
+    };
+
+    const handleLeaveDaysChange = (employeeId, value) => {
+        setPayrollPreview(prev => prev.map(item => {
+            if (item.employee_id === employeeId) {
+                const leaveDays = Math.max(0, parseInt(value) || 0);
+                return {
+                    ...item,
+                    leave_days: leaveDays
+                };
+            }
+            return item;
+        }));
+    };
+
     const handleGeneratePayroll = async () => {
         if (payrollPreview.length === 0) {
             setError('Please calculate preview first');
@@ -261,6 +311,9 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                         professional_tax: item.professional_tax,
                         deductions: item.additional_deductions,
                         lop_days: item.lop_days,
+                        total_working_days: item.total_working_days,
+                        present_days: item.present_days,
+                        leave_days: item.leave_days,
                         net_salary: item.net_salary,
                         generated_by: user?.id,
                         status: 'generated',
@@ -344,7 +397,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         }} onClick={handleClose}>
             <div
                 style={{
-                    maxWidth: showPreview ? '1200px' : '900px',
+                    maxWidth: showPreview ? '1600px' : '1100px',
                     width: '95%',
                     backgroundColor: 'white',
                     borderRadius: '28px',
@@ -352,7 +405,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
                     display: 'flex',
                     flexDirection: 'column',
-                    maxHeight: '90vh'
+                    maxHeight: '95vh'
                 }}
                 onClick={e => e.stopPropagation()}
             >
@@ -766,20 +819,74 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                                 transition: 'background-color 0.2s'
                                             }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f3ff'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'white' : '#fcfcfd'}>
                                                 <td style={{ padding: '16px' }}>
-                                                    <div style={{ fontWeight: 700, color: '#1e293b' }}>{row.employee_name}</div>
-                                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Standard Pay Cycle</div>
+                                                    <div style={{ fontWeight: 700, fontSize: '1rem', color: '#1e293b' }}>{row.employee_name}</div>
+                                                    <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Standard Pay Cycle</div>
                                                 </td>
                                                 <td style={{ padding: '16px', textAlign: 'right' }}>
-                                                    <div style={{ fontWeight: 600 }}>₹{(row.basic_salary + row.hra + row.allowances).toLocaleString()}</div>
-                                                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>B: ₹{row.basic_salary.toLocaleString()}</div>
+                                                    <div style={{ fontWeight: 600, fontSize: '1.05rem' }}>₹{(row.basic_salary + row.hra + row.allowances).toLocaleString()}</div>
+                                                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>B: ₹{row.basic_salary.toLocaleString()}</div>
                                                 </td>
                                                 <td style={{ padding: '16px', textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                                                        <span title="Working" style={{ fontWeight: 600 }}>{row.total_working_days}</span>
-                                                        <span style={{ color: '#cbd5e1' }}>/</span>
-                                                        <span title="Present" style={{ color: '#059669', fontWeight: 700 }}>{row.present_days}</span>
-                                                        <span style={{ color: '#cbd5e1' }}>/</span>
-                                                        <span title="Leave" style={{ color: '#2563eb', fontWeight: 600 }}>{row.leave_days}</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max="31"
+                                                            value={row.total_working_days}
+                                                            onChange={(e) => handleWorkingDaysChange(row.employee_id, e.target.value)}
+                                                            title="Working Days"
+                                                            style={{
+                                                                width: '50px',
+                                                                padding: '8px 6px',
+                                                                border: '1.5px solid #e2e8f0',
+                                                                borderRadius: '6px',
+                                                                textAlign: 'center',
+                                                                fontSize: '1rem',
+                                                                fontWeight: 600,
+                                                                color: '#1e293b',
+                                                                backgroundColor: 'white'
+                                                            }}
+                                                        />
+                                                        <span style={{ color: '#cbd5e1', fontWeight: 600, fontSize: '1rem' }}>/</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max={row.total_working_days}
+                                                            value={row.present_days}
+                                                            onChange={(e) => handlePresentDaysChange(row.employee_id, e.target.value)}
+                                                            title="Present Days"
+                                                            style={{
+                                                                width: '50px',
+                                                                padding: '8px 6px',
+                                                                border: '1.5px solid #d1fae5',
+                                                                borderRadius: '6px',
+                                                                textAlign: 'center',
+                                                                fontSize: '1rem',
+                                                                fontWeight: 700,
+                                                                color: '#059669',
+                                                                backgroundColor: '#f0fdf4'
+                                                            }}
+                                                        />
+                                                        <span style={{ color: '#cbd5e1', fontWeight: 600, fontSize: '1rem' }}>/</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max={row.total_working_days}
+                                                            value={row.leave_days}
+                                                            onChange={(e) => handleLeaveDaysChange(row.employee_id, e.target.value)}
+                                                            title="Leave Days"
+                                                            style={{
+                                                                width: '50px',
+                                                                padding: '8px 6px',
+                                                                border: '1.5px solid #dbeafe',
+                                                                borderRadius: '6px',
+                                                                textAlign: 'center',
+                                                                fontSize: '1rem',
+                                                                fontWeight: 600,
+                                                                color: '#2563eb',
+                                                                backgroundColor: '#eff6ff'
+                                                            }}
+                                                        />
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: '16px', textAlign: 'center' }}>
@@ -791,18 +898,18 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                                             value={row.lop_days}
                                                             onChange={(e) => handleLopDaysChange(row.employee_id, e.target.value)}
                                                             style={{
-                                                                width: '60px',
-                                                                padding: '6px',
+                                                                width: '70px',
+                                                                padding: '8px',
                                                                 border: '1.5px solid #e2e8f0',
                                                                 borderRadius: '8px',
                                                                 textAlign: 'center',
-                                                                fontSize: '0.85rem',
+                                                                fontSize: '1rem',
                                                                 color: row.lop_days > 0 ? '#e11d48' : '#1e293b',
                                                                 fontWeight: 700,
                                                                 backgroundColor: row.lop_days > 0 ? '#fff1f2' : 'white'
                                                             }}
                                                         />
-                                                        <span style={{ fontSize: '0.7rem', color: '#e11d48', fontWeight: 600 }}>₹{row.lop_amount.toLocaleString()}</span>
+                                                        <span style={{ fontSize: '0.85rem', color: '#e11d48', fontWeight: 600 }}>₹{row.lop_amount.toLocaleString()}</span>
                                                     </div>
                                                 </td>
                                                 <td style={{ padding: '16px', textAlign: 'right' }}>
@@ -813,21 +920,21 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                                         value={row.additional_deductions}
                                                         onChange={(e) => handleDeductionChange(row.employee_id, e.target.value)}
                                                         style={{
-                                                            width: '100px',
-                                                            padding: '8px 12px',
+                                                            width: '110px',
+                                                            padding: '10px 12px',
                                                             border: '1.5px solid #e2e8f0',
                                                             borderRadius: '8px',
                                                             textAlign: 'right',
-                                                            fontSize: '0.85rem',
+                                                            fontSize: '1rem',
                                                             fontWeight: 600
                                                         }}
                                                     />
                                                 </td>
                                                 <td style={{ padding: '16px', textAlign: 'right' }}>
-                                                    <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#059669' }}>
+                                                    <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#059669' }}>
                                                         ₹{row.net_salary?.toLocaleString()}
                                                     </div>
-                                                    <div style={{ fontSize: '0.7rem', color: '#64748b' }}>Verified Calculation</div>
+                                                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Verified Calculation</div>
                                                 </td>
                                             </tr>
                                         ))}

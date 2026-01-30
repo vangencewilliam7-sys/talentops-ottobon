@@ -6,6 +6,7 @@ import { useProject } from '../employee/context/ProjectContext';
 
 const ProjectHierarchyDemo = ({ isEditingEnabled = false }) => {
     const { currentProject } = useProject(); // Get current project from context
+    const [orgId, setOrgId] = useState(null);
     const [selectedProject, setSelectedProject] = useState(null);
     const [viewMode, setViewMode] = useState('overview'); // 'overview', 'project-detail'
     const [hierarchyData, setHierarchyData] = useState({
@@ -22,6 +23,29 @@ const ProjectHierarchyDemo = ({ isEditingEnabled = false }) => {
     // Modal States
     const [selectedEmployee, setSelectedEmployee] = useState(null); // For viewing details
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+
+    // Fetch org_id from current user
+    useEffect(() => {
+        const fetchOrgId = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('org_id')
+                        .eq('id', user.id)
+                        .single();
+
+                    if (profile?.org_id) {
+                        setOrgId(profile.org_id);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching org_id:', error);
+            }
+        };
+        fetchOrgId();
+    }, []);
 
     // Synch with Current Project Context
     useEffect(() => {
@@ -48,24 +72,28 @@ const ProjectHierarchyDemo = ({ isEditingEnabled = false }) => {
 
 
     useEffect(() => {
-        fetchHierarchy();
-    }, []);
+        if (orgId) {
+            fetchHierarchy();
+        }
+    }, [orgId]);
 
     const fetchHierarchy = async () => {
         try {
-            // Fetch profiles
+            // Fetch profiles filtered by org_id
             const { data: profiles, error: profilesError } = await supabase
                 .from('profiles')
                 .select('*')
+                .eq('org_id', orgId)
                 .order('full_name');
 
             if (profilesError) throw profilesError;
             setAllProfiles(profiles);
 
-            // Fetch projects (instead of teams)
+            // Fetch projects filtered by org_id
             const { data: projects, error: projectsError } = await supabase
                 .from('projects')
-                .select('*');
+                .select('*')
+                .eq('org_id', orgId);
 
             // Fetch project_members to get project assignments
             const { data: teamMembers, error: teamMembersError } = await supabase

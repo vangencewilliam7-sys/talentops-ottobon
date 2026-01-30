@@ -1039,8 +1039,20 @@ const ModulePage = ({ title, type }) => {
     if (type === 'tasks') return <AllTasksView key="team-tasks" userRole={userRole} projectRole={projectRole} userId={userId} addToast={addToast} viewMode="team_tasks" orgId={orgId} />;
     if (type === 'global-tasks') return <AllTasksView key="global-tasks" userRole={userRole} projectRole={projectRole} userId={userId} addToast={addToast} viewMode="global_tasks" orgId={orgId} />;
     if (type === 'personal-tasks') return <AllTasksView key="personal-tasks" userRole={userRole} projectRole={projectRole} userId={userId} addToast={addToast} viewMode="my_tasks" orgId={orgId} />;
-    if (title === 'Team Hierarchy' || title === 'Organizational Hierarchy' || title === 'Hierarchy') return <HierarchyDemo />;
-    if (title === 'Project Hierarchy') return <ProjectHierarchyDemo />;
+    if (title === 'Team Hierarchy' || title === 'Organizational Hierarchy' || title === 'Hierarchy') {
+        return (
+            <div style={{ height: 'calc(100vh - 200px)', borderRadius: '16px', overflow: 'hidden', backgroundColor: 'white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                <HierarchyDemo />
+            </div>
+        );
+    }
+    if (title === 'Project Hierarchy') {
+        return (
+            <div style={{ height: 'calc(100vh - 200px)', borderRadius: '16px', overflow: 'hidden', backgroundColor: 'white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                <ProjectHierarchyDemo />
+            </div>
+        );
+    }
     if (title === 'Settings') return <SettingsDemo />;
     if (title === 'Announcements') return <AnnouncementsPage userRole={userRole} userId={userId} orgId={orgId} />;
     if (type === 'payroll') return <PayslipsPage userRole={userRole} userId={userId} addToast={addToast} orgId={orgId} />;

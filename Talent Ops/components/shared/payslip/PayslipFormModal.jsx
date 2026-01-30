@@ -383,14 +383,21 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId, savedCompaniesPro
                 setError('');
             }
 
-            // Calculate attendance
-            const present = await calculatePresentDays(selectedEmployee, parseInt(selectedMonth), selectedYear, orgId);
-            const leaves = await calculateLeaveDays(selectedEmployee, parseInt(selectedMonth), selectedYear, orgId);
-            const workingDays = getWorkingDaysInMonth(parseInt(selectedMonth), selectedYear);
+            // Determine attendance from payroll data if available, otherwise calculate
+            if (payroll) {
+                setPresentDays(payroll.present_days || 0);
+                setLeaveDays(payroll.leave_days || 0);
+                setTotalWorkingDays(payroll.total_working_days || getWorkingDaysInMonth(parseInt(selectedMonth), selectedYear));
+            } else {
+                // Calculate attendance as fallback
+                const present = await calculatePresentDays(selectedEmployee, parseInt(selectedMonth), selectedYear, orgId);
+                const leaves = await calculateLeaveDays(selectedEmployee, parseInt(selectedMonth), selectedYear, orgId);
+                const workingDays = getWorkingDaysInMonth(parseInt(selectedMonth), selectedYear);
 
-            setPresentDays(present);
-            setLeaveDays(leaves);
-            setTotalWorkingDays(workingDays);
+                setPresentDays(present);
+                setLeaveDays(leaves);
+                setTotalWorkingDays(workingDays);
+            }
         } catch (err) {
             console.error('Error fetching data:', err);
             setError(err.message || 'Failed to fetch employee data');
@@ -808,7 +815,8 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId, savedCompaniesPro
                                                     .map(emp => (
                                                         <div
                                                             key={emp.id}
-                                                            onClick={() => {
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault(); // Prevent input from losing focus
                                                                 setSelectedEmployee(emp.id);
                                                                 setSearchTerm(emp.full_name);
                                                                 setIsDropdownOpen(false);

@@ -3,6 +3,7 @@ import { X, Mail, Phone, MapPin, ZoomIn, ZoomOut, RotateCcw, Shield, Users, Brie
 import { supabase } from '../../lib/supabaseClient';
 
 const HierarchyDemo = () => {
+    const [orgId, setOrgId] = useState(null);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [hierarchyData, setHierarchyData] = useState({
         executives: [],
@@ -25,17 +26,41 @@ const HierarchyDemo = () => {
         }
     };
 
+    // Fetch org_id from current user
+    useEffect(() => {
+        const fetchOrgId = async () => {
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('org_id')
+                        .eq('id', user.id)
+                        .single();
 
+                    if (profile?.org_id) {
+                        setOrgId(profile.org_id);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching org_id:', error);
+            }
+        };
+        fetchOrgId();
+    }, []);
 
     useEffect(() => {
-        fetchHierarchy();
-    }, []);
+        if (orgId) {
+            fetchHierarchy();
+        }
+    }, [orgId]);
 
     const fetchHierarchy = async () => {
         try {
             const { data: profiles } = await supabase
                 .from('profiles')
                 .select('*')
+                .eq('org_id', orgId)
                 .order('full_name');
 
             if (profiles) {
@@ -232,7 +257,6 @@ const HierarchyDemo = () => {
                     display: 'inline-block', // Crucial for width: max-content to work
                     width: 'max-content',
                     minWidth: '100%', // Ensures it fills at least the screen
-                    whiteSpace: 'nowrap',
                     textAlign: 'center',
                     margin: '0 auto', // Horizontal centering aid
                     padding: '100px', // generous padding for "scroll in all directions" feel
