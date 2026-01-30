@@ -1923,20 +1923,20 @@ const ModulePage = ({ title, type }) => {
 
                                 {/* Profile Header */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                        <div style={{ width: '56px', height: '56px', borderRadius: '18px', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', minWidth: 0, flex: 1 }}>
+                                        <div style={{ width: '56px', height: '56px', borderRadius: '18px', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid #e2e8f0', flexShrink: 0 }}>
                                             {emp.avatar_url ? (
                                                 <img src={emp.avatar_url} alt={emp.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                             ) : (
                                                 <span style={{ fontSize: '1.2rem', fontWeight: '800', color: '#64748b' }}>{emp.name.charAt(0)}</span>
                                             )}
                                         </div>
-                                        <div>
-                                            <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#0f172a', marginBottom: '2px', letterSpacing: '-0.02em' }}>{emp.name}</h3>
+                                        <div style={{ minWidth: 0, flex: 1 }}>
+                                            <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#0f172a', marginBottom: '2px', letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.name}</h3>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b' }}>{emp.department_display}</span>
-                                                <span style={{ color: '#cbd5e1' }}>•</span>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.department_display}</span>
+                                                <span style={{ color: '#cbd5e1', flexShrink: 0 }}>•</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                                                     <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: emp.availability === 'Online' ? '#22c55e' : emp.availability === 'On Leave' ? '#ef4444' : '#94a3b8' }}></span>
                                                     <span style={{ fontSize: '0.75rem', fontWeight: '700', color: emp.availability === 'Online' ? '#16a34a' : emp.availability === 'On Leave' ? '#dc2626' : '#64748b' }}>{emp.availability}</span>
                                                 </div>
@@ -1944,7 +1944,7 @@ const ModulePage = ({ title, type }) => {
                                         </div>
                                     </div>
 
-                                    <div style={{ display: 'flex', gap: '8px', position: 'relative', zIndex: 10 }}>
+                                    <div style={{ display: 'flex', gap: '8px', position: 'relative', zIndex: 10, flexShrink: 0, marginLeft: 'auto' }}>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleAction(type === 'workforce' ? 'View Employee' : 'View Status', emp); }}
                                             style={{ width: '36px', height: '36px', borderRadius: '12px', border: '1px solid #f1f5f9', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', transition: 'all 0.2s', cursor: 'pointer' }}
@@ -2011,17 +2011,17 @@ const ModulePage = ({ title, type }) => {
                                     <>
                                         {/* Info Grid for Workforce */}
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                            <div style={{ padding: '16px', borderRadius: '20px', backgroundColor: '#f8fafc', border: '1px solid #f1f5f9' }}>
+                                            <div style={{ padding: '16px', borderRadius: '20px', backgroundColor: '#f8fafc', border: '1px solid #f1f5f9', minWidth: 0 }}>
                                                 <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     <Briefcase size={12} /> Job Title
                                                 </div>
-                                                <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#1e293b' }}>{emp.job_title || 'N/A'}</div>
+                                                <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.job_title || 'N/A'}</div>
                                             </div>
-                                            <div style={{ padding: '16px', borderRadius: '20px', backgroundColor: '#f8fafc', border: '1px solid #f1f5f9' }}>
+                                            <div style={{ padding: '16px', borderRadius: '20px', backgroundColor: '#f8fafc', border: '1px solid #f1f5f9', minWidth: 0 }}>
                                                 <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                     <Users size={12} /> Department
                                                 </div>
-                                                <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#1e293b' }}>{emp.department_display || 'N/A'}</div>
+                                                <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.department_display || 'N/A'}</div>
                                             </div>
                                         </div>
 
@@ -2188,549 +2188,555 @@ const ModulePage = ({ title, type }) => {
                 />
             )}
 
-            {showApplyLeaveModal && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
-                    <div className="no-scrollbar" style={{ backgroundColor: 'var(--surface)', padding: '40px', borderRadius: '32px', width: '1000px', maxWidth: '95%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', border: '1px solid var(--border)', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
-                        {/* Modal Close Button */}
-                        <button
-                            onClick={() => setShowApplyLeaveModal(false)}
-                            style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--background)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-secondary)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', zIndex: 10 }}
-                        >
-                            <X size={20} />
-                        </button>
+            {
+                showApplyLeaveModal && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+                        <div className="no-scrollbar" style={{ backgroundColor: 'var(--surface)', padding: '40px', borderRadius: '32px', width: '1000px', maxWidth: '95%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', border: '1px solid var(--border)', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
+                            {/* Modal Close Button */}
+                            <button
+                                onClick={() => setShowApplyLeaveModal(false)}
+                                style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--background)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-secondary)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', zIndex: 10 }}
+                            >
+                                <X size={20} />
+                            </button>
 
-                        <div style={{ marginBottom: '32px' }}>
-                            <h3 style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: '8px' }}>Request Leave</h3>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', fontWeight: '500' }}>Submit your leave details for approval</p>
-                        </div>
+                            <div style={{ marginBottom: '32px' }}>
+                                <h3 style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: '8px' }}>Request Leave</h3>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', fontWeight: '500' }}>Submit your leave details for approval</p>
+                            </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '48px' }}>
-                            <form onSubmit={handleApplyLeave} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leave Type</label>
-                                    <div style={{ position: 'relative' }}>
-                                        <select
-                                            value={leaveFormData.leaveType}
-                                            onChange={(e) => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}
-                                            style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', transition: 'all 0.2s', outline: 'none', appearance: 'none' }}
-                                            required
-                                        >
-                                            <option value="Casual Leave">Casual Leave</option>
-                                            <option value="Sick Leave">Sick Leave</option>
-                                            <option value="Vacation">Vacation</option>
-                                            <option value="Personal Leave">Personal Leave</option>
-                                        </select>
-                                        <div style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: 0.5 }}>
-                                            <Briefcase size={18} />
+                            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '48px' }}>
+                                <form onSubmit={handleApplyLeave} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leave Type</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <select
+                                                value={leaveFormData.leaveType}
+                                                onChange={(e) => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}
+                                                style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', transition: 'all 0.2s', outline: 'none', appearance: 'none' }}
+                                                required
+                                            >
+                                                <option value="Casual Leave">Casual Leave</option>
+                                                <option value="Sick Leave">Sick Leave</option>
+                                                <option value="Vacation">Vacation</option>
+                                                <option value="Personal Leave">Personal Leave</option>
+                                            </select>
+                                            <div style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: 0.5 }}>
+                                                <Briefcase size={18} />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Start Date</label>
+                                            <input
+                                                type="date"
+                                                value={leaveFormData.startDate}
+                                                onChange={(e) => {
+                                                    const nextStart = e.target.value;
+                                                    setLeaveFormData(prev => ({
+                                                        ...prev,
+                                                        startDate: nextStart,
+                                                        endDate: prev.endDate && prev.endDate >= nextStart ? prev.endDate : nextStart
+                                                    }));
+                                                }}
+                                                style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', outline: 'none' }}
+                                                required={selectedDates.length === 0}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>End Date</label>
+                                            <input
+                                                type="date"
+                                                value={leaveFormData.endDate}
+                                                onChange={(e) => setLeaveFormData({ ...leaveFormData, endDate: e.target.value })}
+                                                min={leaveFormData.startDate}
+                                                style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', outline: 'none' }}
+                                                required={selectedDates.length === 0}
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Start Date</label>
-                                        <input
-                                            type="date"
-                                            value={leaveFormData.startDate}
-                                            onChange={(e) => {
-                                                const nextStart = e.target.value;
-                                                setLeaveFormData(prev => ({
-                                                    ...prev,
-                                                    startDate: nextStart,
-                                                    endDate: prev.endDate && prev.endDate >= nextStart ? prev.endDate : nextStart
-                                                }));
-                                            }}
-                                            style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', outline: 'none' }}
-                                            required={selectedDates.length === 0}
+                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Specific Dates (Optional)</label>
+                                        <div style={{ display: 'flex', gap: '12px' }}>
+                                            <input
+                                                type="date"
+                                                value={dateToAdd}
+                                                onChange={(e) => setDateToAdd(e.target.value)}
+                                                style={{ flex: 1, padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', outline: 'none' }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => { addSelectedDate(dateToAdd); setDateToAdd(''); }}
+                                                style={{ padding: '0 24px', borderRadius: '12px', border: 'none', backgroundColor: '#0f172a', color: 'white', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}
+                                            >
+                                                Add
+                                            </button>
+                                        </div>
+                                        {selectedDates.length > 0 && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
+                                                {selectedDates.map(date => (
+                                                    <div key={date} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', backgroundColor: 'var(--background)', border: '1px solid var(--border)', fontSize: '0.85rem', fontWeight: '700' }}>
+                                                        {date}
+                                                        <X size={14} style={{ cursor: 'pointer' }} onClick={() => removeSelectedDate(date)} />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reason</label>
+                                        <textarea
+                                            value={leaveFormData.reason}
+                                            onChange={(e) => setLeaveFormData({ ...leaveFormData, reason: e.target.value })}
+                                            placeholder="Please provide a valid reason for your leave request..."
+                                            rows="4"
+                                            style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', resize: 'none', outline: 'none', lineHeight: '1.5' }}
+                                            required
                                         />
                                     </div>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>End Date</label>
-                                        <input
-                                            type="date"
-                                            value={leaveFormData.endDate}
-                                            onChange={(e) => setLeaveFormData({ ...leaveFormData, endDate: e.target.value })}
-                                            min={leaveFormData.startDate}
-                                            style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', outline: 'none' }}
-                                            required={selectedDates.length === 0}
-                                        />
-                                    </div>
-                                </div>
 
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Specific Dates (Optional)</label>
-                                    <div style={{ display: 'flex', gap: '12px' }}>
-                                        <input
-                                            type="date"
-                                            value={dateToAdd}
-                                            onChange={(e) => setDateToAdd(e.target.value)}
-                                            style={{ flex: 1, padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', outline: 'none' }}
-                                        />
+                                    <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
                                         <button
                                             type="button"
-                                            onClick={() => { addSelectedDate(dateToAdd); setDateToAdd(''); }}
-                                            style={{ padding: '0 24px', borderRadius: '12px', border: 'none', backgroundColor: '#0f172a', color: 'white', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}
+                                            onClick={() => setShowApplyLeaveModal(false)}
+                                            style={{ flex: 1, padding: '16px', borderRadius: '12px', fontWeight: '700', border: '1px solid var(--border)', backgroundColor: 'var(--background)', color: 'var(--text-primary)', cursor: 'pointer' }}
                                         >
-                                            Add
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            style={{ flex: 1, padding: '16px', borderRadius: '12px', fontWeight: '700', backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 10px 15px -3px rgba(56, 189, 248, 0.4)' }}
+                                        >
+                                            Submit Request
                                         </button>
                                     </div>
-                                    {selectedDates.length > 0 && (
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
-                                            {selectedDates.map(date => (
-                                                <div key={date} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', backgroundColor: 'var(--background)', border: '1px solid var(--border)', fontSize: '0.85rem', fontWeight: '700' }}>
-                                                    {date}
-                                                    <X size={14} style={{ cursor: 'pointer' }} onClick={() => removeSelectedDate(date)} />
+                                </form>
+
+                                {/* Right Side - Tasks & Responsibilities */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                                    <div>
+                                        <h4 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '20px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <Briefcase size={22} color="var(--primary)" /> Your Pending Tasks
+                                        </h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            {pendingTasks.length > 0 ? pendingTasks.map(task => (
+                                                <div key={task.id} style={{ padding: '16px', borderRadius: '16px', background: 'var(--background)', border: '1px solid var(--border)', transition: 'all 0.2s' }}>
+                                                    <div style={{ fontWeight: '800', fontSize: '0.95rem', marginBottom: '8px', color: 'var(--text-primary)' }}>{task.title}</div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>Due: {new Date(task.due_date).toLocaleDateString()}</span>
+                                                        <span style={{ fontSize: '0.75rem', fontWeight: '800', color: task.priority === 'High' ? '#ef4444' : 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{task.priority || 'Medium'}</span>
+                                                    </div>
+                                                </div>
+                                            )) : (
+                                                <div style={{ padding: '32px', textAlign: 'center', borderRadius: '16px', background: 'var(--background)', border: '1px dashed var(--border)', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+                                                    No pending tasks!
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h4 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '20px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <Calendar size={22} color="var(--primary)" /> Pre-Leave Responsibilities
+                                        </h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                            {APPLIER_RESPONSIBILITIES.map((resp, idx) => (
+                                                <div key={idx} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                                                    <div style={{ marginTop: '2px', minWidth: '20px', height: '20px', borderRadius: '6px', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'white' }}></div>
+                                                    </div>
+                                                    <span style={{ fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-secondary)', lineHeight: '1.5' }}>{resp}</span>
                                                 </div>
                                             ))}
                                         </div>
-                                    )}
-                                </div>
-
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reason</label>
-                                    <textarea
-                                        value={leaveFormData.reason}
-                                        onChange={(e) => setLeaveFormData({ ...leaveFormData, reason: e.target.value })}
-                                        placeholder="Please provide a valid reason for your leave request..."
-                                        rows="4"
-                                        style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', resize: 'none', outline: 'none', lineHeight: '1.5' }}
-                                        required
-                                    />
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowApplyLeaveModal(false)}
-                                        style={{ flex: 1, padding: '16px', borderRadius: '12px', fontWeight: '700', border: '1px solid var(--border)', backgroundColor: 'var(--background)', color: 'var(--text-primary)', cursor: 'pointer' }}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        style={{ flex: 1, padding: '16px', borderRadius: '12px', fontWeight: '700', backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 10px 15px -3px rgba(56, 189, 248, 0.4)' }}
-                                    >
-                                        Submit Request
-                                    </button>
-                                </div>
-                            </form>
-
-                            {/* Right Side - Tasks & Responsibilities */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                                <div>
-                                    <h4 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '20px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <Briefcase size={22} color="var(--primary)" /> Your Pending Tasks
-                                    </h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        {pendingTasks.length > 0 ? pendingTasks.map(task => (
-                                            <div key={task.id} style={{ padding: '16px', borderRadius: '16px', background: 'var(--background)', border: '1px solid var(--border)', transition: 'all 0.2s' }}>
-                                                <div style={{ fontWeight: '800', fontSize: '0.95rem', marginBottom: '8px', color: 'var(--text-primary)' }}>{task.title}</div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>Due: {new Date(task.due_date).toLocaleDateString()}</span>
-                                                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: task.priority === 'High' ? '#ef4444' : 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{task.priority || 'Medium'}</span>
-                                                </div>
-                                            </div>
-                                        )) : (
-                                            <div style={{ padding: '32px', textAlign: 'center', borderRadius: '16px', background: 'var(--background)', border: '1px dashed var(--border)', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-                                                No pending tasks!
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <h4 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '20px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                        <Calendar size={22} color="var(--primary)" /> Pre-Leave Responsibilities
-                                    </h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                        {APPLIER_RESPONSIBILITIES.map((resp, idx) => (
-                                            <div key={idx} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                                <div style={{ marginTop: '2px', minWidth: '20px', height: '20px', borderRadius: '6px', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'white' }}></div>
-                                                </div>
-                                                <span style={{ fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-secondary)', lineHeight: '1.5' }}>{resp}</span>
-                                            </div>
-                                        ))}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Employee Details Modal */}
-            {showEmployeeModal && selectedEmployee && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div className="no-scrollbar" style={{ backgroundColor: 'var(--surface)', borderRadius: '16px', width: '600px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' }}>
-                        {/* Header */}
-                        <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Employee Details</h3>
-                            <button onClick={() => setShowEmployeeModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        {/* Employee Info */}
-                        <div style={{ padding: '32px' }}>
-                            {/* Profile Section */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '32px' }}>
-                                <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 'bold', color: '#075985', overflow: 'hidden' }}>
-                                    {selectedEmployee.avatar_url ? (
-                                        <img src={selectedEmployee.avatar_url} alt={selectedEmployee.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                        selectedEmployee.name.charAt(0)
-                                    )}
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <h4 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '4px' }}>{selectedEmployee.name}</h4>
-                                    <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '8px' }}>
-                                        {selectedEmployee.job_title ? `${selectedEmployee.job_title} (${selectedEmployee.role})` : selectedEmployee.role}
-                                    </p>
-                                    <span style={{
-                                        padding: '4px 12px',
-                                        borderRadius: '12px',
-                                        fontSize: '0.75rem',
-                                        fontWeight: 600,
-                                        backgroundColor: selectedEmployee.status === 'Active' ? '#dcfce7' : '#fee2e2',
-                                        color: selectedEmployee.status === 'Active' ? '#166534' : '#991b1b'
-                                    }}>
-                                        {selectedEmployee.status}
-                                    </span>
-                                </div>
+            {
+                showEmployeeModal && selectedEmployee && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                        <div className="no-scrollbar" style={{ backgroundColor: 'var(--surface)', borderRadius: '16px', width: '600px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' }}>
+                            {/* Header */}
+                            <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Employee Details</h3>
+                                <button onClick={() => setShowEmployeeModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                                    <X size={24} />
+                                </button>
                             </div>
 
-                            {/* Contact Information */}
-                            <div style={{ marginBottom: '32px' }}>
-                                <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Contact Information</h5>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Mail size={18} color="#075985" />
-                                        </div>
-                                        <div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Email</p>
-                                            <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.email}</p>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Phone size={18} color="#075985" />
-                                        </div>
-                                        <div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Phone</p>
-                                            <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.phone || 'N/A'}</p>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <MapPin size={18} color="#075985" />
-                                        </div>
-                                        <div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Location</p>
-                                            <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.location || 'N/A'}</p>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Calendar size={18} color="#075985" />
-                                        </div>
-                                        <div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Join Date</p>
-                                            <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.joinDate}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Work Information */}
-                            <div style={{ marginBottom: '32px' }}>
-                                <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Work Information</h5>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Job Title</p>
-                                        <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.job_title || 'N/A'}</p>
-                                    </div>
-                                    <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Employment Type</p>
-                                        <p style={{ fontSize: '1.1rem', fontWeight: 600, textTransform: 'capitalize' }}>
-                                            {selectedEmployee.employment_type ? selectedEmployee.employment_type.replace('_', ' ') : 'N/A'}
-                                        </p>
-                                    </div>
-                                    <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Department</p>
-                                        <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.department_display || 'N/A'}</p>
-                                    </div>
-                                    <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Project</p>
-                                        <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.dept}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Compensation Details - Role-based visibility */}
-                            {(userRole === 'executive' || userRole === 'manager') && employeeSalary && (
-                                <div style={{ marginTop: '32px', paddingTop: '32px', borderTop: '2px solid var(--border)' }}>
-                                    <h5 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '20px', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Compensation Details</h5>
-
-                                    {/* Salary Breakdown */}
-                                    <div style={{ backgroundColor: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
-                                            <span style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: 500 }}>Basic Salary</span>
-                                            <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#111827' }}>₹{employeeSalary.basic_salary?.toLocaleString()}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
-                                            <span style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: 500 }}>House Rent Allowance</span>
-                                            <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#111827' }}>₹{employeeSalary.hra?.toLocaleString()}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
-                                            <span style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: 500 }}>Other Allowances</span>
-                                            <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#111827' }}>₹{employeeSalary.allowances?.toLocaleString() || '0'}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f3f4f6' }}>
-                                            <span style={{ fontSize: '1.05rem', color: '#111827', fontWeight: 700 }}>Gross Salary</span>
-                                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#6366f1' }}>
-                                                ₹{((employeeSalary.basic_salary || 0) + (employeeSalary.hra || 0) + (employeeSalary.allowances || 0)).toLocaleString()}
-                                            </span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '2px solid #e5e7eb', backgroundColor: '#fef2f2' }}>
-                                            <span style={{ fontSize: '0.95rem', color: '#991b1b', fontWeight: 500 }}>Professional Tax (Deduction)</span>
-                                            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#991b1b' }}>-₹{employeeSalary.professional_tax?.toLocaleString() || '0'}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px', backgroundColor: '#ecfdf5' }}>
-                                            <span style={{ fontSize: '1.05rem', color: '#065f46', fontWeight: 700 }}>Net Salary</span>
-                                            <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#059669' }}>
-                                                ₹{(((employeeSalary.basic_salary || 0) + (employeeSalary.hra || 0) + (employeeSalary.allowances || 0)) - (employeeSalary.professional_tax || 0)).toLocaleString()}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* Effective Dates */}
-                                    <div style={{ marginTop: '16px', padding: '12px 16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div>
-                                                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '2px' }}>Effective From</p>
-                                                <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>
-                                                    {employeeSalary.effective_from ? new Date(employeeSalary.effective_from).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
-                                                </p>
-                                            </div>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '2px' }}>Effective To</p>
-                                                <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>
-                                                    {employeeSalary.effective_to ? new Date(employeeSalary.effective_to).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Present'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        {employeeSalary.change_reason && (
-                                            <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
-                                                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '2px' }}>Reason for Change</p>
-                                                <p style={{ fontSize: '0.85rem', fontWeight: 500, color: '#111827' }}>{employeeSalary.change_reason}</p>
-                                            </div>
+                            {/* Employee Info */}
+                            <div style={{ padding: '32px' }}>
+                                {/* Profile Section */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '32px' }}>
+                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 'bold', color: '#075985', overflow: 'hidden' }}>
+                                        {selectedEmployee.avatar_url ? (
+                                            <img src={selectedEmployee.avatar_url} alt={selectedEmployee.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            selectedEmployee.name.charAt(0)
                                         )}
                                     </div>
-                                </div>
-                            )}
-
-                            {/* Performance Metrics */}
-                            <div style={{ marginTop: '48px' }}>
-                                <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Performance Metrics</h5>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                                    <div style={{ padding: '16px', backgroundColor: '#dcfce7', borderRadius: '12px', textAlign: 'center' }}>
-                                        <p style={{ fontSize: '0.75rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>PERFORMANCE</p>
-                                        <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#166534' }}>{selectedEmployee.performance || 'N/A'}</p>
-                                    </div>
-                                    <div style={{ padding: '16px', backgroundColor: '#e0f2fe', borderRadius: '12px', textAlign: 'center' }}>
-                                        <p style={{ fontSize: '0.75rem', color: '#075985', marginBottom: '4px', fontWeight: 600 }}>PROJECTS</p>
-                                        <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#075985' }}>{selectedEmployee.projects || 0}</p>
-                                    </div>
-                                    <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '12px', textAlign: 'center' }}>
-                                        <p style={{ fontSize: '0.75rem', color: '#b45309', marginBottom: '4px', fontWeight: 600 }}>TASKS DONE</p>
-                                        <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#b45309' }}>{selectedEmployee.tasksCompleted || 0}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Footer */}
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
-                            <button
-                                onClick={() => setShowEmployeeModal(false)}
-                                style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600, backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Candidate Details Modal */}
-            {showCandidateModal && selectedCandidate && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ backgroundColor: 'var(--surface)', borderRadius: '16px', width: '650px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' }}>
-                        {/* Header */}
-                        <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Candidate Details</h3>
-                            <button onClick={() => setShowCandidateModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                                <X size={24} />
-                            </button>
-                        </div>
-
-                        {/* Candidate Info */}
-                        <div style={{ padding: '32px' }}>
-                            {/* Profile Section */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '32px' }}>
-                                <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 'bold', color: '#b45309' }}>
-                                    {selectedCandidate.name.charAt(0)}
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                    <h4 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '4px' }}>{selectedCandidate.name}</h4>
-                                    <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '8px' }}>Applied for: {selectedCandidate.role}</p>
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <h4 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '4px' }}>{selectedEmployee.name}</h4>
+                                        <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '8px' }}>
+                                            {selectedEmployee.job_title ? `${selectedEmployee.job_title} (${selectedEmployee.role})` : selectedEmployee.role}
+                                        </p>
                                         <span style={{
                                             padding: '4px 12px',
                                             borderRadius: '12px',
                                             fontSize: '0.75rem',
                                             fontWeight: 600,
-                                            backgroundColor: '#e0f2fe',
-                                            color: '#075985'
+                                            backgroundColor: selectedEmployee.status === 'Active' ? '#dcfce7' : '#fee2e2',
+                                            color: selectedEmployee.status === 'Active' ? '#166534' : '#991b1b'
                                         }}>
-                                            {selectedCandidate.stage}
-                                        </span>
-                                        <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                            Score: <strong style={{ color: selectedCandidate.score > 80 ? 'var(--success)' : 'var(--warning)' }}>{selectedCandidate.score}%</strong>
+                                            {selectedEmployee.status}
                                         </span>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Contact Information */}
-                            <div style={{ marginBottom: '32px' }}>
-                                <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Contact Information</h5>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Mail size={18} color="#b45309" />
-                                        </div>
-                                        <div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Email</p>
-                                            <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedCandidate.email}</p>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Phone size={18} color="#b45309" />
-                                        </div>
-                                        <div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Phone</p>
-                                            <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedCandidate.phone}</p>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <MapPin size={18} color="#b45309" />
-                                        </div>
-                                        <div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Location</p>
-                                            <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedCandidate.location}</p>
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <Calendar size={18} color="#b45309" />
-                                        </div>
-                                        <div>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Applied Date</p>
-                                            <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedCandidate.appliedDate}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Qualifications */}
-                            <div style={{ marginBottom: '32px' }}>
-                                <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Qualifications</h5>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Experience</p>
-                                        <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCandidate.experience}</p>
-                                    </div>
-                                    <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Education</p>
-                                        <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCandidate.education}</p>
-                                    </div>
-                                    <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Expected Salary</p>
-                                        <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCandidate.expectedSalary}</p>
-                                    </div>
-                                    <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Availability</p>
-                                        <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCandidate.availability}</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Skills */}
-                            {selectedCandidate.skills && (
+                                {/* Contact Information */}
                                 <div style={{ marginBottom: '32px' }}>
-                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-primary)' }}>Skills</h5>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                        {selectedCandidate.skills.map((skill, index) => (
-                                            <span key={index} style={{ padding: '6px 16px', borderRadius: '8px', backgroundColor: '#fef3c7', color: '#b45309', fontSize: '0.875rem', fontWeight: 500 }}>
-                                                {skill}
-                                            </span>
-                                        ))}
+                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Contact Information</h5>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Mail size={18} color="#075985" />
+                                            </div>
+                                            <div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Email</p>
+                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.email}</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Phone size={18} color="#075985" />
+                                            </div>
+                                            <div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Phone</p>
+                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.phone || 'N/A'}</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <MapPin size={18} color="#075985" />
+                                            </div>
+                                            <div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Location</p>
+                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.location || 'N/A'}</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Calendar size={18} color="#075985" />
+                                            </div>
+                                            <div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Join Date</p>
+                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.joinDate}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            )}
 
-                            {/* Application Details */}
-                            <div style={{ marginBottom: '24px' }}>
-                                <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Application Details</h5>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                                    <div style={{ padding: '16px', backgroundColor: '#e0f2fe', borderRadius: '12px', textAlign: 'center' }}>
-                                        <p style={{ fontSize: '0.75rem', color: '#075985', marginBottom: '4px', fontWeight: 600 }}>SOURCE</p>
-                                        <p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#075985' }}>{selectedCandidate.source}</p>
+                                {/* Work Information */}
+                                <div style={{ marginBottom: '32px' }}>
+                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Work Information</h5>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Job Title</p>
+                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.job_title || 'N/A'}</p>
+                                        </div>
+                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Employment Type</p>
+                                            <p style={{ fontSize: '1.1rem', fontWeight: 600, textTransform: 'capitalize' }}>
+                                                {selectedEmployee.employment_type ? selectedEmployee.employment_type.replace('_', ' ') : 'N/A'}
+                                            </p>
+                                        </div>
+                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Department</p>
+                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.department_display || 'N/A'}</p>
+                                        </div>
+                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Project</p>
+                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.dept}</p>
+                                        </div>
                                     </div>
-                                    <div style={{ padding: '16px', backgroundColor: '#dcfce7', borderRadius: '12px', textAlign: 'center' }}>
-                                        <p style={{ fontSize: '0.75rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>INTERVIEW SCORE</p>
-                                        <p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#166534' }}>{selectedCandidate.score}%</p>
+                                </div>
+
+                                {/* Compensation Details - Role-based visibility */}
+                                {(userRole === 'executive' || userRole === 'manager') && employeeSalary && (
+                                    <div style={{ marginTop: '32px', paddingTop: '32px', borderTop: '2px solid var(--border)' }}>
+                                        <h5 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '20px', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Compensation Details</h5>
+
+                                        {/* Salary Breakdown */}
+                                        <div style={{ backgroundColor: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
+                                                <span style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: 500 }}>Basic Salary</span>
+                                                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#111827' }}>₹{employeeSalary.basic_salary?.toLocaleString()}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
+                                                <span style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: 500 }}>House Rent Allowance</span>
+                                                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#111827' }}>₹{employeeSalary.hra?.toLocaleString()}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
+                                                <span style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: 500 }}>Other Allowances</span>
+                                                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#111827' }}>₹{employeeSalary.allowances?.toLocaleString() || '0'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f3f4f6' }}>
+                                                <span style={{ fontSize: '1.05rem', color: '#111827', fontWeight: 700 }}>Gross Salary</span>
+                                                <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#6366f1' }}>
+                                                    ₹{((employeeSalary.basic_salary || 0) + (employeeSalary.hra || 0) + (employeeSalary.allowances || 0)).toLocaleString()}
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '2px solid #e5e7eb', backgroundColor: '#fef2f2' }}>
+                                                <span style={{ fontSize: '0.95rem', color: '#991b1b', fontWeight: 500 }}>Professional Tax (Deduction)</span>
+                                                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#991b1b' }}>-₹{employeeSalary.professional_tax?.toLocaleString() || '0'}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px', backgroundColor: '#ecfdf5' }}>
+                                                <span style={{ fontSize: '1.05rem', color: '#065f46', fontWeight: 700 }}>Net Salary</span>
+                                                <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#059669' }}>
+                                                    ₹{(((employeeSalary.basic_salary || 0) + (employeeSalary.hra || 0) + (employeeSalary.allowances || 0)) - (employeeSalary.professional_tax || 0)).toLocaleString()}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Effective Dates */}
+                                        <div style={{ marginTop: '16px', padding: '12px 16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '2px' }}>Effective From</p>
+                                                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>
+                                                        {employeeSalary.effective_from ? new Date(employeeSalary.effective_from).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
+                                                    </p>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '2px' }}>Effective To</p>
+                                                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>
+                                                        {employeeSalary.effective_to ? new Date(employeeSalary.effective_to).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Present'}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {employeeSalary.change_reason && (
+                                                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
+                                                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '2px' }}>Reason for Change</p>
+                                                    <p style={{ fontSize: '0.85rem', fontWeight: 500, color: '#111827' }}>{employeeSalary.change_reason}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Performance Metrics */}
+                                <div style={{ marginTop: '48px' }}>
+                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Performance Metrics</h5>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                                        <div style={{ padding: '16px', backgroundColor: '#dcfce7', borderRadius: '12px', textAlign: 'center' }}>
+                                            <p style={{ fontSize: '0.75rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>PERFORMANCE</p>
+                                            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#166534' }}>{selectedEmployee.performance || 'N/A'}</p>
+                                        </div>
+                                        <div style={{ padding: '16px', backgroundColor: '#e0f2fe', borderRadius: '12px', textAlign: 'center' }}>
+                                            <p style={{ fontSize: '0.75rem', color: '#075985', marginBottom: '4px', fontWeight: 600 }}>PROJECTS</p>
+                                            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#075985' }}>{selectedEmployee.projects || 0}</p>
+                                        </div>
+                                        <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '12px', textAlign: 'center' }}>
+                                            <p style={{ fontSize: '0.75rem', color: '#b45309', marginBottom: '4px', fontWeight: 600 }}>TASKS DONE</p>
+                                            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#b45309' }}>{selectedEmployee.tasksCompleted || 0}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Notes */}
-                            {selectedCandidate.notes && (
-                                <div>
-                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-primary)' }}>Interview Notes</h5>
-                                    <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                                        <p style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>{selectedCandidate.notes}</p>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Footer */}
-                        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                            <button
-                                onClick={() => setShowCandidateModal(false)}
-                                style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600, border: '1px solid var(--border)', backgroundColor: 'var(--background)', color: 'var(--text-primary)', cursor: 'pointer' }}
-                            >
-                                Close
-                            </button>
-                            <button
-                                onClick={() => {
-                                    addToast(`Action for ${selectedCandidate.name}`, 'info');
-                                    setShowCandidateModal(false);
-                                }}
-                                style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600, backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}
-                            >
-                                Schedule Interview
-                            </button>
+                            {/* Footer */}
+                            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
+                                <button
+                                    onClick={() => setShowEmployeeModal(false)}
+                                    style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600, backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
+
+            {/* Candidate Details Modal */}
+            {
+                showCandidateModal && selectedCandidate && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                        <div style={{ backgroundColor: 'var(--surface)', borderRadius: '16px', width: '650px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' }}>
+                            {/* Header */}
+                            <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Candidate Details</h3>
+                                <button onClick={() => setShowCandidateModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            {/* Candidate Info */}
+                            <div style={{ padding: '32px' }}>
+                                {/* Profile Section */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '32px' }}>
+                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 'bold', color: '#b45309' }}>
+                                        {selectedCandidate.name.charAt(0)}
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <h4 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '4px' }}>{selectedCandidate.name}</h4>
+                                        <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '8px' }}>Applied for: {selectedCandidate.role}</p>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            <span style={{
+                                                padding: '4px 12px',
+                                                borderRadius: '12px',
+                                                fontSize: '0.75rem',
+                                                fontWeight: 600,
+                                                backgroundColor: '#e0f2fe',
+                                                color: '#075985'
+                                            }}>
+                                                {selectedCandidate.stage}
+                                            </span>
+                                            <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                                Score: <strong style={{ color: selectedCandidate.score > 80 ? 'var(--success)' : 'var(--warning)' }}>{selectedCandidate.score}%</strong>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Contact Information */}
+                                <div style={{ marginBottom: '32px' }}>
+                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Contact Information</h5>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Mail size={18} color="#b45309" />
+                                            </div>
+                                            <div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Email</p>
+                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedCandidate.email}</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Phone size={18} color="#b45309" />
+                                            </div>
+                                            <div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Phone</p>
+                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedCandidate.phone}</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <MapPin size={18} color="#b45309" />
+                                            </div>
+                                            <div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Location</p>
+                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedCandidate.location}</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <Calendar size={18} color="#b45309" />
+                                            </div>
+                                            <div>
+                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Applied Date</p>
+                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedCandidate.appliedDate}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Qualifications */}
+                                <div style={{ marginBottom: '32px' }}>
+                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Qualifications</h5>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Experience</p>
+                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCandidate.experience}</p>
+                                        </div>
+                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Education</p>
+                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCandidate.education}</p>
+                                        </div>
+                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Expected Salary</p>
+                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCandidate.expectedSalary}</p>
+                                        </div>
+                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Availability</p>
+                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCandidate.availability}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Skills */}
+                                {selectedCandidate.skills && (
+                                    <div style={{ marginBottom: '32px' }}>
+                                        <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-primary)' }}>Skills</h5>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                            {selectedCandidate.skills.map((skill, index) => (
+                                                <span key={index} style={{ padding: '6px 16px', borderRadius: '8px', backgroundColor: '#fef3c7', color: '#b45309', fontSize: '0.875rem', fontWeight: 500 }}>
+                                                    {skill}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Application Details */}
+                                <div style={{ marginBottom: '24px' }}>
+                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Application Details</h5>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                                        <div style={{ padding: '16px', backgroundColor: '#e0f2fe', borderRadius: '12px', textAlign: 'center' }}>
+                                            <p style={{ fontSize: '0.75rem', color: '#075985', marginBottom: '4px', fontWeight: 600 }}>SOURCE</p>
+                                            <p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#075985' }}>{selectedCandidate.source}</p>
+                                        </div>
+                                        <div style={{ padding: '16px', backgroundColor: '#dcfce7', borderRadius: '12px', textAlign: 'center' }}>
+                                            <p style={{ fontSize: '0.75rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>INTERVIEW SCORE</p>
+                                            <p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#166534' }}>{selectedCandidate.score}%</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Notes */}
+                                {selectedCandidate.notes && (
+                                    <div>
+                                        <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-primary)' }}>Interview Notes</h5>
+                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                                            <p style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>{selectedCandidate.notes}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Footer */}
+                            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                                <button
+                                    onClick={() => setShowCandidateModal(false)}
+                                    style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600, border: '1px solid var(--border)', backgroundColor: 'var(--background)', color: 'var(--text-primary)', cursor: 'pointer' }}
+                                >
+                                    Close
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        addToast(`Action for ${selectedCandidate.name}`, 'info');
+                                        setShowCandidateModal(false);
+                                    }}
+                                    style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600, backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}
+                                >
+                                    Schedule Interview
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
             {/* Add Employee Modal */}
             <AddEmployeeModal
                 isOpen={showAddEmployeeModal}
@@ -3024,155 +3030,157 @@ const ModulePage = ({ title, type }) => {
                     }
                 }}
             />
-            {showLeaveDetailsModal && selectedLeaveRequest && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
-                    <div className="no-scrollbar" style={{ backgroundColor: 'var(--surface)', borderRadius: '32px', padding: '40px', width: '1000px', maxWidth: '95%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', border: '1px solid var(--border)', position: 'relative' }}>
-                        {/* Modal Close Button */}
-                        <button
-                            onClick={() => setShowLeaveDetailsModal(false)}
-                            style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--background)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-secondary)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', zIndex: 10 }}
-                        >
-                            <X size={20} />
-                        </button>
-
-                        {/* Header */}
-                        <div style={{ marginBottom: '32px' }}>
-                            <h3 style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: '8px' }}>Leave Request Details</h3>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', fontWeight: '500' }}>Review the details and status of this leave request</p>
-                        </div>
-
-                        {/* Employee Info Card */}
-                        <div style={{ marginBottom: '32px', padding: '24px', backgroundColor: 'var(--background)', borderRadius: '24px', border: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                            <div>
-                                <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Employee</p>
-                                <p style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)' }}>{selectedLeaveRequest.name}</p>
-                            </div>
-                            <div>
-                                <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Leave Type</p>
-                                <p style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)' }}>{selectedLeaveRequest.type}</p>
-                            </div>
-                            <div>
-                                <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Duration</p>
-                                <p style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)' }}>{selectedLeaveRequest.duration}</p>
-                            </div>
-                            <div>
-                                <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Status</p>
-                                <span style={{ padding: '6px 14px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '800', backgroundColor: selectedLeaveRequest.status === 'Approved' ? '#dcfce7' : selectedLeaveRequest.status === 'Pending' ? '#fef3c7' : '#fee2e2', color: selectedLeaveRequest.status === 'Approved' ? '#166534' : selectedLeaveRequest.status === 'Pending' ? '#b45309' : '#991b1b' }}>
-                                    {selectedLeaveRequest.status}
-                                </span>
-                            </div>
-                            <div style={{ gridColumn: 'span 2' }}>
-                                <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Reason</p>
-                                <p style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)', lineHeight: '1.5' }}>{selectedLeaveRequest.reason}</p>
-                            </div>
-                        </div>
-
-                        {/* Tasks During Leave */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
-                            <div style={{ marginBottom: '24px' }}>
-                                <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Briefcase size={20} color="var(--primary)" /> Tasks During Leave Period
-                                </h4>
-                                {employeeTasks.length > 0 ? (
-                                    <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                                            <thead style={{ backgroundColor: '#f8fafc' }}>
-                                                <tr>
-                                                    <th style={{ textAlign: 'left', padding: '12px', color: '#64748b', fontWeight: 700 }}>Task Title</th>
-                                                    <th style={{ textAlign: 'left', padding: '12px', color: '#64748b', fontWeight: 700 }}>Due Date</th>
-                                                    <th style={{ textAlign: 'left', padding: '12px', color: '#64748b', fontWeight: 700 }}>Priority</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {employeeTasks.map(task => (
-                                                    <tr key={task.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                                                        <td style={{ padding: '12px', fontWeight: 600 }}>{task.title}</td>
-                                                        <td style={{ padding: '12px' }}>{new Date(task.due_date).toLocaleDateString()}</td>
-                                                        <td style={{ padding: '12px' }}>
-                                                            <span style={{
-                                                                padding: '2px 8px',
-                                                                borderRadius: '4px',
-                                                                fontSize: '0.7rem',
-                                                                fontWeight: 700,
-                                                                backgroundColor: task.priority === 'High' ? '#fee2e2' : '#f0f9ff',
-                                                                color: task.priority === 'High' ? '#ef4444' : '#0ea5e9'
-                                                            }}>{task.priority || 'Medium'}</span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                ) : (
-                                    <div style={{ padding: '32px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '12px', color: 'var(--text-secondary)' }}>
-                                        No tasks scheduled during this leave period.
-                                    </div>
-                                )}
-                            </div>
-
-                            <div style={{ marginBottom: '24px' }}>
-                                <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Activity size={20} color="var(--primary)" /> Your Pending Tasks
-                                </h4>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {pendingTasks.length > 0 ? pendingTasks.map(task => (
-                                        <div key={task.id} style={{ padding: '12px', borderRadius: '12px', background: '#f8fafc', border: '1px solid var(--border)' }}>
-                                            <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '4px' }}>{task.title}</div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Due: {new Date(task.due_date).toLocaleDateString()}</span>
-                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: task.priority === 'High' ? '#ef4444' : 'var(--primary)', textTransform: 'uppercase' }}>{task.priority}</span>
-                                            </div>
-                                        </div>
-                                    )) : (
-                                        <div style={{ padding: '20px', textAlign: 'center', borderRadius: '12px', background: '#f8fafc', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No pending tasks!</div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Approver Responsibilities */}
-                        <div style={{ marginBottom: '32px', padding: '20px', backgroundColor: '#eff6ff', borderRadius: '16px', border: '1px solid #dbeafe' }}>
-                            <h4 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '16px', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <CheckCircle size={22} /> Approver Responsibilities
-                            </h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                {APPROVER_RESPONSIBILITIES.map((resp, idx) => (
-                                    <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#3b82f6' }}></div>
-                                        <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1e40af' }}>{resp}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Footer */}
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+            {
+                showLeaveDetailsModal && selectedLeaveRequest && (
+                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+                        <div className="no-scrollbar" style={{ backgroundColor: 'var(--surface)', borderRadius: '32px', padding: '40px', width: '1000px', maxWidth: '95%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', border: '1px solid var(--border)', position: 'relative' }}>
+                            {/* Modal Close Button */}
                             <button
                                 onClick={() => setShowLeaveDetailsModal(false)}
-                                style={{ flex: 1, padding: '12px', borderRadius: '12px', fontWeight: 700, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', cursor: 'pointer' }}
+                                style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--background)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-secondary)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', zIndex: 10 }}
                             >
-                                Close Details
+                                <X size={20} />
                             </button>
-                            {selectedLeaveRequest.status === 'Pending' && (
-                                <>
-                                    <button
-                                        onClick={() => { handleAction('Reject', selectedLeaveRequest); setShowLeaveDetailsModal(false); }}
-                                        style={{ flex: 1, padding: '12px', borderRadius: '12px', fontWeight: 700, backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', cursor: 'pointer' }}
-                                    >
-                                        Reject Request
-                                    </button>
-                                    <button
-                                        onClick={() => { handleAction('Approve', selectedLeaveRequest); setShowLeaveDetailsModal(false); }}
-                                        style={{ flex: 1, padding: '12px', borderRadius: '12px', fontWeight: 700, backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}
-                                    >
-                                        Approve Request
-                                    </button>
-                                </>
-                            )}
+
+                            {/* Header */}
+                            <div style={{ marginBottom: '32px' }}>
+                                <h3 style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: '8px' }}>Leave Request Details</h3>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', fontWeight: '500' }}>Review the details and status of this leave request</p>
+                            </div>
+
+                            {/* Employee Info Card */}
+                            <div style={{ marginBottom: '32px', padding: '24px', backgroundColor: 'var(--background)', borderRadius: '24px', border: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                                <div>
+                                    <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Employee</p>
+                                    <p style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)' }}>{selectedLeaveRequest.name}</p>
+                                </div>
+                                <div>
+                                    <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Leave Type</p>
+                                    <p style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)' }}>{selectedLeaveRequest.type}</p>
+                                </div>
+                                <div>
+                                    <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Duration</p>
+                                    <p style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)' }}>{selectedLeaveRequest.duration}</p>
+                                </div>
+                                <div>
+                                    <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Status</p>
+                                    <span style={{ padding: '6px 14px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '800', backgroundColor: selectedLeaveRequest.status === 'Approved' ? '#dcfce7' : selectedLeaveRequest.status === 'Pending' ? '#fef3c7' : '#fee2e2', color: selectedLeaveRequest.status === 'Approved' ? '#166534' : selectedLeaveRequest.status === 'Pending' ? '#b45309' : '#991b1b' }}>
+                                        {selectedLeaveRequest.status}
+                                    </span>
+                                </div>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Reason</p>
+                                    <p style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)', lineHeight: '1.5' }}>{selectedLeaveRequest.reason}</p>
+                                </div>
+                            </div>
+
+                            {/* Tasks During Leave */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+                                <div style={{ marginBottom: '24px' }}>
+                                    <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Briefcase size={20} color="var(--primary)" /> Tasks During Leave Period
+                                    </h4>
+                                    {employeeTasks.length > 0 ? (
+                                        <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                                <thead style={{ backgroundColor: '#f8fafc' }}>
+                                                    <tr>
+                                                        <th style={{ textAlign: 'left', padding: '12px', color: '#64748b', fontWeight: 700 }}>Task Title</th>
+                                                        <th style={{ textAlign: 'left', padding: '12px', color: '#64748b', fontWeight: 700 }}>Due Date</th>
+                                                        <th style={{ textAlign: 'left', padding: '12px', color: '#64748b', fontWeight: 700 }}>Priority</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {employeeTasks.map(task => (
+                                                        <tr key={task.id} style={{ borderTop: '1px solid #e2e8f0' }}>
+                                                            <td style={{ padding: '12px', fontWeight: 600 }}>{task.title}</td>
+                                                            <td style={{ padding: '12px' }}>{new Date(task.due_date).toLocaleDateString()}</td>
+                                                            <td style={{ padding: '12px' }}>
+                                                                <span style={{
+                                                                    padding: '2px 8px',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '0.7rem',
+                                                                    fontWeight: 700,
+                                                                    backgroundColor: task.priority === 'High' ? '#fee2e2' : '#f0f9ff',
+                                                                    color: task.priority === 'High' ? '#ef4444' : '#0ea5e9'
+                                                                }}>{task.priority || 'Medium'}</span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: '32px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '12px', color: 'var(--text-secondary)' }}>
+                                            No tasks scheduled during this leave period.
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{ marginBottom: '24px' }}>
+                                    <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Activity size={20} color="var(--primary)" /> Your Pending Tasks
+                                    </h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        {pendingTasks.length > 0 ? pendingTasks.map(task => (
+                                            <div key={task.id} style={{ padding: '12px', borderRadius: '12px', background: '#f8fafc', border: '1px solid var(--border)' }}>
+                                                <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '4px' }}>{task.title}</div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Due: {new Date(task.due_date).toLocaleDateString()}</span>
+                                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: task.priority === 'High' ? '#ef4444' : 'var(--primary)', textTransform: 'uppercase' }}>{task.priority}</span>
+                                                </div>
+                                            </div>
+                                        )) : (
+                                            <div style={{ padding: '20px', textAlign: 'center', borderRadius: '12px', background: '#f8fafc', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No pending tasks!</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Approver Responsibilities */}
+                            <div style={{ marginBottom: '32px', padding: '20px', backgroundColor: '#eff6ff', borderRadius: '16px', border: '1px solid #dbeafe' }}>
+                                <h4 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '16px', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <CheckCircle size={22} /> Approver Responsibilities
+                                </h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    {APPROVER_RESPONSIBILITIES.map((resp, idx) => (
+                                        <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#3b82f6' }}></div>
+                                            <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1e40af' }}>{resp}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Footer */}
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                                <button
+                                    onClick={() => setShowLeaveDetailsModal(false)}
+                                    style={{ flex: 1, padding: '12px', borderRadius: '12px', fontWeight: 700, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', cursor: 'pointer' }}
+                                >
+                                    Close Details
+                                </button>
+                                {selectedLeaveRequest.status === 'Pending' && (
+                                    <>
+                                        <button
+                                            onClick={() => { handleAction('Reject', selectedLeaveRequest); setShowLeaveDetailsModal(false); }}
+                                            style={{ flex: 1, padding: '12px', borderRadius: '12px', fontWeight: 700, backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', cursor: 'pointer' }}
+                                        >
+                                            Reject Request
+                                        </button>
+                                        <button
+                                            onClick={() => { handleAction('Approve', selectedLeaveRequest); setShowLeaveDetailsModal(false); }}
+                                            style={{ flex: 1, padding: '12px', borderRadius: '12px', fontWeight: 700, backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}
+                                        >
+                                            Approve Request
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Add Policy Modal */}
             <AddPolicyModal
