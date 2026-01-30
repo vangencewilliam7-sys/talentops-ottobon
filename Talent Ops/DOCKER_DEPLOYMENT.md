@@ -17,6 +17,10 @@ cd "Talent Ops"
 
 ### 2. Configure Environment Variables
 
+**IMPORTANT:** You **MUST** create the `.env` file **BEFORE** building the Docker image.
+
+Vite requires environment variables at **build time**, not runtime. If you build without the `.env` file, you'll get a white screen with "undefined" errors.
+
 Copy the example environment file and fill in your values:
 
 ```bash
