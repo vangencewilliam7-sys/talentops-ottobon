@@ -162,11 +162,12 @@ export const calculateLOPDays = (totalWorkingDays, presentDays, leaveDays) => {
 };
 
 /**
- * Calculate LOP amount
+ * Calculate LOP amount based on Gross Salary
  */
-export const calculateLOPAmount = (basicSalary, totalWorkingDays, lopDays) => {
-    if (lopDays === 0 || totalWorkingDays === 0) return 0;
-    const perDaySalary = basicSalary / totalWorkingDays;
+export const calculateLOPAmount = (basicSalary, hra, allowances, totalDays, lopDays) => {
+    if (lopDays === 0 || totalDays === 0) return 0;
+    const grossSalary = Number(basicSalary) + Number(hra) + Number(allowances);
+    const perDaySalary = grossSalary / totalDays;
     return Math.round(perDaySalary * lopDays);
 };
 
@@ -235,14 +236,17 @@ export const generatePayrollRecord = async (employeeId, month, year, additionalD
             throw new Error('No active salary data found for employee');
         }
 
-        // Calculate working days, present days, and leave days
+        // Calculate working days (M-F) for LOP days calculation
+        // but use total calendar days for the per-day salary divisor
         const totalWorkingDays = getWorkingDaysInMonth(month, year);
+        const totalCalendarDays = getDaysInMonth(month, year);
         const presentDays = await calculatePresentDays(employeeId, month, year, orgId);
         const leaveDays = await calculateApprovedLeaveDays(employeeId, month, year, orgId);
 
-        // Calculate LOP
+        // Calculate LOP using working days pool
         const lopDays = calculateLOPDays(totalWorkingDays, presentDays, leaveDays);
-        const lopAmount = calculateLOPAmount(financeData.basic_salary, totalWorkingDays, lopDays);
+        // Use total calendar days as divisor for dynamic per-day rate
+        const lopAmount = calculateLOPAmount(financeData.basic_salary, financeData.hra, financeData.allowances, totalCalendarDays, lopDays);
 
         // Calculate net salary
         const netSalary = calculateNetSalary(

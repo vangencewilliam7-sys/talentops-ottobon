@@ -5,7 +5,7 @@ import {
     calculatePresentDays,
     calculateLeaveDays
 } from '../../../utils/payslipHelpers';
-import { formatMonthYear, getWorkingDaysInMonth } from '../../../utils/payrollCalculations';
+import { formatMonthYear, getWorkingDaysInMonth, getDaysInMonth } from '../../../utils/payrollCalculations';
 import { generatePayslipPDF, uploadPayslipPDF } from '../../../utils/pdfGenerator';
 import { X, FileText, Plus, DollarSign } from 'lucide-react';
 import PayslipPreview from './PayslipPreview';
@@ -387,16 +387,16 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId, savedCompaniesPro
             if (payroll) {
                 setPresentDays(payroll.present_days || 0);
                 setLeaveDays(payroll.leave_days || 0);
-                setTotalWorkingDays(payroll.total_working_days || getWorkingDaysInMonth(parseInt(selectedMonth), selectedYear));
+                setTotalWorkingDays(payroll.total_working_days || getDaysInMonth(parseInt(selectedMonth), selectedYear));
             } else {
                 // Calculate attendance as fallback
                 const present = await calculatePresentDays(selectedEmployee, parseInt(selectedMonth), selectedYear, orgId);
                 const leaves = await calculateLeaveDays(selectedEmployee, parseInt(selectedMonth), selectedYear, orgId);
-                const workingDays = getWorkingDaysInMonth(parseInt(selectedMonth), selectedYear);
+                const totalDays = getDaysInMonth(parseInt(selectedMonth), selectedYear);
 
                 setPresentDays(present);
                 setLeaveDays(leaves);
-                setTotalWorkingDays(workingDays);
+                setTotalWorkingDays(totalDays);
             }
         } catch (err) {
             console.error('Error fetching data:', err);
@@ -428,11 +428,12 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId, savedCompaniesPro
         try {
             // Prepare payslip data with explicit number conversions to prevent NaN errors
             const monthStr = formatMonthYear(parseInt(selectedMonth), selectedYear);
-            // Calculate LOP amount - Use totalWorkingDays for consistency with payroll calculation
-            const workingDaysForCalc = totalWorkingDays || 30; // Fallback to 30 if 0
-            const lopAmount = payrollData.lop_days > 0
-                ? Math.round((payrollData.basic_salary / workingDaysForCalc) * payrollData.lop_days)
-                : 0;
+            // Use LOP amount directly from payroll data, or calculate if not available (for older records)
+            const lopAmount = payrollData.lop_amount
+                ? Number(payrollData.lop_amount)
+                : (payrollData.lop_days > 0)
+                    ? Math.round(((Number(payrollData.basic_salary) + Number(payrollData.hra) + Number(payrollData.allowances)) / (totalWorkingDays || getDaysInMonth(parseInt(selectedMonth), selectedYear))) * payrollData.lop_days)
+                    : 0;
 
             const payslipData = {
                 payslipNumber,
@@ -576,11 +577,13 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId, savedCompaniesPro
         ? (payrollData.basic_salary || 0) + (payrollData.hra || 0) + (payrollData.allowances || 0)
         : 0;
 
-    // Calculate LOP amount for display and total deductions
-    const previewWorkingDays = totalWorkingDays || 30; // Fallback to 30 if 0
-    const previewLopAmount = payrollData && payrollData.lop_days > 0
-        ? Math.round((payrollData.basic_salary / previewWorkingDays) * payrollData.lop_days)
-        : 0;
+
+    // Use LOP amount directly from payroll data, or calculate if not available (for older records)
+    const previewLopAmount = payrollData && payrollData.lop_amount
+        ? Number(payrollData.lop_amount)
+        : (payrollData && payrollData.lop_days > 0)
+            ? Math.round(((Number(payrollData.basic_salary) + Number(payrollData.hra) + Number(payrollData.allowances)) / (totalWorkingDays || getDaysInMonth(parseInt(selectedMonth), selectedYear))) * payrollData.lop_days)
+            : 0;
 
     const totalDeductions = payrollData
         ? (payrollData.deductions || 0) + (payrollData.professional_tax || 0) + previewLopAmount

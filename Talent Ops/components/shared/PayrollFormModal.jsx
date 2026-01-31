@@ -130,14 +130,18 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                     continue;
                 }
 
-                // Calculate attendance and leaves
-                const totalWorkingDays = getWorkingDaysInMonth(parseInt(selectedMonth), selectedYear);
+                // Calculate working days (M-F pool) and total calendar days (salary divisor)
+                const workingDaysPool = getWorkingDaysInMonth(parseInt(selectedMonth), selectedYear);
+                const totalCalendarDays = getDaysInMonth(parseInt(selectedMonth), selectedYear);
+
                 const presentDays = await calculatePresentDays(employeeId, parseInt(selectedMonth), selectedYear, orgId);
                 const leaveDays = await calculateApprovedLeaveDays(employeeId, parseInt(selectedMonth), selectedYear, orgId);
 
-                // Calculate LOP
-                const lopDays = calculateLOPDays(totalWorkingDays, presentDays, leaveDays);
-                const lopAmount = calculateLOPAmount(financeData.basic_salary, totalWorkingDays, lopDays);
+                // Calculate LOP using the Mon-Fri working days pool
+                const lopDays = calculateLOPDays(workingDaysPool, presentDays, leaveDays);
+
+                // Use total calendar days as divisor for dynamic per-day amount
+                const lopAmount = calculateLOPAmount(financeData.basic_salary, financeData.hra, financeData.allowances, totalCalendarDays, lopDays);
 
                 // Add to preview with default deductions
                 preview.push({
@@ -147,7 +151,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                     hra: financeData.hra,
                     allowances: financeData.allowances,
                     professional_tax: financeData.professional_tax || 0,
-                    total_working_days: totalWorkingDays,
+                    total_working_days: totalCalendarDays, // Show total days in month as the basis
                     present_days: presentDays,
                     leave_days: leaveDays,
                     lop_days: lopDays,
@@ -208,7 +212,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         setPayrollPreview(prev => prev.map(item => {
             if (item.employee_id === employeeId) {
                 const lopDays = Math.max(0, parseFloat(value) || 0);
-                const lopAmount = calculateLOPAmount(item.basic_salary, item.total_working_days, lopDays);
+                const lopAmount = calculateLOPAmount(item.basic_salary, item.hra, item.allowances, item.total_working_days, lopDays);
 
                 return {
                     ...item,
@@ -232,20 +236,13 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         setPayrollPreview(prev => prev.map(item => {
             if (item.employee_id === employeeId) {
                 const workingDays = Math.max(1, parseInt(value) || 1);
-                const lopAmount = calculateLOPAmount(item.basic_salary, workingDays, item.lop_days);
+                // LOP amount stays constant - always based on calendar days in month
+                // Only update the working days field, don't recalculate LOP
 
                 return {
                     ...item,
-                    total_working_days: workingDays,
-                    lop_amount: lopAmount,
-                    net_salary: calculateNetSalary(
-                        item.basic_salary,
-                        item.hra,
-                        item.allowances,
-                        item.professional_tax,
-                        item.additional_deductions,
-                        lopAmount
-                    )
+                    total_working_days: workingDays
+                    // LOP amount and net salary remain unchanged
                 };
             }
             return item;
@@ -256,9 +253,10 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         setPayrollPreview(prev => prev.map(item => {
             if (item.employee_id === employeeId) {
                 const presentDays = Math.max(0, parseInt(value) || 0);
+                // Present days is informational only - doesn't affect LOP calculation
                 return {
                     ...item,
-                    present_days: Math.min(presentDays, item.total_working_days)
+                    present_days: presentDays
                 };
             }
             return item;
@@ -269,6 +267,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         setPayrollPreview(prev => prev.map(item => {
             if (item.employee_id === employeeId) {
                 const leaveDays = Math.max(0, parseInt(value) || 0);
+                // Leave days is informational only - doesn't affect LOP calculation
                 return {
                     ...item,
                     leave_days: leaveDays
