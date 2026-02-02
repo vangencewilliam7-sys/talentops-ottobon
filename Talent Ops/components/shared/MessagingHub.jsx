@@ -44,6 +44,40 @@ const MessagingHub = () => {
     const [currentMembers, setCurrentMembers] = useState([]);
     const [hoveredMessageId, setHoveredMessageId] = useState(null);
 
+    // Helper to render message content with clickable links
+    const renderMessageContent = (content) => {
+        if (!content) return null;
+
+        // URL regex pattern
+        const urlPattern = /(https?:\/\/[^\s]+)/g;
+
+        // Split content by URL pattern
+        const parts = content.split(urlPattern);
+
+        return parts.map((part, i) => {
+            if (part.match(urlPattern)) {
+                return (
+                    <a
+                        key={i}
+                        href={part}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="message-link"
+                        style={{
+                            color: '#3b82f6', // Clear blue color as requested
+                            textDecoration: 'underline',
+                            fontWeight: '500',
+                            wordBreak: 'break-all'
+                        }}
+                    >
+                        {part}
+                    </a>
+                );
+            }
+            return part;
+        });
+    };
+
     const getSenderName = (senderId) => {
         const user = orgUsers.find(u => u.id === senderId);
         return user?.full_name || user?.email || 'Unknown';
@@ -237,13 +271,14 @@ const MessagingHub = () => {
                             // Get other user's profile
                             const { data: profile } = await supabase
                                 .from('profiles')
-                                .select('full_name, email')
+                                .select('full_name, email, avatar_url')
                                 .eq('id', otherUserId)
                                 .single();
 
                             return {
                                 ...conv,
                                 name: profile?.full_name || profile?.email || 'User',
+                                avatar_url: profile?.avatar_url,
                                 otherUserId: otherUserId
                             };
                         }
@@ -842,7 +877,23 @@ const MessagingHub = () => {
                                     onClick={() => loadMessages(conv)}
                                 >
                                     <div className="conversation-avatar">
-                                        {conv.type === 'dm' ? <User size={20} /> : conv.type === 'team' ? <Users size={20} /> : <Building2 size={20} />}
+                                        {conv.type === 'dm' ? (
+                                            conv.avatar_url ? (
+                                                <img
+                                                    src={conv.avatar_url}
+                                                    alt={conv.name}
+                                                    style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                                                />
+                                            ) : (
+                                                <div className="avatar-placeholder">
+                                                    {(conv.name?.[0] || '?').toUpperCase()}
+                                                </div>
+                                            )
+                                        ) : conv.type === 'team' ? (
+                                            <Users size={20} />
+                                        ) : (
+                                            <Building2 size={20} />
+                                        )}
                                     </div>
                                     <div className="conversation-info">
                                         <div className="conversation-name">
@@ -1001,7 +1052,7 @@ const MessagingHub = () => {
 
                                                     <div className="message-content" style={{ fontStyle: msg.is_deleted ? 'italic' : 'normal', color: msg.is_deleted ? '#94a3b8' : 'inherit' }}>
                                                         {msg.is_deleted && <Trash2 size={12} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />}
-                                                        {msg.content}
+                                                        {msg.is_deleted ? msg.content : renderMessageContent(msg.content)}
                                                     </div>
                                                     {msg.attachments && msg.attachments.length > 0 && (
                                                         <div className="message-attachments">

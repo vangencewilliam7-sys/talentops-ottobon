@@ -215,6 +215,7 @@
     font-weight: 600;
     font-size: 16px;
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
+    overflow: hidden;
 }
 
 .conversation-avatar svg,
@@ -360,10 +361,17 @@
 }
 
 .message.sent .message-bubble {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-    color: white;
+    background: #1e293b;
+    /* Specific dark blue from user's 2nd picture */
+    color: #ffffff;
     border-bottom-right-radius: 6px;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.message.sent .message-link {
+    color: #3b82f6 !important;
+    /* Vibrant blue as requested */
 }
 
 .message.received .message-bubble {
@@ -757,6 +765,7 @@
     font-weight: 600;
     font-size: 18px;
     text-transform: uppercase;
+    border-radius: 50%;
 }
 
 .user-info {
