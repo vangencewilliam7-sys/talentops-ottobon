@@ -5,14 +5,14 @@ import {
     calculatePresentDays,
     calculateLeaveDays
 } from '../../../utils/payslipHelpers';
-import { formatMonthYear } from '../../../utils/payrollCalculations';
+import { formatMonthYear, getWorkingDaysInMonth, getDaysInMonth } from '../../../utils/payrollCalculations';
 import { generatePayslipPDF, uploadPayslipPDF } from '../../../utils/pdfGenerator';
 import { X, FileText, Plus, DollarSign } from 'lucide-react';
 import PayslipPreview from './PayslipPreview';
 import PayrollFormModal from '../PayrollFormModal';
 import './PayslipFormModal.css';
 
-const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
+const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId, savedCompaniesProp = [], employeesProp = [], onRefreshCompanies }) => {
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -27,32 +27,110 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
     const [payslipNumber, setPayslipNumber] = useState('');
 
     // Company details state
-    const [companyName, setCompanyName] = useState('Talent Ops');
+    const [companyName, setCompanyName] = useState('');
     const [companyAddress, setCompanyAddress] = useState('');
     const [companyEmail, setCompanyEmail] = useState('');
     const [companyPhone, setCompanyPhone] = useState('');
     const [logoFile, setLogoFile] = useState(null);
     const [logoPreview, setLogoPreview] = useState('');
+    const [savedCompanies, setSavedCompanies] = useState([]);
+    const [selectedCompanyId, setSelectedCompanyId] = useState('');
+
+    // Search and Status
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [existingPayslips, setExistingPayslips] = useState(new Set());
+
+    const handleCompanySelect = (e) => {
+        const companyId = e.target.value;
+        setSelectedCompanyId(companyId);
+
+        if (companyId) {
+            const company = savedCompanies.find(c => c.id === companyId);
+            if (company) {
+                setCompanyName(company.company_name);
+                setCompanyAddress(company.company_address || '');
+                setCompanyEmail(company.company_email || '');
+                setCompanyPhone(company.company_phone || '');
+                setLogoPreview(company.logo_url || '');
+            }
+        }
+    };
 
     // Payslip data
     const [employeeData, setEmployeeData] = useState(null);
+    const [financeData, setFinanceData] = useState(null);
     const [payrollData, setPayrollData] = useState(null);
     const [presentDays, setPresentDays] = useState(0);
     const [leaveDays, setLeaveDays] = useState(0);
+    const [totalWorkingDays, setTotalWorkingDays] = useState(0);
 
     useEffect(() => {
         if (isOpen) {
             setLoading(false); // Reset loading state when modal opens
-            fetchEmployees();
+            // fetchEmployees(); // Removed to improve performance (lifed to parent)
+            // fetchSavedCompanies(); // No longer needed, passed via props
             generateNewPayslipNumber(orgId);
+
+            // Reset Form Fields to prevent stale state
+            setCompanyName('');
+            setCompanyAddress('');
+            setCompanyEmail('');
+            setCompanyPhone('');
+            setSelectedCompanyId('');
+            setLogoPreview('');
+            setLogoFile(null);
+            setSelectedEmployee('');
+            setSelectedMonth('');
+            setSearchTerm('');
+            setIsDropdownOpen(false);
         }
     }, [isOpen, orgId]);
+
+    // Sync saved companies from props
+    useEffect(() => {
+        if (savedCompaniesProp) {
+            setSavedCompanies(savedCompaniesProp);
+        }
+    }, [savedCompaniesProp]);
+
+    // Sync employees from props
+    useEffect(() => {
+        if (employeesProp) {
+            setEmployees(employeesProp);
+        }
+    }, [employeesProp]);
 
     useEffect(() => {
         if (selectedEmployee && selectedMonth) {
             fetchEmployeeData();
         }
     }, [selectedEmployee, selectedMonth, selectedYear]);
+
+    useEffect(() => {
+        if (selectedMonth && selectedYear) {
+            fetchExistingPayslips();
+        }
+    }, [selectedMonth, selectedYear, orgId]);
+
+    const fetchExistingPayslips = async () => {
+        try {
+            const monthStr = formatMonthYear(parseInt(selectedMonth), selectedYear);
+            const { data, error } = await supabase
+                .from('payslips')
+                .select('employee_id')
+                .eq('month', monthStr)
+                .eq('org_id', orgId);
+
+            if (error) throw error;
+
+            if (data) {
+                setExistingPayslips(new Set(data.map(p => p.employee_id)));
+            }
+        } catch (err) {
+            console.error('Error fetching existing payslips:', err);
+        }
+    };
 
     const fetchEmployees = async () => {
         try {
@@ -97,6 +175,92 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         }
     };
 
+    const fetchSavedCompanies = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('company_details')
+                .select('*')
+                .eq('org_id', orgId)
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+            if (data) setSavedCompanies(data);
+        } catch (err) {
+            console.error('Error fetching saved companies:', err);
+        }
+    };
+
+    const saveCompanyDetails = async () => {
+        try {
+            let logoUrl = logoPreview;
+
+            // Upload logo if new file selected
+            if (logoFile) {
+                const fileExt = logoFile.name.split('.').pop();
+                const fileName = `${Date.now()}.${fileExt}`;
+                const filePath = `${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('company-logos')
+                    .upload(filePath, logoFile);
+
+                if (uploadError) {
+                    if (uploadError.statusCode === "404") {
+                        // Bucket might not exist, try creating or using default?
+                        console.warn("Bucket 'company-logos' not found. Skipping persistent logo upload.");
+                    } else {
+                        throw uploadError;
+                    }
+                } else {
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('company-logos')
+                        .getPublicUrl(filePath);
+                    logoUrl = publicUrl;
+                }
+            }
+
+            // Upsert company details
+            const companyData = {
+                company_name: companyName,
+                company_address: companyAddress,
+                company_email: companyEmail,
+                company_phone: companyPhone,
+                company_website: '',
+                logo_url: logoUrl,
+                org_id: orgId,
+                updated_at: new Date().toISOString()
+            };
+
+            // Check if company exists by name or ID
+            let match = null;
+            if (selectedCompanyId) {
+                match = savedCompanies.find(c => c.id === selectedCompanyId);
+            } else {
+                match = savedCompanies.find(c => c.company_name.toLowerCase() === companyName.toLowerCase());
+            }
+
+            if (match) {
+                // Update
+                await supabase
+                    .from('company_details')
+                    .update(companyData)
+                    .eq('id', match.id);
+            } else {
+                // Insert
+                await supabase
+                    .from('company_details')
+                    .insert(companyData);
+            }
+
+            // Refresh list
+            if (onRefreshCompanies) onRefreshCompanies();
+
+        } catch (err) {
+            console.error('Error saving company details:', err);
+            // Don't block payslip generation if company save fails
+        }
+    };
+
     const generateNewPayslipNumber = async (oId) => {
         console.log('🔢 Generating new payslip number...');
         const number = await generatePayslipNumber(oId);
@@ -108,22 +272,53 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         const file = e.target.files[0];
         if (file) {
             // Validate file type
-            const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
+            const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp'];
             if (!validTypes.includes(file.type)) {
-                setError('Please upload a valid image file (PNG, JPG, GIF)');
+                setError('Please upload a valid image file');
                 return;
             }
 
-            // Validate file size (max 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                setError('File size must be less than 5MB');
-                return;
-            }
-
-            setLogoFile(file);
             const reader = new FileReader();
-            reader.onloadend = () => {
-                setLogoPreview(reader.result);
+            reader.onload = (readerEvent) => {
+                const img = new Image();
+                img.onload = () => {
+                    // Resize logic
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 300;
+                    const MAX_HEIGHT = 300;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // Compress to JPEG
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                    setLogoPreview(dataUrl); // Instant preview (compressed)
+
+                    // Convert to Blob for upload
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            const newFile = new File([blob], "logo.jpg", { type: 'image/jpeg' });
+                            setLogoFile(newFile); // Upload compressed file
+                        }
+                    }, 'image/jpeg', 0.8);
+                };
+                img.src = readerEvent.target.result;
             };
             reader.readAsDataURL(file);
             setError('');
@@ -145,6 +340,18 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
 
             if (empError) throw empError;
             setEmployeeData(employee);
+
+            // Fetch employee finance for additional details (like join date)
+            const { data: financeData } = await supabase
+                .from('employee_finance')
+                .select('date_of_joining')
+                .eq('employee_id', selectedEmployee)
+                .single();
+
+            if (financeData) {
+                setFinanceData(financeData);
+            }
+
 
             // Fetch payroll data
             const monthStr = formatMonthYear(parseInt(selectedMonth), selectedYear);
@@ -176,12 +383,21 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                 setError('');
             }
 
-            // Calculate attendance
-            const present = await calculatePresentDays(selectedEmployee, parseInt(selectedMonth), selectedYear, orgId);
-            const leaves = await calculateLeaveDays(selectedEmployee, parseInt(selectedMonth), selectedYear, orgId);
+            // Determine attendance from payroll data if available, otherwise calculate
+            if (payroll) {
+                setPresentDays(payroll.present_days || 0);
+                setLeaveDays(payroll.leave_days || 0);
+                setTotalWorkingDays(payroll.total_working_days || getDaysInMonth(parseInt(selectedMonth), selectedYear));
+            } else {
+                // Calculate attendance as fallback
+                const present = await calculatePresentDays(selectedEmployee, parseInt(selectedMonth), selectedYear, orgId);
+                const leaves = await calculateLeaveDays(selectedEmployee, parseInt(selectedMonth), selectedYear, orgId);
+                const totalDays = getDaysInMonth(parseInt(selectedMonth), selectedYear);
 
-            setPresentDays(present);
-            setLeaveDays(leaves);
+                setPresentDays(present);
+                setLeaveDays(leaves);
+                setTotalWorkingDays(totalDays);
+            }
         } catch (err) {
             console.error('Error fetching data:', err);
             setError(err.message || 'Failed to fetch employee data');
@@ -206,27 +422,40 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         setLoading(true);
         setError('');
 
+        // Save company details in background
+        saveCompanyDetails();
+
         try {
             // Prepare payslip data with explicit number conversions to prevent NaN errors
             const monthStr = formatMonthYear(parseInt(selectedMonth), selectedYear);
+            // Use LOP amount directly from payroll data, or calculate if not available (for older records)
+            const lopAmount = payrollData.lop_amount
+                ? Number(payrollData.lop_amount)
+                : (payrollData.lop_days > 0)
+                    ? Math.round(((Number(payrollData.basic_salary) + Number(payrollData.hra) + Number(payrollData.allowances)) / (totalWorkingDays || getDaysInMonth(parseInt(selectedMonth), selectedYear))) * payrollData.lop_days)
+                    : 0;
+
             const payslipData = {
                 payslipNumber,
-                employeeId: selectedEmployee,
+                employeeId: employeeData.id || selectedEmployee,
                 employeeName: employeeData.full_name || 'N/A',
                 employeeEmail: employeeData.email || 'N/A',
                 employeeRole: employeeData.role || 'N/A',
                 employeeLocation: employeeData.location || 'N/A',
+                dateOfJoining: employeeData.join_date || employeeData.date_of_joining || (financeData && financeData.date_of_joining) || employeeData.created_at || 'N/A',
                 month: monthStr,
                 // Ensure all numeric fields are valid numbers, never null/undefined/NaN
                 basicSalary: Number(payrollData.basic_salary) || 0,
                 hra: Number(payrollData.hra) || 0,
                 allowances: Number(payrollData.allowances) || 0,
+                professionalTax: Number(payrollData.professional_tax) || 0,
                 deductions: Number(payrollData.deductions) || 0,
                 lopDays: Number(payrollData.lop_days) || 0,
-                lopAmount: 0,
+                lopAmount: lopAmount,
                 netSalary: Number(payrollData.net_salary) || 0,
                 presentDays: Number(presentDays) || 0,
-                leaveDays: Number(leaveDays) || 0
+                leaveDays: Number(leaveDays) || 0,
+                totalWorkingDays: Number(totalWorkingDays) || 0
             };
 
             // Company settings - use form values
@@ -348,28 +577,43 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         ? (payrollData.basic_salary || 0) + (payrollData.hra || 0) + (payrollData.allowances || 0)
         : 0;
 
-    const totalDeductions = payrollData ? (payrollData.deductions || 0) : 0;
+
+    // Use LOP amount directly from payroll data, or calculate if not available (for older records)
+    const previewLopAmount = payrollData && payrollData.lop_amount
+        ? Number(payrollData.lop_amount)
+        : (payrollData && payrollData.lop_days > 0)
+            ? Math.round(((Number(payrollData.basic_salary) + Number(payrollData.hra) + Number(payrollData.allowances)) / (totalWorkingDays || getDaysInMonth(parseInt(selectedMonth), selectedYear))) * payrollData.lop_days)
+            : 0;
+
+    const totalDeductions = payrollData
+        ? (payrollData.deductions || 0) + (payrollData.professional_tax || 0) + previewLopAmount
+        : 0;
 
     if (!isOpen) return null;
 
     // Prepare payslip data for preview - same data validation as handleSavePayslip
+    // LOP Amount is already calculated above as previewLopAmount
+
     const payslipDataForPreview = payrollData && employeeData ? {
         payslipNumber,
-        employeeId: selectedEmployee,
+        employeeId: employeeData.id || selectedEmployee,
         employeeName: employeeData.full_name || 'N/A',
         employeeEmail: employeeData.email || 'N/A',
         employeeRole: employeeData.role || 'N/A',
         employeeLocation: employeeData.location || 'N/A',
+        dateOfJoining: employeeData.join_date || employeeData.date_of_joining || (financeData && financeData.date_of_joining) || employeeData.created_at || 'N/A',
         month: formatMonthYear(parseInt(selectedMonth), selectedYear),
         basicSalary: Number(payrollData.basic_salary) || 0,
         hra: Number(payrollData.hra) || 0,
         allowances: Number(payrollData.allowances) || 0,
+        professionalTax: Number(payrollData.professional_tax) || 0,
         deductions: Number(payrollData.deductions) || 0,
         lopDays: Number(payrollData.lop_days) || 0,
-        lopAmount: 0,
+        lopAmount: previewLopAmount,
         netSalary: Number(payrollData.net_salary) || 0,
         presentDays: Number(presentDays) || 0,
-        leaveDays: Number(leaveDays) || 0
+        leaveDays: Number(leaveDays) || 0,
+        totalWorkingDays: Number(totalWorkingDays) || 0
     } : null;
 
     const companySettings = {
@@ -407,15 +651,15 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         }} onClick={handleClose}>
             <div
                 style={{
-                    maxWidth: '1200px',
-                    width: '95%',
+                    maxWidth: '1600px',
+                    width: '98%',
                     backgroundColor: 'white',
                     borderRadius: '28px',
                     overflow: 'hidden',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
                     display: 'flex',
                     flexDirection: 'column',
-                    maxHeight: '90vh'
+                    maxHeight: '95vh'
                 }}
                 onClick={e => e.stopPropagation()}
             >
@@ -454,7 +698,7 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                     </button>
                 </div>
 
-                <div style={{ padding: '32px', overflowY: 'auto' }}>
+                <div style={{ padding: '32px', overflowY: 'auto', flex: 1 }}>
                     {/* Error Alert with Action */}
                     {error && (
                         <div style={{
@@ -523,12 +767,19 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                         />
                                     </div>
 
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative' }}>
                                         <label style={{ fontSize: '0.85rem', fontWeight: 800, color: '#475569' }}>Target Recipient *</label>
-                                        <select
-                                            value={selectedEmployee}
-                                            onChange={(e) => setSelectedEmployee(e.target.value)}
-                                            required
+
+                                        <input
+                                            type="text"
+                                            placeholder="Search & Select Employee..."
+                                            value={searchTerm}
+                                            onChange={(e) => {
+                                                setSearchTerm(e.target.value);
+                                                setIsDropdownOpen(true);
+                                                setSelectedEmployee(''); // Clear selection on type
+                                            }}
+                                            onFocus={() => setIsDropdownOpen(true)}
                                             style={{
                                                 padding: '14px 16px',
                                                 borderRadius: '14px',
@@ -537,20 +788,87 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                                 fontWeight: 600,
                                                 color: '#1e293b',
                                                 backgroundColor: 'white',
-                                                cursor: 'pointer',
+                                                width: '100%',
                                                 outline: 'none',
                                                 transition: 'border-color 0.2s'
                                             }}
-                                            onFocus={(e) => e.target.style.borderColor = '#7c3aed'}
-                                            onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-                                        >
-                                            <option value="">Select individual...</option>
-                                            {employees.map(emp => (
-                                                <option key={emp.id} value={emp.id}>
-                                                    {emp.full_name} ({emp.email})
-                                                </option>
-                                            ))}
-                                        </select>
+                                            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)} // Delay to allow click
+                                        />
+
+                                        {isDropdownOpen && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                marginTop: '4px',
+                                                backgroundColor: 'white',
+                                                borderRadius: '12px',
+                                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+                                                border: '1px solid #e2e8f0',
+                                                maxHeight: '400px',
+                                                overflowY: 'auto',
+                                                zIndex: 50
+                                            }}>
+                                                {employees
+                                                    .filter(emp =>
+                                                        emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                        emp.email.toLowerCase().includes(searchTerm.toLowerCase())
+                                                    )
+                                                    .map(emp => (
+                                                        <div
+                                                            key={emp.id}
+                                                            onMouseDown={(e) => {
+                                                                e.preventDefault(); // Prevent input from losing focus
+                                                                setSelectedEmployee(emp.id);
+                                                                setSearchTerm(emp.full_name);
+                                                                setIsDropdownOpen(false);
+                                                            }}
+                                                            style={{
+                                                                padding: '12px 16px',
+                                                                cursor: 'pointer',
+                                                                borderBottom: '1px solid #f1f5f9',
+                                                                transition: 'background-color 0.2s',
+                                                                display: 'flex',
+                                                                justifyContent: 'space-between',
+                                                                alignItems: 'center'
+                                                            }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                                                        >
+                                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                                <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.9rem' }}>{emp.full_name}</span>
+                                                                <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{emp.email}</span>
+                                                            </div>
+                                                            {existingPayslips.has(emp.id) && (
+                                                                <span style={{
+                                                                    fontSize: '0.7rem',
+                                                                    backgroundColor: '#dcfce7',
+                                                                    color: '#15803d',
+                                                                    padding: '4px 10px',
+                                                                    borderRadius: '6px',
+                                                                    fontWeight: 600,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px',
+                                                                    border: '1px solid #86efac'
+                                                                }}>
+                                                                    Paid
+                                                                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#15803d' }}></div>
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                {employees.filter(emp =>
+                                                    emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                    emp.email.toLowerCase().includes(searchTerm.toLowerCase())
+                                                ).length === 0 && (
+                                                        <div style={{ padding: '16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>
+                                                            No employees found
+                                                        </div>
+                                                    )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -622,6 +940,8 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                         Corporate Identity
                                     </h3>
 
+
+
                                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 2fr', gap: '24px' }}>
                                         <div
                                             onClick={() => document.getElementById('logo-upload').click()}
@@ -663,13 +983,42 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                         </div>
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            <input
-                                                type="text"
-                                                value={companyName}
-                                                onChange={(e) => setCompanyName(e.target.value)}
-                                                placeholder="Legal Entity Name"
-                                                style={{ padding: '12px 16px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '0.95rem', fontWeight: 600 }}
-                                            />
+                                            <div style={{ display: 'flex', gap: '16px' }}>
+                                                {savedCompanies.length > 0 && (
+                                                    <select
+                                                        value={selectedCompanyId}
+                                                        onChange={handleCompanySelect}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '12px 16px',
+                                                            borderRadius: '12px',
+                                                            border: '1.5px solid #e2e8f0',
+                                                            fontSize: '0.95rem',
+                                                            fontWeight: 500,
+                                                            color: '#1e293b',
+                                                            backgroundColor: 'white',
+                                                            outline: 'none',
+                                                            cursor: 'pointer',
+                                                            minWidth: 0 // Prevent flex overflow
+                                                        }}
+                                                    >
+                                                        <option value="">Select saved company...</option>
+                                                        {savedCompanies.map(c => (
+                                                            <option key={c.id} value={c.id}>
+                                                                {c.company_name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                )}
+                                                <input
+                                                    type="text"
+                                                    autoComplete="off"
+                                                    value={companyName}
+                                                    onChange={(e) => setCompanyName(e.target.value)}
+                                                    placeholder="Legal Entity Name"
+                                                    style={{ flex: 1, padding: '12px 16px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '0.95rem', fontWeight: 600, minWidth: 0 }}
+                                                />
+                                            </div>
                                             <textarea
                                                 value={companyAddress}
                                                 onChange={(e) => setCompanyAddress(e.target.value)}
@@ -692,7 +1041,7 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                             type="tel"
                                             value={companyPhone}
                                             onChange={(e) => setCompanyPhone(e.target.value)}
-                                            placeholder="Finance Desk Extension"
+                                            placeholder="Company Phone"
                                             style={{ padding: '12px 16px', borderRadius: '12px', border: '1.5px solid #e2e8f0', fontSize: '0.9rem', fontWeight: 600 }}
                                         />
                                     </div>
@@ -755,7 +1104,30 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                                     <span>Gross Earnings</span>
                                                     <span>₹{totalEarnings.toLocaleString('en-IN')}</span>
                                                 </div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#e11d48', fontWeight: 700, marginTop: '12px' }}>
+
+                                                <div style={{ height: '1px', backgroundColor: '#e2e8f0', margin: '8px 0' }} />
+
+                                                {/* Deduction Breakdown */}
+                                                {(payrollData.professional_tax > 0) && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#ef4444', marginBottom: '4px' }}>
+                                                        <span>Professional Tax</span>
+                                                        <span>- ₹{Number(payrollData.professional_tax).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                )}
+                                                {previewLopAmount > 0 && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#ef4444', marginBottom: '4px' }}>
+                                                        <span>LOP ({payrollData.lop_days} days)</span>
+                                                        <span>- ₹{Number(previewLopAmount).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                )}
+                                                {(payrollData.deductions > 0) && (
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#ef4444', marginBottom: '4px' }}>
+                                                        <span>Other Deductions</span>
+                                                        <span>- ₹{Number(payrollData.deductions).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                )}
+
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', color: '#dc2626', fontWeight: 800, marginTop: '8px', borderTop: '1px dashed #fecaca', paddingTop: '8px' }}>
                                                     <span>Total Deductions</span>
                                                     <span>- ₹{totalDeductions.toLocaleString('en-IN')}</span>
                                                 </div>

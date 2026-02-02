@@ -2,18 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { Users, User, ChevronDown, ChevronRight, Loader2, Bot, Briefcase } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
 import { useProject } from '../context/ProjectContext';
+import { useUser } from '../context/UserContext';
 
 const ProjectHierarchy = () => {
     const { currentProject, projectRole } = useProject();
+    const { orgId } = useUser();
     const [hierarchy, setHierarchy] = useState(null);
     const [loading, setLoading] = useState(true);
     const [expandedNodes, setExpandedNodes] = useState({});
 
     useEffect(() => {
-        if (currentProject?.id) {
+        if (currentProject?.id && orgId) {
             fetchProjectHierarchy();
         }
-    }, [currentProject?.id]);
+    }, [currentProject?.id, orgId]);
 
     const fetchProjectHierarchy = async () => {
         setLoading(true);
@@ -30,12 +32,16 @@ const ProjectHierarchy = () => {
                         full_name,
                         email,
                         avatar_url,
-                        role
+                        role,
+                        org_id
                     )
                 `)
                 .eq('project_id', currentProject.id);
 
             if (error) throw error;
+
+            // Filter members to only include those from the same organization
+            const filteredMembers = members?.filter(m => m.profiles?.org_id === orgId) || [];
 
             // Build project hierarchy
             const projectStructure = {
@@ -50,13 +56,13 @@ const ProjectHierarchy = () => {
                 type: 'role',
                 emoji: '👔',
                 description: 'External stakeholder / Project sponsor',
-                children: members?.filter(m => m.role === 'pm' || m.profiles?.role === 'executive').map(m => ({
+                children: filteredMembers.filter(m => m.role === 'pm' || m.profiles?.role === 'executive').map(m => ({
                     name: m.profiles?.full_name || m.profiles?.email || 'Unknown',
                     type: 'person',
                     role: 'Client Executive',
                     avatar: m.profiles?.avatar_url,
                     id: m.user_id
-                })) || []
+                }))
             });
 
             // Add AI Manager
@@ -74,7 +80,7 @@ const ProjectHierarchy = () => {
             });
 
             // Add Team Leads
-            const teamLeads = members?.filter(m => m.role === 'team_lead') || [];
+            const teamLeads = filteredMembers.filter(m => m.role === 'team_lead');
             if (teamLeads.length > 0) {
                 projectStructure.children.push({
                     name: 'Team Leads',
@@ -91,10 +97,10 @@ const ProjectHierarchy = () => {
             }
 
             // Add Consultants (developers, designers, etc.)
-            const consultants = members?.filter(m =>
+            const consultants = filteredMembers.filter(m =>
                 !['pm', 'team_lead'].includes(m.role) &&
                 m.profiles?.role !== 'executive'
-            ) || [];
+            );
 
             // Group by role
             const roleGroups = {};

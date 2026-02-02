@@ -168,16 +168,16 @@ const ToastItem = ({ toast, removeToast }) => {
     return (
         <div
             style={{
-                backgroundColor: '#272740',
-                color: 'white',
+                backgroundColor: '#ffffff',
+                color: '#1e293b',
                 padding: '16px',
                 borderRadius: '12px',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '8px',
                 minWidth: '320px',
-                border: '1px solid rgba(255,255,255,0.1)',
+                border: '1px solid #e2e8f0',
                 borderLeft: `4px solid ${toast.type === 'success' ? '#22c55e' :
                     toast.type === 'error' ? '#ef4444' :
                         '#8b5cf6'
@@ -198,7 +198,7 @@ const ToastItem = ({ toast, removeToast }) => {
                     style={{
                         background: 'transparent',
                         border: 'none',
-                        color: 'rgba(255,255,255,0.5)',
+                        color: '#64748b',
                         cursor: 'pointer'
                     }}>
                     <X size={16} />

@@ -21,8 +21,7 @@ import {
     Check,
     ClipboardCheck,
     TrendingUp,
-    Ticket,
-    Trophy
+    Ticket
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useProject } from '../../context/ProjectContext';
@@ -59,7 +58,6 @@ const Sidebar = ({ isCollapsed, toggleSidebar, onMouseEnter, onMouseLeave }) => 
         { icon: MessageCircle, label: 'Messages', path: '/employee-dashboard/messages' },
         { icon: Network, label: 'Org Hierarchy', path: '/employee-dashboard/org-hierarchy' },
         { icon: TrendingUp, label: 'Review', path: '/employee-dashboard/review' },
-        { icon: Trophy, label: 'Ranking', path: '/employee-dashboard/rankings' },
         { icon: Ticket, label: 'Raise a Ticket', path: '/employee-dashboard/raise-ticket' },
     ];
 
@@ -131,8 +129,6 @@ const Sidebar = ({ isCollapsed, toggleSidebar, onMouseEnter, onMouseLeave }) => 
                     alignItems: 'center',
                     justifyContent: isCollapsed ? 'center' : 'flex-start',
                     gap: '10px',
-                    justifyContent: isCollapsed ? 'center' : 'flex-start',
-                    gap: '10px',
                     padding: '8px 12px',
                     borderRadius: '8px',
                     backgroundColor: isActive ? '#7C3AED' : 'transparent',
@@ -196,9 +192,6 @@ const Sidebar = ({ isCollapsed, toggleSidebar, onMouseEnter, onMouseLeave }) => 
             onClick={() => toggleMenu(sectionKey)}
             style={{
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: isCollapsed ? 'center' : 'space-between',
-                width: '100%',
                 alignItems: 'center',
                 justifyContent: isCollapsed ? 'center' : 'space-between',
                 width: '100%',

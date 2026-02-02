@@ -57,7 +57,7 @@ const numberToWords = (num) => {
 
 const PayslipPreview = ({ payslipData, companySettings, onBack, onSave, loading }) => {
     const totalEarnings = payslipData.basicSalary + payslipData.hra + payslipData.allowances;
-    const totalDeductions = payslipData.deductions + (payslipData.lopAmount || 0);
+    const totalDeductions = (payslipData.professionalTax || 0) + payslipData.deductions + (payslipData.lopAmount || 0);
     const netSalary = payslipData.netSalary;
 
     return (
@@ -211,7 +211,7 @@ const PayslipPreview = ({ payslipData, companySettings, onBack, onSave, loading 
                         <tbody>
                             <tr>
                                 <td style={{ padding: '8px', border: '1px solid #000', width: '25%' }}>Employee Code</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', width: '25%' }}>: {payslipData.payslipNumber}</td>
+                                <td style={{ padding: '8px', border: '1px solid #000', width: '25%' }}>: {payslipData.employeeId}</td>
                                 <td style={{ padding: '8px', border: '1px solid #000', width: '25%' }}>Company:</td>
                                 <td style={{ padding: '8px', border: '1px solid #000', width: '25%' }}>{companySettings?.company_name || 'Talent Ops'}</td>
                             </tr>
@@ -223,15 +223,27 @@ const PayslipPreview = ({ payslipData, companySettings, onBack, onSave, loading 
                             </tr>
                             <tr>
                                 <td style={{ padding: '8px', border: '1px solid #000' }}>Date of Joining</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>: N/A</td>
+                                <td style={{ padding: '8px', border: '1px solid #000' }}>: {payslipData.dateOfJoining && payslipData.dateOfJoining !== 'N/A' ? new Date(payslipData.dateOfJoining).toLocaleDateString('en-IN') : 'N/A'}</td>
                                 <td style={{ padding: '8px', border: '1px solid #000' }}>Employee Name:</td>
                                 <td style={{ padding: '8px', border: '1px solid #000' }}>{payslipData.employeeName}</td>
                             </tr>
                             <tr>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Leaves</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>: {payslipData.leaveDays}</td>
+                                <td style={{ padding: '8px', border: '1px solid #000' }}>Working Days</td>
+                                <td style={{ padding: '8px', border: '1px solid #000' }}>: {payslipData.totalWorkingDays || 0}</td>
                                 <td style={{ padding: '8px', border: '1px solid #000' }}>Designation:</td>
                                 <td style={{ padding: '8px', border: '1px solid #000' }}>{payslipData.employeeRole}</td>
+                            </tr>
+                            <tr>
+                                <td style={{ padding: '8px', border: '1px solid #000' }}>Present Days</td>
+                                <td style={{ padding: '8px', border: '1px solid #000' }}>: {payslipData.presentDays || 0}</td>
+                                <td style={{ padding: '8px', border: '1px solid #000' }}>Leave Days:</td>
+                                <td style={{ padding: '8px', border: '1px solid #000' }}>{payslipData.leaveDays || 0}</td>
+                            </tr>
+                            <tr>
+                                <td style={{ padding: '8px', border: '1px solid #000' }}>LOP Days</td>
+                                <td style={{ padding: '8px', border: '1px solid #000' }}>: {payslipData.lopDays || 0}</td>
+                                <td style={{ padding: '8px', border: '1px solid #000' }}>Payslip Number:</td>
+                                <td style={{ padding: '8px', border: '1px solid #000' }}>{payslipData.payslipNumber}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -261,12 +273,12 @@ const PayslipPreview = ({ payslipData, companySettings, onBack, onSave, loading 
                                 <td style={{ padding: '8px', border: '1px solid #000' }}>Basic Salary</td>
                                 <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>{payslipData.basicSalary.toLocaleString('en-IN')}</td>
                                 <td style={{ padding: '8px', border: '1px solid #000' }}>Professional Tax</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>0</td>
+                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>{(payslipData.professionalTax || 0).toLocaleString('en-IN')}</td>
                             </tr>
                             <tr>
                                 <td style={{ padding: '8px', border: '1px solid #000' }}>House Rent Allowance (HRA)</td>
                                 <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>{payslipData.hra.toLocaleString('en-IN')}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>LOP</td>
+                                <td style={{ padding: '8px', border: '1px solid #000' }}>LOP ({payslipData.lopDays || 0} days)</td>
                                 <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>{(payslipData.lopAmount || 0).toLocaleString('en-IN')}</td>
                             </tr>
                             <tr>

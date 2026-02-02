@@ -153,10 +153,35 @@ export const generatePayslipPDF = async (payslipData, companySettings) => {
             const headerStartX = (pageWidth - totalHeaderWidth) / 2;
             logoX = headerStartX;
 
-            pdf.addImage(companySettings.logo_url, 'PNG', logoX, yPos, logoWidth, logoHeight);
+            let imageToUse = companySettings.logo_url;
+
+            // Optimization: If URL is remote, resize it to prevent massive PDF size
+            if (typeof imageToUse === 'string' && imageToUse.startsWith('http')) {
+                try {
+                    imageToUse = await new Promise((resolve) => {
+                        const img = new Image();
+                        img.crossOrigin = 'Anonymous';
+                        img.onload = () => {
+                            const canvas = document.createElement('canvas');
+                            const MAX_W = 300;
+                            const scale = Math.min(MAX_W / img.width, MAX_W / img.height, 1);
+                            canvas.width = img.width * scale;
+                            canvas.height = img.height * scale;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            resolve(canvas.toDataURL('image/jpeg', 0.7));
+                        };
+                        img.onerror = () => resolve(companySettings.logo_url);
+                        img.src = companySettings.logo_url;
+                    });
+                } catch (e) { console.warn('Logo optimization failed', e); }
+            }
+
+            pdf.addImage(imageToUse, 'JPEG', logoX, yPos, logoWidth, logoHeight);
         } catch (error) {
             console.error('Error adding logo to PDF:', error);
             logoWidth = 0;
+            // Fallback text if logo fails?
         }
     }
 
@@ -200,54 +225,94 @@ export const generatePayslipPDF = async (payslipData, companySettings) => {
     // ===== EMPLOYEE DETAILS TABLE =====
     const tableStartY = yPos;
     const tableWidth = contentWidth;
-    const col1Width = tableWidth / 2;
-    const col2Width = tableWidth / 2;
-    const rowHeight = 7;
+    const col1Width = tableWidth * 0.55;
+    const col2Width = tableWidth * 0.45;
+    const defaultRowHeight = 7;
+    const firstRowHeight = 14; // Increased to 14mm for long IDs and Company Names
 
     pdf.setLineWidth(0.3);
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(9);
 
-    // Draw outer border
-    pdf.rect(marginLeft, tableStartY, tableWidth, rowHeight * 4);
+    // Draw outer border (Dynamic height)
+    const totalTableHeight = firstRowHeight + (defaultRowHeight * 5);
+    pdf.rect(marginLeft, tableStartY, tableWidth, totalTableHeight);
+
+    // Date formatter helper
+    const formattedDate = (dateStr) => {
+        if (!dateStr || dateStr === 'N/A') return 'N/A';
+        try {
+            return new Date(dateStr).toLocaleDateString('en-IN');
+        } catch (e) {
+            return 'N/A';
+        }
+    };
 
     // Employee details data
     const leftDetails = [
-        ['Employee Code', `PAY-${safeText(payslipData.payslipNumber, 'N/A').replace('PAY-', '')}`],
-        ['Base Location', safeText(payslipData.employeeLocation, 'N/A')],
-        ['Date of Joining', 'N/A'],
-        ['Leaves', String(safeNumber(payslipData.leaveDays, 0))]
+        ['Employee Code', `: ${safeText(payslipData.employeeId, 'N/A')}`],
+        ['Base Location', `: ${safeText(payslipData.employeeLocation, 'N/A')}`],
+        ['Date of Joining', `: ${formattedDate(payslipData.dateOfJoining)}`],
+        ['Working Days', `: ${safeNumber(payslipData.totalWorkingDays, 0)}`],
+        ['Present Days', `: ${safeNumber(payslipData.presentDays, 0)}`],
+        ['LOP Days', `: ${safeNumber(payslipData.lopDays, 0)}`]
     ];
 
     const rightDetails = [
         ['Company:', safeText(companySettings?.company_name, 'Talent Ops')],
         ['Email:', safeText(payslipData.employeeEmail, 'N/A')],
         ['Employee Name:', safeText(payslipData.employeeName, 'N/A')],
-        ['Designation:', safeText(payslipData.employeeRole, 'Employee')]
+        ['Designation:', safeText(payslipData.employeeRole, 'Employee')],
+        ['Leave Days:', String(safeNumber(payslipData.leaveDays, 0))],
+        ['Payslip Number:', safeText(payslipData.payslipNumber, 'N/A')]
     ];
 
     // Draw employee details rows
+    let currentY = tableStartY;
+
     leftDetails.forEach((row, index) => {
-        const currentY = tableStartY + (index * rowHeight);
+        const thisRowHeight = index === 0 ? firstRowHeight : defaultRowHeight;
+        const textY = currentY + (thisRowHeight / 2) + 1.5; // Vertically centered approx
 
         // Left column
-        pdf.text(row[0], marginLeft + 2, currentY + 5);
-        pdf.text(': ' + row[1], marginLeft + 30, currentY + 5);
+        pdf.text(row[0], marginLeft + 2, textY);
+        pdf.text(row[1], marginLeft + 30, textY);
 
-        // Right column
-        pdf.text(rightDetails[index][0], marginLeft + col1Width + 2, currentY + 5);
-        pdf.text(rightDetails[index][1], marginLeft + col1Width + 30, currentY + 5);
+        // Right column - special handling for company name (first row)
+        if (index === 0) {
+            // Company name - wrap if too long
+            const labelX = marginLeft + col1Width + 2;
+            const valueX = marginLeft + col1Width + 30;
+            const maxWidth = tableWidth - col1Width - 35; // Available width for company name
+
+            pdf.text(rightDetails[index][0], labelX, currentY + 5); // "Company:" label
+
+            // Split company name into multiple lines if needed
+            const companyNameLines = pdf.splitTextToSize(rightDetails[index][1], maxWidth);
+            let lineY = currentY + 5;
+            companyNameLines.forEach((line, lineIndex) => {
+                pdf.text(line, valueX, lineY);
+                lineY += 4; // Line spacing
+            });
+        } else {
+            // Normal single-line text for other rows
+            pdf.text(rightDetails[index][0], marginLeft + col1Width + 2, textY);
+            pdf.text(rightDetails[index][1], marginLeft + col1Width + 30, textY);
+        }
 
         // Horizontal line
-        if (index < 3) {
-            pdf.line(marginLeft, currentY + rowHeight, marginLeft + tableWidth, currentY + rowHeight);
+        if (index < 5) {
+            pdf.line(marginLeft, currentY + thisRowHeight, marginLeft + tableWidth, currentY + thisRowHeight);
         }
+        currentY += thisRowHeight;
     });
 
     // Vertical divider
-    pdf.line(marginLeft + col1Width, tableStartY, marginLeft + col1Width, tableStartY + (rowHeight * 4));
+    pdf.line(marginLeft + col1Width, tableStartY, marginLeft + col1Width, tableStartY + totalTableHeight);
 
-    yPos = tableStartY + (rowHeight * 4) + 10;
+    yPos = tableStartY + totalTableHeight + 10;
+
+
 
     // ===== EARNINGS/DEDUCTIONS TABLE =====
     const earningsDeductionsY = yPos;
@@ -257,25 +322,25 @@ export const generatePayslipPDF = async (payslipData, companySettings) => {
     pdf.setFontSize(10);
 
     // Draw outer border for two-column table
-    pdf.rect(marginLeft, earningsDeductionsY, tableWidth, rowHeight);
+    pdf.rect(marginLeft, earningsDeductionsY, tableWidth, defaultRowHeight);
     pdf.text('Earnings', marginLeft + 2, earningsDeductionsY + 5);
     pdf.text('Deductions', marginLeft + col1Width + 2, earningsDeductionsY + 5);
 
     // Vertical divider
-    pdf.line(marginLeft + col1Width, earningsDeductionsY, marginLeft + col1Width, earningsDeductionsY + rowHeight);
+    pdf.line(marginLeft + col1Width, earningsDeductionsY, marginLeft + col1Width, earningsDeductionsY + defaultRowHeight);
 
-    yPos = earningsDeductionsY + rowHeight;
+    yPos = earningsDeductionsY + defaultRowHeight;
 
     // Sub-headers
-    pdf.rect(marginLeft, yPos, tableWidth, rowHeight);
+    pdf.rect(marginLeft, yPos, tableWidth, defaultRowHeight);
     pdf.setFontSize(9);
     pdf.text('Particulars', marginLeft + 2, yPos + 5);
     pdf.text('Rate / Month (Rs.)', marginLeft + col1Width - 38, yPos + 5);
     pdf.text('Particulars', marginLeft + col1Width + 2, yPos + 5);
     pdf.text('Amount (Rs.)', marginLeft + tableWidth - 28, yPos + 5);
-    pdf.line(marginLeft + col1Width, yPos, marginLeft + col1Width, yPos + rowHeight);
+    pdf.line(marginLeft + col1Width, yPos, marginLeft + col1Width, yPos + defaultRowHeight);
 
-    yPos += rowHeight;
+    yPos += defaultRowHeight;
 
     pdf.setFont('helvetica', 'normal');
 
@@ -288,14 +353,14 @@ export const generatePayslipPDF = async (payslipData, companySettings) => {
 
     // Deductions
     const deductions = [
-        ['Professional Tax', 0],
-        ['LOP', safeNumber(payslipData.lopAmount, 0)]
+        ['Professional Tax', safeNumber(payslipData.professionalTax, 0)],
+        [`LOP (${safeNumber(payslipData.lopDays, 0)} days)`, safeNumber(payslipData.lopAmount, 0)]
     ];
 
     const maxRows = Math.max(earnings.length, deductions.length);
 
     for (let i = 0; i < maxRows; i++) {
-        pdf.rect(marginLeft, yPos, tableWidth, rowHeight);
+        pdf.rect(marginLeft, yPos, tableWidth, defaultRowHeight);
 
         // Earnings
         if (i < earnings.length) {
@@ -309,36 +374,35 @@ export const generatePayslipPDF = async (payslipData, companySettings) => {
             pdf.text(deductions[i][1].toLocaleString('en-IN'), marginLeft + tableWidth - 8, yPos + 5, { align: 'right' });
         }
 
-        pdf.line(marginLeft + col1Width, yPos, marginLeft + col1Width, yPos + rowHeight);
-        yPos += rowHeight;
+        pdf.line(marginLeft + col1Width, yPos, marginLeft + col1Width, yPos + defaultRowHeight);
+        yPos += defaultRowHeight;
     }
 
     // Total Earnings / Total Deductions
     const totalEarnings = safeNumber(payslipData.basicSalary, 0) + safeNumber(payslipData.hra, 0) + safeNumber(payslipData.allowances, 0);
-    const totalDeductions = safeNumber(payslipData.deductions, 0) + safeNumber(payslipData.lopAmount, 0);
+    const totalDeductions = safeNumber(payslipData.deductions, 0) + safeNumber(payslipData.lopAmount, 0) + safeNumber(payslipData.professionalTax, 0);
 
     pdf.setFont('helvetica', 'bold');
-    pdf.rect(marginLeft, yPos, tableWidth, rowHeight);
+    pdf.rect(marginLeft, yPos, tableWidth, defaultRowHeight);
     pdf.text('Total Earnings', marginLeft + 2, yPos + 5);
     pdf.text(safeNumber(totalEarnings, 0).toLocaleString('en-IN'), marginLeft + col1Width - 8, yPos + 5, { align: 'right' });
     pdf.text('Total Deductions', marginLeft + col1Width + 2, yPos + 5);
     pdf.text(safeNumber(totalDeductions, 0).toLocaleString('en-IN'), marginLeft + tableWidth - 8, yPos + 5, { align: 'right' });
-    pdf.line(marginLeft + col1Width, yPos, marginLeft + col1Width, yPos + rowHeight);
+    pdf.line(marginLeft + col1Width, yPos, marginLeft + col1Width, yPos + defaultRowHeight);
 
-    yPos += rowHeight;
+    yPos += defaultRowHeight;
 
-    // Net Salary
+    // Net Salary - full width row with single value
     const netSalary = safeNumber(payslipData.netSalary, 0);
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(10);
-    pdf.rect(marginLeft, yPos, tableWidth, rowHeight);
+    pdf.rect(marginLeft, yPos, tableWidth, defaultRowHeight);
     pdf.text('Net Salary:', marginLeft + 2, yPos + 5);
     const netSalaryText = 'Rs. ' + netSalary.toLocaleString('en-IN');
-    pdf.text(netSalaryText, marginLeft + col1Width - 8, yPos + 5, { align: 'right' });
     pdf.text(netSalaryText, marginLeft + tableWidth - 8, yPos + 5, { align: 'right' });
-    pdf.line(marginLeft + col1Width, yPos, marginLeft + col1Width, yPos + rowHeight);
+    // No vertical divider for Net Salary row - it spans full width
 
-    yPos += rowHeight + 8;
+    yPos += defaultRowHeight + 8;
 
     // In words
     pdf.setFont('helvetica', 'normal');

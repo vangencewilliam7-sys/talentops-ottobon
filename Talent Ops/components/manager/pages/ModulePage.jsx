@@ -11,6 +11,7 @@ import SettingsDemo from '../components/Demo/SettingsDemo';
 import AuditLogsDemo from '../components/Demo/AuditLogsDemo';
 import ProjectHierarchyDemo from '../../shared/ProjectHierarchyDemo';
 import { AddEmployeeModal } from '../../shared/AddEmployeeModal';
+import { EditEmployeeModal } from '../../shared/EditEmployeeModal';
 import { supabase } from '../../../lib/supabaseClient';
 import PayslipsPage from '../../shared/PayslipsPage';
 import PayrollPage from '../../shared/PayrollPage';
@@ -89,9 +90,9 @@ const ModulePage = ({ title, type }) => {
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [showEmployeeModal, setShowEmployeeModal] = useState(false);
 
-    // State for Handover Modal
-    const [showHandoverModal, setShowHandoverModal] = useState(false);
-    const [selectedMemberForHandover, setSelectedMemberForHandover] = useState(null);
+    // State for Edit Employee modal
+    const [employeeToEdit, setEmployeeToEdit] = useState(null);
+    const [showEditEmployeeModal, setShowEditEmployeeModal] = useState(false);
 
     // State for Candidate Details modal
     const [selectedCandidate, setSelectedCandidate] = useState(null);
@@ -140,7 +141,18 @@ const ModulePage = ({ title, type }) => {
 
                     if (profileError) throw profileError;
 
-                    // 2. Fetch project assignments
+                    // 2. Fetch departments for mapping
+                    const { data: deptData } = await supabase
+                        .from('departments')
+                        .select('id, department_name')
+                        .eq('org_id', orgId);
+
+                    const deptMap = {};
+                    if (deptData) {
+                        deptData.forEach(d => deptMap[d.id] = d.department_name);
+                    }
+
+                    // 3. Fetch project assignments
                     const { data: assignments } = await supabase
                         .from('project_members')
                         .select('user_id, projects:project_id(name)')
@@ -217,7 +229,7 @@ const ModulePage = ({ title, type }) => {
                                 email: emp.email || 'N/A',
                                 role: emp.role || 'N/A',
                                 job_title: emp.job_title || 'N/A',
-                                department_display: emp.department || 'Main Office',
+                                department_display: deptMap[emp.department] || emp.department || 'Main Office',
                                 dept: (projectMap[emp.id] && projectMap[emp.id].length > 0) ? projectMap[emp.id].join(', ') : 'Unassigned',
                                 projects: projectMap[emp.id]?.length || 0,
                                 status: 'Active',
@@ -240,6 +252,17 @@ const ModulePage = ({ title, type }) => {
                         .eq('org_id', orgId);
 
                     if (profileError) throw profileError;
+
+                    // Fetch departments for mapping
+                    const { data: deptData } = await supabase
+                        .from('departments')
+                        .select('id, department_name')
+                        .eq('org_id', orgId);
+
+                    const deptMap = {};
+                    if (deptData) {
+                        deptData.forEach(d => deptMap[d.id] = d.department_name);
+                    }
 
                     // Fetch project assignments from project_members
                     const { data: assignments } = await supabase
@@ -331,7 +354,7 @@ const ModulePage = ({ title, type }) => {
                                 id: emp.id,
                                 name: emp.full_name || 'Unknown',
                                 dept: (projectMap[emp.id] && projectMap[emp.id].length > 0) ? projectMap[emp.id].join(', ') : 'Talent Ops',
-                                department_display: emp.department || 'Main Office',
+                                department_display: deptMap[emp.department] || emp.department || 'Main Office',
                                 availability: availability,
                                 task: currentTask,
                                 lastActive: lastActive,
@@ -815,13 +838,76 @@ const ModulePage = ({ title, type }) => {
                 // Revert optimistic update if needed
             }
         } else if (action === 'View Employee' || action === 'View Status') {
-            setSelectedEmployee(item);
-            setShowEmployeeModal(true);
+            // Fetch additional financial details for the employee
+            try {
+                const { data: financeData, error: financeError } = await supabase
+                    .from('employee_finance')
+                    .select('*')
+                    .eq('employee_id', item.id)
+                    .eq('org_id', orgId)
+                    .eq('is_active', true)
+                    .order('effective_from', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                // Fetch task completion count
+                const { data: tasksData } = await supabase
+                    .from('tasks')
+                    .select('id, status')
+                    .eq('assigned_to', item.id)
+                    .eq('org_id', orgId);
+
+                const completedTasks = tasksData?.filter(t => ['completed', 'done'].includes(t.status?.toLowerCase())).length || 0;
+                const totalTasks = tasksData?.length || 0;
+
+                // Calculate gross salary (basic + hra + allowances)
+                const basicSalary = financeData?.basic_salary || 0;
+                const hra = financeData?.hra || 0;
+                const allowances = financeData?.allowances || 0;
+                const grossSalary = basicSalary + hra + allowances;
+
+                // Merge finance data with employee data
+                const enrichedEmployee = {
+                    ...item,
+                    // Financial details from employee_finance
+                    basic_salary: basicSalary,
+                    hra: hra,
+                    allowances: allowances,
+                    gross_salary: grossSalary,
+                    effective_from: financeData?.effective_from || null,
+                    effective_to: financeData?.effective_to || null,
+                    // Task metrics
+                    tasksCompleted: completedTasks,
+                    totalTasks: totalTasks,
+                    // Calculate performance if not already present
+                    performance: item.performance || (totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 'N/A')
+                };
+
+                setSelectedEmployee(enrichedEmployee);
+                setShowEmployeeModal(true);
+            } catch (error) {
+                console.error('Error fetching employee details:', error);
+                // Still show modal with basic data if fetch fails
+                setSelectedEmployee({
+                    ...item,
+                    basic_salary: 0,
+                    hra: 0,
+                    allowances: 0,
+                    gross_salary: 0,
+                    tasksCompleted: 0,
+                    totalTasks: 0,
+                    performance: item.performance || 'N/A'
+                });
+                setShowEmployeeModal(true);
+            }
         } else if (action === 'View Candidate') {
             setSelectedCandidate(item);
             setShowCandidateModal(true);
         } else if (type === 'policies' && action === 'Add Policy') {
             setShowAddPolicyModal(true);
+        } else if (action === 'Edit Employee') {
+            setEmployeeToEdit(item);
+            setShowEditEmployeeModal(true);
         } else {
             addToast(`${action} clicked${item ? ` for ${item.name || item.id}` : ''}`, 'info');
         }
@@ -991,8 +1077,20 @@ const ModulePage = ({ title, type }) => {
     if (type === 'tasks') return <AllTasksView key="team-tasks" userRole={userRole} projectRole={projectRole} userId={userId} addToast={addToast} viewMode="team_tasks" orgId={orgId} />;
     if (type === 'global-tasks') return <AllTasksView key="global-tasks" userRole={userRole} projectRole={projectRole} userId={userId} addToast={addToast} viewMode="global_tasks" orgId={orgId} />;
     if (type === 'personal-tasks') return <AllTasksView key="personal-tasks" userRole={userRole} projectRole={projectRole} userId={userId} addToast={addToast} viewMode="my_tasks" orgId={orgId} />;
-    if (title === 'Team Hierarchy' || title === 'Organizational Hierarchy' || title === 'Hierarchy') return <HierarchyDemo />;
-    if (title === 'Project Hierarchy') return <ProjectHierarchyDemo />;
+    if (title === 'Team Hierarchy' || title === 'Organizational Hierarchy' || title === 'Hierarchy') {
+        return (
+            <div style={{ height: 'calc(100vh - 200px)', borderRadius: '16px', overflow: 'hidden', backgroundColor: 'white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                <HierarchyDemo />
+            </div>
+        );
+    }
+    if (title === 'Project Hierarchy') {
+        return (
+            <div style={{ height: 'calc(100vh - 200px)', borderRadius: '16px', overflow: 'hidden', backgroundColor: 'white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                <ProjectHierarchyDemo />
+            </div>
+        );
+    }
     if (title === 'Settings') return <SettingsDemo />;
     if (title === 'Announcements') return <AnnouncementsPage userRole={userRole} userId={userId} orgId={orgId} />;
     if (type === 'payroll') return <PayslipsPage userRole={userRole} userId={userId} addToast={addToast} orgId={orgId} />;
@@ -2304,6 +2402,49 @@ const ModulePage = ({ title, type }) => {
                                 </div>
                             </div>
 
+                            {/* Financial Details */}
+                            <div style={{ marginBottom: '32px' }}>
+                                <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Financial Details</h5>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    <div style={{ padding: '16px', backgroundColor: '#f0f9ff', borderRadius: '12px', border: '1px solid #e0f2fe' }}>
+                                        <p style={{ fontSize: '0.75rem', color: '#075985', marginBottom: '4px', fontWeight: 600 }}>Basic Salary</p>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#075985' }}>
+                                            ₹{selectedEmployee.basic_salary ? selectedEmployee.basic_salary.toLocaleString('en-IN') : '0'}
+                                        </p>
+                                    </div>
+                                    <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7' }}>
+                                        <p style={{ fontSize: '0.75rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>HRA</p>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534' }}>
+                                            ₹{selectedEmployee.hra ? selectedEmployee.hra.toLocaleString('en-IN') : '0'}
+                                        </p>
+                                    </div>
+                                    <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '12px', border: '1px solid #fef08a' }}>
+                                        <p style={{ fontSize: '0.75rem', color: '#b45309', marginBottom: '4px', fontWeight: 600 }}>Allowances</p>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#b45309' }}>
+                                            ₹{selectedEmployee.allowances ? selectedEmployee.allowances.toLocaleString('en-IN') : '0'}
+                                        </p>
+                                    </div>
+                                    <div style={{ padding: '16px', backgroundColor: '#ede9fe', borderRadius: '12px', border: '1px solid #ddd6fe' }}>
+                                        <p style={{ fontSize: '0.75rem', color: '#6d28d9', marginBottom: '4px', fontWeight: 600 }}>Gross Salary</p>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#6d28d9' }}>
+                                            ₹{selectedEmployee.gross_salary ? selectedEmployee.gross_salary.toLocaleString('en-IN') : '0'}
+                                        </p>
+                                    </div>
+                                    <div style={{ padding: '16px', backgroundColor: '#fee2e2', borderRadius: '12px', border: '1px solid #fecaca' }}>
+                                        <p style={{ fontSize: '0.75rem', color: '#991b1b', marginBottom: '4px', fontWeight: 600 }}>Professional Tax (Deduction)</p>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#991b1b' }}>
+                                            -₹{selectedEmployee.professional_tax ? selectedEmployee.professional_tax.toLocaleString('en-IN') : '0'}
+                                        </p>
+                                    </div>
+                                    <div style={{ padding: '16px', backgroundColor: '#d1fae5', borderRadius: '12px', border: '2px solid #10b981' }}>
+                                        <p style={{ fontSize: '0.75rem', color: '#065f46', marginBottom: '4px', fontWeight: 600 }}>Net Salary</p>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#065f46' }}>
+                                            ₹{((selectedEmployee.gross_salary || 0) - (selectedEmployee.professional_tax || 0)).toLocaleString('en-IN')}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Performance Metrics */}
                             <div>
                                 <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Performance Metrics</h5>
@@ -2754,6 +2895,20 @@ const ModulePage = ({ title, type }) => {
                 onSuccess={handlePolicySuccess}
                 orgId={orgId}
             />
+
+            {showEditEmployeeModal && (
+                <EditEmployeeModal
+                    isOpen={showEditEmployeeModal}
+                    onClose={() => setShowEditEmployeeModal(false)}
+                    onSuccess={() => {
+                        setRefreshTrigger(prev => prev + 1);
+                        setShowEditEmployeeModal(false);
+                        addToast('Employee updated successfully', 'success');
+                    }}
+                    employee={employeeToEdit}
+                    orgId={orgId}
+                />
+            )}
         </div>
     );
 };

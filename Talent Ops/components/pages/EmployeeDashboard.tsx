@@ -26,8 +26,6 @@ import TeamTasksPage from '../employee/pages/TeamTasksPage';
 import TeamPerformance from '../performance/TeamPerformanceAnalytics';
 // @ts-ignore
 import EmployeeReviewPage from '../performance/EmployeeReviewPage';
-// @ts-ignore
-import FullRankingPage from '../performance/FullRankingPage';
 import RoleGuard from '../shared/RoleGuard';
 import '../employee/index.css';
 
@@ -64,7 +62,6 @@ export const EmployeeDashboard = () => {
                                 <Route path="manage-members" element={<ModulePage title="Manage Members" type="workforce" />} />
                                 <Route path="performance" element={<TeamPerformance />} />
                                 <Route path="review" element={<EmployeeReviewPage />} />
-                                <Route path="rankings" element={<FullRankingPage />} />
                             </Routes>
                         </Layout>
                     </ToastProvider>

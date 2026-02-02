@@ -42,6 +42,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
         basic_salary: '',
         hra: '',
         allowances: '',
+        professional_tax: '',
         change_reason: 'Annual Increment',
         custom_change_reason: '',
         effective_from: new Date().toISOString().split('T')[0],
@@ -71,6 +72,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                 basic_salary: '',
                 hra: '',
                 allowances: '',
+                professional_tax: '',
                 change_reason: 'Annual Increment',
                 custom_change_reason: '',
                 effective_from: new Date().toISOString().split('T')[0],
@@ -227,6 +229,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                     basic_salary: data.basic_salary?.toString() || '',
                     hra: data.hra?.toString() || '',
                     allowances: data.allowances?.toString() || '',
+                    professional_tax: data.professional_tax?.toString() || '',
                 }));
             }
         } catch (error) {
@@ -326,12 +329,14 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                 const newBasicSalary = parseFloat(formData.basic_salary);
                 const newHra = parseFloat(formData.hra);
                 const newAllowances = parseFloat(formData.allowances || '0');
+                const newProfessionalTax = parseFloat(formData.professional_tax || '0');
 
                 // Check if salary has changed (or if there's no existing salary)
                 const salaryChanged = !originalSalary ||
                     newBasicSalary !== originalSalary.basic_salary ||
                     newHra !== originalSalary.hra ||
-                    newAllowances !== (originalSalary.allowances || 0);
+                    newAllowances !== (originalSalary.allowances || 0) ||
+                    newProfessionalTax !== (originalSalary.professional_tax || 0);
 
                 if (salaryChanged) {
                     console.log('Salary changed or no existing salary, updating employee_finance...');
@@ -412,6 +417,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                             basic_salary: newBasicSalary,
                             hra: newHra,
                             allowances: newAllowances,
+                            professional_tax: newProfessionalTax,
                             effective_from: formData.effective_from,
                             is_active: true,
                             change_reason: changeReason,
@@ -813,7 +819,6 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                                         type="number"
                                         required={currentUserRole === 'executive'}
                                         min={0}
-                                        step="0.01"
                                         value={formData.basic_salary}
                                         onChange={(e) => setFormData({ ...formData, basic_salary: e.target.value })}
                                         disabled={currentUserRole === 'manager'}
@@ -839,7 +844,6 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                                         type="number"
                                         required={currentUserRole === 'executive'}
                                         min={0}
-                                        step="0.01"
                                         value={formData.hra}
                                         onChange={(e) => setFormData({ ...formData, hra: e.target.value })}
                                         disabled={currentUserRole === 'manager'}
@@ -857,18 +861,41 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                                 </div>
 
                                 {/* Allowances */}
-                                <div>
+                                <div style={{ marginBottom: 'var(--spacing-md)' }}>
                                     <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>
                                         Other Allowances
                                     </label>
                                     <input
                                         type="number"
                                         min={0}
-                                        step="0.01"
                                         value={formData.allowances}
                                         onChange={(e) => setFormData({ ...formData, allowances: e.target.value })}
                                         disabled={currentUserRole === 'manager'}
                                         placeholder="Enter other allowances (optional)"
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '8px',
+                                            border: '1px solid var(--border)',
+                                            backgroundColor: currentUserRole === 'manager' ? '#f3f4f6' : 'var(--background)',
+                                            color: currentUserRole === 'manager' ? '#6b7280' : 'var(--text-primary)',
+                                            cursor: currentUserRole === 'manager' ? 'not-allowed' : 'text',
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Professional Tax */}
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>
+                                        Professional Tax
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        value={formData.professional_tax}
+                                        onChange={(e) => setFormData({ ...formData, professional_tax: e.target.value })}
+                                        disabled={currentUserRole === 'manager'}
+                                        placeholder="Enter professional tax (optional)"
                                         style={{
                                             width: '100%',
                                             padding: '10px',

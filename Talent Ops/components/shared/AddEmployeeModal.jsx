@@ -20,6 +20,7 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         basic_salary: '',
         hra: '',
         allowances: '',
+        professional_tax: '',
         joinDate: new Date().toISOString().split('T')[0],
     });
     const [projectRole, setProjectRole] = useState('employee');
@@ -104,6 +105,7 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                         basic_salary: parseFloat(formData.basic_salary),
                         hra: parseFloat(formData.hra),
                         allowances: parseFloat(formData.allowances) || 0,
+                        professional_tax: parseFloat(formData.professional_tax) || 0,
                         join_date: formData.joinDate,
                         employment_type: formData.employment_type,
                         org_id: orgId
@@ -210,6 +212,7 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                 basic_salary: '',
                 hra: '',
                 allowances: '',
+                professional_tax: '',
                 joinDate: new Date().toISOString().split('T')[0],
             });
             setSelectedProjects([]);
@@ -651,7 +654,6 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                     type="number"
                                     required
                                     min={0}
-                                    step="0.01"
                                     value={formData.basic_salary}
                                     onChange={(e) => setFormData({ ...formData, basic_salary: e.target.value })}
                                     placeholder="Enter basic salary"
@@ -675,7 +677,6 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                     type="number"
                                     required
                                     min={0}
-                                    step="0.01"
                                     value={formData.hra}
                                     onChange={(e) => setFormData({ ...formData, hra: e.target.value })}
                                     placeholder="Enter HRA amount"
@@ -691,17 +692,38 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                             </div>
 
                             {/* Allowances */}
-                            <div>
+                            <div style={{ marginBottom: 'var(--spacing-md)' }}>
                                 <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>
                                     Other Allowances
                                 </label>
                                 <input
                                     type="number"
                                     min={0}
-                                    step="0.01"
                                     value={formData.allowances}
                                     onChange={(e) => setFormData({ ...formData, allowances: e.target.value })}
                                     placeholder="Enter other allowances (optional)"
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--border)',
+                                        backgroundColor: 'var(--background)',
+                                        color: 'var(--text-primary)',
+                                    }}
+                                />
+                            </div>
+
+                            {/* Professional Tax */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>
+                                    Professional Tax
+                                </label>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    value={formData.professional_tax}
+                                    onChange={(e) => setFormData({ ...formData, professional_tax: e.target.value })}
+                                    placeholder="Enter professional tax (optional)"
                                     style={{
                                         width: '100%',
                                         padding: '10px',
