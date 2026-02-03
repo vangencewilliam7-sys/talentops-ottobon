@@ -45,6 +45,7 @@ const ModulePage = ({ title, type }) => {
     const { userId, orgId, userRole } = useUser();
     const [searchTerm, setSearchTerm] = useState('');
     const [viewType, setViewType] = useState('grid'); // 'grid' or 'list'
+    const [availabilityFilter, setAvailabilityFilter] = useState('all');
 
     // State for leave requests
     const [leaveRequests, setLeaveRequests] = useState([]);
@@ -143,6 +144,8 @@ const ModulePage = ({ title, type }) => {
     const [showAddPolicyModal, setShowAddPolicyModal] = useState(false);
     const [showEditPolicyModal, setShowEditPolicyModal] = useState(false);
     const [selectedPolicy, setSelectedPolicy] = useState(null);
+    const [isLoadingPolicies, setIsLoadingPolicies] = useState(false);
+    const [policyError, setPolicyError] = useState(null);
 
 
 
@@ -452,14 +455,17 @@ const ModulePage = ({ title, type }) => {
         };
 
         fetchEmployees();
-    }, [type, refreshTrigger, departments]);
+    }, [type, refreshTrigger, departments, orgId]);
 
     // Fetch Policies from Supabase
     useEffect(() => {
         const fetchPolicies = async () => {
-            if (type === 'policies') {
+            if (type === 'policies' && orgId) {
                 try {
                     console.log('Fetching policies from Supabase...');
+                    setIsLoadingPolicies(true);
+                    setPolicyError(null);
+
                     const { data, error } = await supabase
                         .from('policies')
                         .select('*')
@@ -468,7 +474,9 @@ const ModulePage = ({ title, type }) => {
 
                     if (error) {
                         console.error('Error fetching policies:', error);
-                        addToast('Failed to load policies', 'error');
+                        setPolicyError(error.message);
+                        // Only toast if it's a persistent error or not the first attempt
+                        // For now, let's keep it to console only as requested to remove popups
                         return;
                     }
 
@@ -485,13 +493,15 @@ const ModulePage = ({ title, type }) => {
                     }
                 } catch (err) {
                     console.error('Unexpected error fetching policies:', err);
-                    addToast('An unexpected error occurred while loading policies', 'error');
+                    setPolicyError(err.message);
+                } finally {
+                    setIsLoadingPolicies(false);
                 }
             }
         };
 
         fetchPolicies();
-    }, [type, refreshTrigger]);
+    }, [type, refreshTrigger, orgId]);
 
 
     // Real-time Subscription for Live Status
@@ -1831,6 +1841,30 @@ const ModulePage = ({ title, type }) => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '12px' }}>
+                        {/* Availability Filter */}
+                        <select
+                            value={availabilityFilter}
+                            onChange={(e) => setAvailabilityFilter(e.target.value)}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '12px',
+                                backgroundColor: '#ffffff',
+                                color: '#0f172a',
+                                fontWeight: '600',
+                                fontSize: '0.85rem',
+                                border: '1px solid #e2e8f0',
+                                cursor: 'pointer',
+                                outline: 'none',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                            }}
+                        >
+                            <option value="all">All Employees</option>
+                            <option value="online">Online Only</option>
+                            <option value="offline">Offline Only</option>
+                            <option value="on-leave">On Leave</option>
+                        </select>
+
                         <div style={{ display: 'flex', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
                             <button
                                 onClick={() => setViewType('grid')}
@@ -1886,11 +1920,21 @@ const ModulePage = ({ title, type }) => {
                         gap: '16px',
                         marginTop: '8px'
                     }}>
-                        {employees.filter(emp =>
-                            emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            emp.job_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            emp.department_display?.toLowerCase().includes(searchTerm.toLowerCase())
-                        ).map((emp) => (
+                        {employees.filter(emp => {
+                            // Search filter
+                            const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                emp.job_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                emp.department_display?.toLowerCase().includes(searchTerm.toLowerCase());
+
+                            // Availability filter
+                            const matchesAvailability =
+                                availabilityFilter === 'all' ||
+                                (availabilityFilter === 'online' && emp.availability === 'Online') ||
+                                (availabilityFilter === 'offline' && emp.availability === 'Offline') ||
+                                (availabilityFilter === 'on-leave' && emp.availability === 'On Leave');
+
+                            return matchesSearch && matchesAvailability;
+                        }).map((emp) => (
                             <div
                                 key={emp.id}
                                 style={{
@@ -2062,11 +2106,21 @@ const ModulePage = ({ title, type }) => {
                         </div>
 
                         {/* Premium List Rows */}
-                        {employees.filter(emp =>
-                            emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            emp.job_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            emp.department_display?.toLowerCase().includes(searchTerm.toLowerCase())
-                        ).map((emp) => (
+                        {employees.filter(emp => {
+                            // Search filter
+                            const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                emp.job_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                emp.department_display?.toLowerCase().includes(searchTerm.toLowerCase());
+
+                            // Availability filter
+                            const matchesAvailability =
+                                availabilityFilter === 'all' ||
+                                (availabilityFilter === 'online' && emp.availability === 'Online') ||
+                                (availabilityFilter === 'offline' && emp.availability === 'Offline') ||
+                                (availabilityFilter === 'on-leave' && emp.availability === 'On Leave');
+
+                            return matchesSearch && matchesAvailability;
+                        }).map((emp) => (
                             <div
                                 key={emp.id}
                                 style={{

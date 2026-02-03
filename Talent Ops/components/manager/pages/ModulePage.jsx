@@ -44,6 +44,7 @@ const ModulePage = ({ title, type }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [viewType, setViewType] = useState('grid');
     const [activeMenuId, setActiveMenuId] = useState(null);
+    const [availabilityFilter, setAvailabilityFilter] = useState('all');
 
     // State for leave requests
     // State for leave requests
@@ -110,6 +111,8 @@ const ModulePage = ({ title, type }) => {
 
     // State for Policies
     const [policies, setPolicies] = useState([]);
+    const [isLoadingPolicies, setIsLoadingPolicies] = useState(false);
+    const [policyError, setPolicyError] = useState(null);
     const [showAddPolicyModal, setShowAddPolicyModal] = useState(false);
 
 
@@ -649,14 +652,17 @@ const ModulePage = ({ title, type }) => {
         if (type === 'leaves' || type === 'my-leaves') {
             fetchRemainingLeaves();
         }
-    }, [type, refreshTrigger, currentProject?.id]);
+    }, [type, refreshTrigger, currentProject?.id, orgId]);
 
     // Fetch Policies from Supabase
     React.useEffect(() => {
         const fetchPolicies = async () => {
-            if (type === 'policies') {
+            if (type === 'policies' && orgId) {
                 try {
                     console.log('Fetching policies from Supabase...');
+                    setIsLoadingPolicies(true);
+                    setPolicyError(null);
+
                     const { data, error } = await supabase
                         .from('policies')
                         .select('*')
@@ -666,7 +672,7 @@ const ModulePage = ({ title, type }) => {
 
                     if (error) {
                         console.error('Error fetching policies:', error);
-                        addToast('Failed to load policies', 'error');
+                        setPolicyError(error.message);
                         return;
                     }
 
@@ -683,13 +689,15 @@ const ModulePage = ({ title, type }) => {
                     }
                 } catch (err) {
                     console.error('Unexpected error fetching policies:', err);
-                    addToast('An unexpected error occurred while loading policies', 'error');
+                    setPolicyError(err.message);
+                } finally {
+                    setIsLoadingPolicies(false);
                 }
             }
         };
 
         fetchPolicies();
-    }, [type, refreshTrigger]);
+    }, [type, refreshTrigger, orgId]);
 
 
     // Real-time Subscription for Live Status & Data
@@ -1871,6 +1879,30 @@ const ModulePage = ({ title, type }) => {
                     </div>
 
                     <div style={{ display: 'flex', gap: '12px' }}>
+                        {/* Availability Filter */}
+                        <select
+                            value={availabilityFilter}
+                            onChange={(e) => setAvailabilityFilter(e.target.value)}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '12px',
+                                backgroundColor: '#ffffff',
+                                color: '#0f172a',
+                                fontWeight: '600',
+                                fontSize: '0.85rem',
+                                border: '1px solid #e2e8f0',
+                                cursor: 'pointer',
+                                outline: 'none',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                            }}
+                        >
+                            <option value="all">All Employees</option>
+                            <option value="online">Online Only</option>
+                            <option value="offline">Offline Only</option>
+                            <option value="on-leave">On Leave</option>
+                        </select>
+
                         <div style={{ display: 'flex', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
                             <button
                                 onClick={() => setViewType('grid')}
@@ -2008,11 +2040,21 @@ const ModulePage = ({ title, type }) => {
                         gap: '16px',
                         marginTop: '8px'
                     }}>
-                        {employeeStatus.filter(emp =>
-                            emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            emp.job_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            emp.department_display?.toLowerCase().includes(searchTerm.toLowerCase())
-                        ).map((emp) => (
+                        {employeeStatus.filter(emp => {
+                            // Search filter
+                            const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                emp.job_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                emp.department_display?.toLowerCase().includes(searchTerm.toLowerCase());
+
+                            // Availability filter
+                            const matchesAvailability =
+                                availabilityFilter === 'all' ||
+                                (availabilityFilter === 'online' && emp.availability === 'Online') ||
+                                (availabilityFilter === 'offline' && emp.availability === 'Offline') ||
+                                (availabilityFilter === 'on-leave' && emp.availability === 'On Leave');
+
+                            return matchesSearch && matchesAvailability;
+                        }).map((emp) => (
                             <div
                                 key={emp.id}
                                 style={{
@@ -2168,11 +2210,21 @@ const ModulePage = ({ title, type }) => {
                         </div>
 
                         {/* Premium List Rows */}
-                        {employeeStatus.filter(emp =>
-                            emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            emp.job_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            emp.department_display?.toLowerCase().includes(searchTerm.toLowerCase())
-                        ).map((emp) => (
+                        {employeeStatus.filter(emp => {
+                            // Search filter
+                            const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                emp.job_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                emp.department_display?.toLowerCase().includes(searchTerm.toLowerCase());
+
+                            // Availability filter
+                            const matchesAvailability =
+                                availabilityFilter === 'all' ||
+                                (availabilityFilter === 'online' && emp.availability === 'Online') ||
+                                (availabilityFilter === 'offline' && emp.availability === 'Offline') ||
+                                (availabilityFilter === 'on-leave' && emp.availability === 'On Leave');
+
+                            return matchesSearch && matchesAvailability;
+                        }).map((emp) => (
                             <div
                                 key={emp.id}
                                 style={{

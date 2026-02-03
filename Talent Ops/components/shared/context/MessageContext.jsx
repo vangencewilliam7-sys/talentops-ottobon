@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { sendMessage } from '../../../services/messageService';
+import { getConversationsByCategory, sendMessage, markAsReadInDB } from '../../../services/messageService';
 import { sendNotification } from '../../../services/notificationService';
 
 const MessageContext = createContext();
@@ -49,7 +49,7 @@ export const MessageProvider = ({ children, addToast }) => {
     useEffect(() => {
         if (!userId) return;
 
-        const storageKey = `message_read_times_${userId}`;
+        const storageKey = `message_read_times_${userId} `;
         const stored = localStorage.getItem(storageKey);
         if (stored) {
             try {
@@ -64,7 +64,7 @@ export const MessageProvider = ({ children, addToast }) => {
     useEffect(() => {
         if (!userId) return;
         if (Object.keys(lastReadTimes).length > 0) {
-            const storageKey = `message_read_times_${userId}`;
+            const storageKey = `message_read_times_${userId} `;
             localStorage.setItem(storageKey, JSON.stringify(lastReadTimes));
         }
     }, [lastReadTimes, userId]);
@@ -113,14 +113,14 @@ export const MessageProvider = ({ children, addToast }) => {
             const { data: convs, error } = await supabase
                 .from('conversations')
                 .select(`
-                    id, 
-                    type, 
-                    name,
-                    conversation_indexes (
-                        last_message,
-                        last_message_at
-                    )
-                `)
+id,
+    type,
+    name,
+    conversation_indexes(
+        last_message,
+        last_message_at
+    )
+        `)
                 .in('id', conversationIds);
 
             if (error) throw error;
@@ -148,14 +148,14 @@ export const MessageProvider = ({ children, addToast }) => {
         if (!userId) return;
 
         const channel = supabase
-            .channel(`message-notifs-${userId}`)
+            .channel(`message - notifs - ${userId} `)
             .on(
                 'postgres_changes',
                 {
                     event: 'INSERT',
                     schema: 'public',
                     table: 'notifications',
-                    filter: `receiver_id=eq.${userId}`
+                    filter: `receiver_id = eq.${userId} `
                 },
                 async (payload) => {
                     // Handle ALL Notification Types
@@ -169,7 +169,7 @@ export const MessageProvider = ({ children, addToast }) => {
                         setUnreadCount(prev => prev + 1);
                         await fetchConversations(); // Refresh inbox
 
-                        notifTitle = `New Message from ${payload.new.sender_name || 'User'}`;
+                        notifTitle = `New Message from ${payload.new.sender_name || 'User'} `;
                         notifBody = payload.new.message;
 
                         // Fetch sender profile & conversation context for notification
@@ -271,8 +271,8 @@ export const MessageProvider = ({ children, addToast }) => {
                         try {
                             const senderName = payload.new.sender_name || 'User';
                             const isMessage = payload.new.type === 'message';
-                            const systemTitle = isMessage ? `New Message from ${senderName}` : notifTitle;
-                            const systemBody = isMessage ? `New message from ${senderName}` : (notifBody || 'You have a new update');
+                            const systemTitle = isMessage ? `New Message from ${senderName} ` : notifTitle;
+                            const systemBody = isMessage ? `New message from ${senderName} ` : (notifBody || 'You have a new update');
 
                             // Use basic notification (no CTA text) to match native style
                             const notification = new Notification(systemTitle, {
@@ -314,7 +314,7 @@ export const MessageProvider = ({ children, addToast }) => {
                     if (payload.new.type !== 'message') {
                         let flashCount = 0;
                         const flashInterval = setInterval(() => {
-                            document.title = (flashCount % 2 === 0) ? `New ${payload.new.type === 'task_assigned' ? 'Task' : 'Alert'}!` : 'Talent OPS';
+                            document.title = (flashCount % 2 === 0) ? `New ${payload.new.type === 'task_assigned' ? 'Task' : 'Alert'} !` : 'Talent OPS';
                             flashCount++;
                             if (flashCount > 10) {
                                 clearInterval(flashInterval);
@@ -363,7 +363,7 @@ export const MessageProvider = ({ children, addToast }) => {
             const lastMsgTime = new Date(index.last_message_at).getTime();
             const lastReadTime = lastReadTimes[conv.id] || 0;
 
-            console.log(`📊 Conv ${conv.id}: lastMsg=${lastMsgTime}, lastRead=${lastReadTime}, isUnread=${lastMsgTime > lastReadTime}`);
+            console.log(`📊 Conv ${conv.id}: lastMsg = ${lastMsgTime}, lastRead = ${lastReadTime}, isUnread = ${lastMsgTime > lastReadTime} `);
 
             if (lastMsgTime > lastReadTime) {
                 count++;
@@ -386,8 +386,10 @@ export const MessageProvider = ({ children, addToast }) => {
             [conversationId]: now
         }));
 
-        // Optimistically update count immediately
-        // (useEffect will run eventually but this feels snappier)
+        // Persist to database
+        if (userId && conversationId) {
+            markAsReadInDB(conversationId, userId);
+        }
     };
 
     // Dismiss a notification from the queue

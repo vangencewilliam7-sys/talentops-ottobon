@@ -61,6 +61,8 @@ const ModulePage = ({ title, type }) => {
 
     // State for Policies
     const [policies, setPolicies] = useState([]);
+    const [isLoadingPolicies, setIsLoadingPolicies] = useState(false);
+    const [policyError, setPolicyError] = useState(null);
 
 
     // Fetch leaves from Supabase
@@ -68,6 +70,7 @@ const ModulePage = ({ title, type }) => {
         if (!userId) return;
 
         const fetchLeaves = async () => {
+            if (!orgId) return;
             console.log('fetchLeaves called. User ID from context:', userId);
 
             const { data: { user } } = await supabase.auth.getUser();
@@ -160,7 +163,7 @@ const ModulePage = ({ title, type }) => {
 
         fetchLeaves();
         fetchRemainingLeaves();
-    }, [userId, userName, addToast, refreshTrigger]);
+    }, [userId, userName, addToast, refreshTrigger, orgId]);
 
     // Fetch team members based on Current Project
     useEffect(() => {
@@ -298,7 +301,7 @@ const ModulePage = ({ title, type }) => {
         };
 
         fetchTeamMembers();
-    }, [currentProject?.id, refreshTrigger]);
+    }, [currentProject?.id, refreshTrigger, orgId]);
 
     // Realtime Subscription
     useEffect(() => {
@@ -324,9 +327,12 @@ const ModulePage = ({ title, type }) => {
     // Fetch Policies from Supabase
     useEffect(() => {
         const fetchPolicies = async () => {
-            if (type === 'policies') {
+            if (type === 'policies' && orgId) {
                 try {
                     console.log('Fetching policies from Supabase...');
+                    setIsLoadingPolicies(true);
+                    setPolicyError(null);
+
                     const { data, error } = await supabase
                         .from('policies')
                         .select('*')
@@ -336,7 +342,7 @@ const ModulePage = ({ title, type }) => {
 
                     if (error) {
                         console.error('Error fetching policies:', error);
-                        addToast('Failed to load policies', 'error');
+                        setPolicyError(error.message);
                         return;
                     }
 
@@ -353,13 +359,15 @@ const ModulePage = ({ title, type }) => {
                     }
                 } catch (err) {
                     console.error('Unexpected error fetching policies:', err);
-                    addToast('An unexpected error occurred while loading policies', 'error');
+                    setPolicyError(err.message);
+                } finally {
+                    setIsLoadingPolicies(false);
                 }
             }
         };
 
         fetchPolicies();
-    }, [type, refreshTrigger]);
+    }, [type, refreshTrigger, orgId]);
 
 
     // State for Apply Leave modal
