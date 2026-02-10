@@ -349,23 +349,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
         setNewStepHours(h);
     }, [newTask.stepDuration]);
 
-    // Auto-calculate Due Time based on Allocated Hours and Start Date/Time
-    useEffect(() => {
-        if (newTask.allocatedHours > 0) {
-            try {
-                const startDateStr = `${newTask.startDate}T${newTask.startTime}`;
-                const { dueDate, dueTime } = calculateDueDateTime(new Date(startDateStr), newTask.allocatedHours);
-                setNewTask(prev => ({
-                    ...prev,
-                    // Auto-calculate both Date and Time to handle rollovers (e.g. next day)
-                    endDate: dueDate,
-                    dueTime: dueTime
-                }));
-            } catch (err) {
-                console.error("Error calculating due date:", err);
-            }
-        }
-    }, [newTask.allocatedHours, newTask.startDate, newTask.startTime]);
+    // Removed auto-calculation of dueTime - users will select it manually
 
 
 
@@ -735,10 +719,8 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                     return;
                 }
 
-                // Calculate due date/time based on allocated hours and business hours
+                // Use manually selected due time from the form
                 const allocatedHrs = parseFloat(newTask.allocatedHours) || 0;
-                const startDateStr = `${newTask.startDate}T${newTask.startTime}`;
-                const { dueDate, dueTime } = calculateDueDateTime(new Date(startDateStr), allocatedHrs);
 
                 const tasksToInsert = newTask.selectedAssignees.map(empId => ({
                     title: newTask.title,
@@ -749,8 +731,8 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                     project_id: effectiveProjectId,
                     start_date: newTask.startDate,
                     start_time: newTask.startTime,
-                    due_date: dueDate, // Calculated based on business hours
-                    due_time: dueTime, // Calculated based on business hours
+                    due_date: newTask.endDate, // Use manually selected due date
+                    due_time: newTask.dueTime, // Use manually selected due time
                     priority: newTask.priority.toLowerCase(),
                     status: 'pending',
                     phase_validations: preparedValidations,
@@ -808,10 +790,9 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
 
             } else {
 
-                // Calculate due date/time based on allocated hours and business hours
+
+                // Use manually selected due time from the form
                 const allocatedHrs = parseFloat(newTask.allocatedHours) || 0;
-                const startDateStr = `${newTask.startDate}T${newTask.startTime}`;
-                const { dueDate, dueTime } = calculateDueDateTime(new Date(startDateStr), allocatedHrs);
 
                 const taskToInsert = {
                     title: newTask.title,
@@ -822,8 +803,8 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                     project_id: effectiveProjectId,
                     start_date: newTask.startDate,
                     start_time: newTask.startTime,
-                    due_date: dueDate, // Calculated based on business hours
-                    due_time: dueTime, // Calculated based on business hours
+                    due_date: newTask.endDate, // Use manually selected due date
+                    due_time: newTask.dueTime, // Use manually selected due time
                     priority: newTask.priority.toLowerCase(),
                     status: 'pending',
                     phase_validations: preparedValidations,
@@ -2738,15 +2719,11 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                         </div>
                                         {/* Due Time */}
                                         <div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-                                                <label style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155', margin: 0 }}>Due Time</label>
-                                                {newTask.allocatedHours > 0 && <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#2563eb', backgroundColor: '#eff6ff', padding: '1px 6px', borderRadius: '4px' }}>AUTO</span>}
-                                            </div>
+                                            <label style={{ fontSize: '0.9rem', fontWeight: 600, color: '#334155', marginBottom: '8px', display: 'block' }}>Due Time</label>
                                             <input
                                                 type="time"
                                                 value={newTask.dueTime}
-                                                readOnly={newTask.allocatedHours > 0}
-                                                onChange={(e) => !newTask.allocatedHours && setNewTask({ ...newTask, dueTime: e.target.value })}
+                                                onChange={(e) => setNewTask({ ...newTask, dueTime: e.target.value })}
                                                 style={{
                                                     width: '100%',
                                                     padding: '10px 12px',
