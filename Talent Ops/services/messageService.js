@@ -5,6 +5,49 @@ import { supabase } from '../lib/supabaseClient';
  * Handles all messaging-related operations with Supabase
  */
 
+// ══════════════════════════════════════════════
+//  AUTH & PROFILE HELPERS
+// ══════════════════════════════════════════════
+
+/**
+ * Fetch current user and their profile with role fallback
+ * @returns {Promise<{user: object, profile: object, orgId: string, role: string}>}
+ */
+export const fetchCurrentUserWithProfile = async () => {
+    try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) return null;
+
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('org_id, role')
+            .eq('id', user.id)
+            .single();
+
+        // Fallback if profile doesn't exist or error
+        const orgId = profile?.org_id || null;
+        let role = profile?.role?.toLowerCase();
+        if (!role || profileError) {
+            role = 'executive'; // Default fallback from MessagingHub logic
+        }
+
+        return { user, profile, orgId, role };
+    } catch (error) {
+        console.error('Error in fetchCurrentUserWithProfile:', error);
+        return null;
+    }
+};
+
+/**
+ * Subscribe to auth state changes
+ * @param {Function} callback - Function called with (event, session)
+ * @returns {Object} Subscription object
+ */
+export const subscribeToAuthChanges = (callback) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(callback);
+    return subscription;
+};
+
 /**
  * Get conversations for a user filtered by category
  * @param {string} userId - Current user's ID
@@ -674,6 +717,26 @@ export const getConversationMembers = async (conversationId) => {
 };
 
 /**
+ * Get conversation members IDs only (lightweight for DM check)
+ * @param {string} conversationId
+ * @returns {Promise<Array>} List of {user_id} objects
+ */
+export const getConversationMemberIds = async (conversationId) => {
+    try {
+        const { data, error } = await supabase
+            .from('conversation_members')
+            .select('user_id')
+            .eq('conversation_id', conversationId);
+
+        if (error) throw error;
+        return data || [];
+    } catch (error) {
+        console.error('Error fetching member IDs:', error);
+        return [];
+    }
+};
+
+/**
  * Add a new member to a team conversation (admin only)
  * @param {string} conversationId - Conversation ID
  * @param {string} userId - User ID to add
@@ -1029,6 +1092,78 @@ export const sendMessageWithReply = async (conversationId, content, senderId, re
         return data;
     } catch (error) {
         console.error('Error sending message with reply:', error);
+        throw error;
+    }
+};
+
+/**
+ * Hydrate a message with full details (for realtime updates)
+ * @param {string} messageId 
+ * @returns {Promise<Object>} Full message object
+ */
+export const hydrateMessage = async (messageId) => {
+    try {
+        const { data, error } = await supabase
+            .from('messages')
+            .select(`*, replied_to:messages!reply_to (id, content, sender_id:sender_user_id), attachments(*), message_reactions (id, reaction, user_id)`)
+            .eq('id', messageId)
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        console.error('Error hydrating message:', error);
+        throw error;
+    }
+};
+
+/**
+ * Delete a message for everyone (soft delete)
+ * @param {string} messageId 
+ */
+export const deleteMessageForEveryone = async (messageId) => {
+    try {
+        const { error } = await supabase
+            .from('messages')
+            .update({ content: 'This message was deleted', is_deleted: true })
+            .eq('id', messageId);
+
+        if (error) throw error;
+
+        // Also remove attachments if any
+        await supabase.from('attachments').delete().eq('message_id', messageId);
+
+    } catch (error) {
+        console.error('Error deleting message for everyone:', error);
+        throw error;
+    }
+};
+
+/**
+ * Delete a message for me (hidden from view)
+ * @param {string} messageId 
+ * @param {string} userId
+ */
+export const deleteMessageForMe = async (messageId, userId) => {
+    try {
+        const { data: currentMsg } = await supabase
+            .from('messages')
+            .select('deleted_for')
+            .eq('id', messageId)
+            .single();
+
+        const currentDeletedFor = currentMsg?.deleted_for || [];
+
+        if (!currentDeletedFor.includes(userId)) {
+            const { error } = await supabase
+                .from('messages')
+                .update({ deleted_for: [...currentDeletedFor, userId] })
+                .eq('id', messageId);
+
+            if (error) throw error;
+        }
+    } catch (error) {
+        console.error('Error deleting message for me:', error);
         throw error;
     }
 };

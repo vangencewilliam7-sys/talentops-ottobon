@@ -1,4 +1,4 @@
-# Architecture Issues — Simple Overview
+Talent-Ops Architecture Issues Summary
 
 ## The Issues We Found
 
