@@ -100,44 +100,20 @@ const DashboardHome = () => {
                     }
 
 
-                    // 5. Fetch Timeline/Events
+                    // 5. Fetch Timeline/Events via RPC
                     let combinedEvents = [];
 
+                    const { data: userAnnouncements, error: rpcError } = await supabase.rpc('get_my_announcements');
 
-
-                    // Tasks were removed from consultant view, so no task events
-
-                    const { data: announcements } = await supabase
-                        .from('announcements')
-                        .select('*');
-
-                    if (announcements && profileData) {
-                        const filteredAnnouncements = announcements.filter(a => {
-                            let targetTeams = [];
-                            let targetEmployees = [];
-                            try {
-                                targetTeams = typeof a.teams === 'string' ? JSON.parse(a.teams) : (a.teams || []);
-                                targetEmployees = typeof a.employees === 'string' ? JSON.parse(a.employees) : (a.employees || []);
-                            } catch (e) {
-                                console.error("Error parsing announcement targets", e);
-                            }
-
-                            if (a.event_for === 'team') {
-                                return targetTeams.includes(profileData.team_id);
-                            } else if (a.event_for === 'employee' || a.event_for === 'specific') {
-                                return targetEmployees.includes(user.id);
-                            }
-                            return false;
-                        });
-
-                        const announcementEvents = filteredAnnouncements.map(a => ({
+                    if (userAnnouncements) {
+                        const announcementEvents = userAnnouncements.map(a => ({
                             id: a.id,
                             time: a.event_time ? a.event_time.slice(0, 5) : '',
                             title: a.title,
                             location: a.location,
                             color: '#e0f2fe',
                             date: a.event_date,
-                            status: a.status, // Pass status
+                            status: a.status,
                             type: 'announcement'
                         }));
                         combinedEvents = [...combinedEvents, ...announcementEvents];
@@ -241,16 +217,22 @@ const DashboardHome = () => {
         const dateStr = formatDate(selectedDate);
 
         try {
-            const { error } = await supabase.from('announcements').insert({
-                title,
-                event_date: dateStr,
-                event_time: time,
-                location,
-                message: '', // Default as dashboard modal has no message field
-                event_for: 'employee',
-                employees: selectedEventMembers,
-                teams: []
-            });
+            const { data: { user } } = await supabase.auth.getUser();
+
+            // Use RPC to create event
+            // Defaulting to "Personal Event" (employee scope, target = self) since this modal doesn't have audience selection
+            const payload = {
+                p_title: title,
+                p_date: dateStr,
+                p_time: time,
+                p_location: location,
+                p_message: '',
+                p_event_for: 'employee',
+                p_target_teams: [],
+                p_target_employees: [user.id] // Target self so it appears on my calendar
+            };
+
+            const { error } = await supabase.rpc('create_announcement_event', payload);
 
             if (error) throw error;
 

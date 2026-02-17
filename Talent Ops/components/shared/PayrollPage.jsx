@@ -42,71 +42,46 @@ const PayrollPage = ({ userRole, userId, addToast, orgId }) => {
         try {
             setLoading(true);
 
-            // Safety check: ensure orgId is valid
-            if (!orgId || orgId === 'null' || orgId === 'undefined') {
-                console.error('Invalid orgId:', orgId);
-                setPayrolls([]);
-                setLoading(false);
-                return;
+            let rpcName = '';
+
+            // Determine which RPC to call based on role
+            // Note: We use the server-validated role check inside the RPC, 
+            // but we need to know which one to ask for.
+            const isExecOrManager = ['Executive', 'Manager', 'executive', 'manager', 'admin'].includes(userRole);
+
+            if (isExecOrManager) {
+                rpcName = 'get_org_payroll_history'; // Returns everyone's data (if allowed)
+            } else {
+                rpcName = 'get_my_payroll_history'; // Returns ONLY my data
             }
 
-            // Fetch payroll records first
-            const { data: payrollData, error: payrollError } = await supabase
-                .from('payroll')
-                .select('*')
-                .eq('org_id', orgId)
-                .order('created_at', { ascending: false });
+            console.log(`Fetching payrolls using RPC: ${rpcName}`);
 
-            if (payrollError) {
-                console.error('Error fetching payrolls:', payrollError);
-                addToast('Failed to load payroll records: ' + payrollError.message, 'error');
-                return;
-            }
+            const { data, error } = await supabase.rpc(rpcName);
 
-            if (!payrollData || payrollData.length === 0) {
+            if (error) {
+                console.error('Error fetching payrolls via RPC:', error);
+                addToast('Failed to load payroll records: ' + error.message, 'error');
                 setPayrolls([]);
                 return;
             }
 
-            // Fetch employee details separately
-            const employeeIds = [...new Set(payrollData.map(p => p.employee_id))];
-            const { data: profilesData, error: profilesError } = await supabase
-                .from('profiles')
-                .select('id, full_name, email')
-                .eq('org_id', orgId)
-                .in('id', employeeIds);
-
-            if (profilesError) {
-                console.error('Error fetching profiles:', profilesError);
+            // The RPC returns specific error objects sometimes
+            if (data && data.error) {
+                console.error('RPC returned logic error:', data.error);
+                addToast(data.error, 'error');
+                setPayrolls([]);
+                return;
             }
 
-            // Create a map of employee details
-            const profilesMap = {};
-            if (profilesData) {
-                profilesData.forEach(profile => {
-                    profilesMap[profile.id] = profile;
-                });
-            }
+            // If success, data.data contains the array
+            // If the RPC returns a direct array (standard), use it. 
+            // Our RPC returns { success: true, data: [...] } structure.
+            const pData = data.data || data || [];
 
-            // Merge payroll data with employee details
-            const formattedPayrolls = payrollData.map(payroll => ({
-                id: payroll.id,
-                employee_id: payroll.employee_id,
-                name: profilesMap[payroll.employee_id]?.full_name || 'Unknown',
-                email: profilesMap[payroll.employee_id]?.email || '',
-                month: payroll.month,
-                basic_salary: payroll.basic_salary,
-                hra: payroll.hra,
-                allowances: payroll.allowances,
-                professional_tax: payroll.professional_tax,
-                deductions: payroll.deductions,
-                lop_days: payroll.lop_days,
-                net_salary: payroll.net_salary,
-                status: payroll.status,
-                created_at: payroll.created_at
-            }));
+            console.log('Payroll Data Loaded:', pData.length);
+            setPayrolls(pData);
 
-            setPayrolls(formattedPayrolls);
         } catch (error) {
             console.error('Unexpected error fetching payrolls:', error);
             addToast('Failed to load payroll records', 'error');
