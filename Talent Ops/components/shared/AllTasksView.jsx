@@ -168,6 +168,12 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
 
 
     const fetchEmployees = async () => {
+        // Validation: If we are in a project view, don't fetch everyone if project ID is missing
+        if (viewMode === 'default' && !effectiveProjectId) {
+            console.warn('Skipping employee fetch: Project ID missing in default view');
+            return;
+        }
+
         try {
             const teamMembers = await taskService.getTaskAssignees(orgId, effectiveProjectId);
             setEmployees(teamMembers);

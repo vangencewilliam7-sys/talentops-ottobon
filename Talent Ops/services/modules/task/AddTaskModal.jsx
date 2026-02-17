@@ -63,15 +63,25 @@ const AddTaskModal = ({
         }
     }, [isOpen, newTask.requiredPhases, activeStepPhase]);
 
+    // Helper: Enforce Single Responsibility for scoring logic
+    const getSkillScore = (employee, skillName) => {
+        if (!employee.technical_scores || !skillName) return 0;
+        // Check exact match, lowercase, or uppercase
+        return employee.technical_scores[skillName] ||
+            employee.technical_scores[skillName.toLowerCase()] ||
+            employee.technical_scores[skillName.toUpperCase()] ||
+            0;
+    };
+
     // Smart Sort for Employees based on selected skill
     const sortedEmployees = useMemo(() => {
         if (!Array.isArray(employees)) return [];
         if (!newTask.skill) return employees;
 
         return [...employees].sort((a, b) => {
-            const scoreA = a.technical_scores?.[newTask.skill] || 0;
-            const scoreB = b.technical_scores?.[newTask.skill] || 0;
-            return scoreA - scoreB; // Ascending Order (Least skilled first) per user requirement
+            const scoreA = getSkillScore(a, newTask.skill);
+            const scoreB = getSkillScore(b, newTask.skill);
+            return scoreA - scoreB; // Ascending Order (Least skilled first)
         });
     }, [employees, newTask.skill]);
 
@@ -263,16 +273,23 @@ const AddTaskModal = ({
 
                                     {/* Dynamic Assignment Input */}
                                     {newTask.assignType === 'individual' && (
-                                        <select
-                                            value={newTask.assignedTo}
-                                            onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
-                                            style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.95rem', backgroundColor: 'white' }}
-                                        >
-                                            <option value="">Select Employee</option>
-                                            {sortedEmployees.map(emp => (
-                                                <option key={emp.id} value={emp.id}>{emp.full_name}</option>
-                                            ))}
-                                        </select>
+                                        <>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', textAlign: 'right' }}>
+                                                Showing: {effectiveProjectId ? 'Project Team' : 'All Organization Members'}
+                                            </div>
+                                            <select
+                                                value={newTask.assignedTo}
+                                                onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
+                                                style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.95rem', backgroundColor: 'white' }}
+                                            >
+                                                <option value="">Select Employee</option>
+                                                {sortedEmployees.map(emp => {
+                                                    const score = getSkillScore(emp, newTask.skill);
+                                                    const label = newTask.skill ? `${emp.full_name} (Score: ${score})` : emp.full_name;
+                                                    return <option key={emp.id} value={emp.id}>{label}</option>;
+                                                })}
+                                            </select>
+                                        </>
                                     )}
 
                                     {newTask.assignType === 'team' && (
@@ -283,25 +300,31 @@ const AddTaskModal = ({
 
                                     {newTask.assignType === 'multi' && (
                                         <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '8px', backgroundColor: 'white' }}>
-                                            {sortedEmployees.length > 0 ? sortedEmployees.map(emp => (
-                                                <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '6px', transition: 'background 0.1s' }}
-                                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={newTask.selectedAssignees.includes(emp.id)}
-                                                        onChange={(e) => {
-                                                            const newSelected = e.target.checked
-                                                                ? [...newTask.selectedAssignees, emp.id]
-                                                                : newTask.selectedAssignees.filter(id => id !== emp.id);
-                                                            setNewTask({ ...newTask, selectedAssignees: newSelected });
-                                                        }}
-                                                        style={{ cursor: 'pointer' }}
-                                                    />
-                                                    <span style={{ fontSize: '0.9rem', color: '#334155' }}>{emp.full_name}</span>
-                                                </label>
-                                            )) : <div style={{ padding: '8px', color: '#94a3b8', fontSize: '0.85rem' }}>No employees found.</div>}
+                                            {sortedEmployees.length > 0 ? sortedEmployees.map(emp => {
+                                                const score = getSkillScore(emp, newTask.skill);
+                                                const label = newTask.skill ? `${emp.full_name} (Score: ${score})` : emp.full_name;
+                                                return (
+                                                    <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '6px', transition: 'background 0.1s' }}
+                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={newTask.selectedAssignees.includes(emp.id)}
+                                                            onChange={(e) => {
+                                                                const newSelected = e.target.checked
+                                                                    ? [...newTask.selectedAssignees, emp.id]
+                                                                    : newTask.selectedAssignees.filter(id => id !== emp.id);
+                                                                setNewTask({ ...newTask, selectedAssignees: newSelected });
+                                                            }}
+                                                            style={{ cursor: 'pointer' }}
+                                                        />
+                                                        <span style={{ fontSize: '0.9rem', color: '#334155' }}>
+                                                            {label}
+                                                        </span>
+                                                    </label>
+                                                );
+                                            }) : <div style={{ padding: '8px', color: '#94a3b8', fontSize: '0.85rem' }}>No employees found.</div>}
                                         </div>
                                     )}
                                 </div>
