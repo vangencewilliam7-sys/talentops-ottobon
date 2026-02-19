@@ -13,6 +13,9 @@ export default {
                 elegant: ['var(--font-cormorant)'],
                 body: ['var(--font-inter)'],
                 accent: ['var(--font-space)'],
+                redhat: ['var(--font-redhat)'],
+                leckerli: ['var(--font-leckerli)'],
+                heading: ['var(--font-playfair)'],
             },
             colors: {
                 ink: '#0A0A0B',

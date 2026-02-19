@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
-import { useInView } from 'motion/react';
+import { motion, useInView } from 'framer-motion';
 
 const results = [
   {

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Mail, Linkedin, Twitter } from 'lucide-react';
-import { motion } from 'motion/react';
-import { useInView } from 'motion/react';
+import { motion, useInView } from 'framer-motion';
 
 export default function Footer() {
   return (

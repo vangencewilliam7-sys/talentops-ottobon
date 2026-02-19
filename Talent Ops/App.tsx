@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { LoginPage } from './components/pages/LoginPage';
-import { LandingPage } from './components/pages/LandingPage';
+import { LandingPage } from './landing/LandingPage';
 import { ExecutiveDashboard } from './components/pages/ExecutiveDashboard';
 import { ManagerDashboard } from './components/pages/ManagerDashboard';
 import { TeamLeadDashboard } from './components/pages/TeamLeadDashboard';

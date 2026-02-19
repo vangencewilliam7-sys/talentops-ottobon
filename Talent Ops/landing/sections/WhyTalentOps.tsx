@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import { motion } from 'motion/react';
-import { useInView } from 'motion/react';
+import { motion, useInView } from 'framer-motion';
 
 const reasons = [
   'Deep expertise in talent operations, not generic HR advice',

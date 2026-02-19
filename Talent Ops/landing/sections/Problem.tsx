@@ -1,7 +1,6 @@
 import React from 'react';
 import { AlertCircle, Users, BarChart3, TrendingDown, Workflow } from 'lucide-react';
-import { motion } from 'motion/react';
-import { useInView } from 'motion/react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 
 const painPoints = [
   {

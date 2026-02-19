@@ -1,5 +1,5 @@
 import React, { Suspense, lazy } from 'react';
-import { motion } from 'motion/react';
+import { motion } from 'framer-motion';
 import { StylesInjection } from './styles/StylesInjection';
 import { Navigation } from './components/Navigation';
 import { SmoothScroll } from './components/SmoothScroll';
