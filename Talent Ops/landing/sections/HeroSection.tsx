@@ -23,23 +23,25 @@ export function HeroSection() {
                 speed="fast"
             >
                 <div className="container mx-auto relative z-10 w-full max-w-5xl text-center px-6">
-                    <div className="flex flex-col items-center">
-                        <h1 className="reveal-fade font-redhat text-[clamp(2.5rem,7vw,5rem)] md:text-7xl lg:text-8xl font-bold leading-[1.1] tracking-tight text-[#1f2937]">
-                            The <span className="inline-block bg-gradient-to-r from-[#a5c9ff] to-[#3b82f6] bg-clip-text text-transparent font-leckerli font-normal px-4 scale-110 origin-center">Intelligence Layer</span> <br className="hidden md:block" />
-                            <span className="font-redhat font-bold tracking-tight">of Your Workforce</span>
-                        </h1>
+                    <div className="flex flex-col items-center gap-12 md:gap-16">
+                        <div className="flex flex-col items-center">
+                            <h1 className="reveal-fade font-redhat font-bold text-[#1f2937] text-[clamp(2.5rem,8vw,6rem)] leading-[1.2] text-center">
+                                The <span className="font-satisfy text-[1.4em] bg-gradient-to-r from-[#3b82f6] to-[#60a5fa] bg-clip-text text-transparent px-2 py-4 leading-none inline-block align-middle">Intelligence Layer</span><br />
+                                of Your Workforce
+                            </h1>
 
-                        <p className="reveal-fade text-lg md:text-2xl text-[#1f2937]/70 font-redhat font-medium mt-10 max-w-2xl mx-auto">
-                            Connect talent data, performance metrics, and planning insights into a single, strategic command center.
-                        </p>
+                            <p className="reveal-fade text-lg md:text-xl text-[#6b7280] font-redhat font-normal mt-10 max-w-2xl mx-auto leading-relaxed">
+                                Connect talent data, performance metrics, and planning insights into a single, strategic command center.
+                            </p>
+                        </div>
 
-                        <div className="reveal-fade flex justify-center mt-20">
+                        <div className="reveal-fade flex justify-center">
                             <a
                                 href="#cta"
-                                className="bg-[#3b82f6] text-white px-12 py-5 rounded-[16px] font-bold text-lg tracking-wide hover:bg-[#2563eb] transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 flex items-center gap-4 group"
+                                className="bg-[#3b82f6] text-white px-10 py-4 rounded-full font-redhat font-bold text-lg tracking-wide hover:bg-[#2563eb] transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center gap-3 group"
                             >
                                 Get Started
-                                <ArrowRight className="w-7 h-7 transition-transform group-hover:translate-x-2" />
+                                <ArrowRight className="w-6 h-6 transition-transform group-hover:translate-x-1" />
                             </a>
                         </div>
                     </div>

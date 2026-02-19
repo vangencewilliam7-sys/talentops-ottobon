@@ -43,7 +43,7 @@ export function Navigation() {
                         <a
                             key={item.name}
                             href={item.href}
-                            className="text-sm font-medium text-[#1f2937]/70 hover:text-[#3b82f6] transition-colors"
+                            className="text-[15px] font-redhat font-medium text-[#1f2937]/70 hover:text-[#3b82f6] transition-colors"
                         >
                             {item.name}
                         </a>
@@ -54,7 +54,7 @@ export function Navigation() {
                 <div className="hidden md:flex items-center gap-6">
                     <button
                         onClick={handleLoginClick}
-                        className="text-sm font-semibold text-[#1f2937] hover:text-[#3b82f6] transition-colors"
+                        className="text-[15px] font-redhat font-bold text-[#1f2937] hover:text-[#3b82f6] transition-colors"
                     >
                         Sign In
                     </button>
