@@ -34,7 +34,7 @@ const steps = [
         number: '05',
         title: 'Improve',
         description: 'We measure results and continuously refine systems as your organization evolves. Ensuring your platform grows with your business.',
-        image: 'https://images.unsplash.com/photo-1551288049-bbda38a10ad5?auto=format&fit=crop&q=80&w=800',
+        image: '/improve.jpg',
         tags: ['Optimization', 'Analysis', 'Scaling']
     }
 ];

@@ -27,7 +27,7 @@ const services = [
     },
     {
         title: 'People Data & Strategy',
-        image: 'https://images.unsplash.com/photo-1551288049-bbda38a10ad5?auto=format&fit=crop&q=80&w=1200',
+        image: '/people-data-stretagy.jpg.png',
         description: 'Leverage predictive analytics to understand sentiment, retention risks, and surface hidden growth potential in your team.',
         features: [
             'Team Health Diagnostics',
@@ -106,7 +106,7 @@ export default function Services() {
     return (
         <section
             id="services"
-            className="py-32 md:py-48 px-6 lg:px-12 bg-[#0A0A0B] relative overflow-hidden flex flex-col justify-center"
+            className="py-16 md:py-24 px-6 lg:px-12 bg-[#0A0A0B] relative overflow-hidden flex flex-col justify-center"
         >
             <div className="max-w-7xl mx-auto relative z-10 w-full">
                 <div className="text-center mb-24 md:mb-32 max-w-4xl mx-auto">

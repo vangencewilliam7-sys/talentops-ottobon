@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, Users, BarChart3, TrendingDown, Workflow } from 'lucide-react';
+import { AlertCircle, Users, BarChart3, TrendingDown, Workflow, Target } from 'lucide-react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 
 const painPoints = [
@@ -27,6 +27,11 @@ const painPoints = [
     icon: Workflow,
     title: 'Growing Inefficiency',
     description: 'As you scale, small problems compound and make daily operations more difficult.'
+  },
+  {
+    icon: Target,
+    title: 'Misaligned Goals',
+    description: 'Teams move in different directions without a unified strategy, slowing execution and impact.'
   }
 ];
 
