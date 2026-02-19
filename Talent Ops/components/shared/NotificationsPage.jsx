@@ -129,6 +129,8 @@ const NotificationsPage = () => {
                 return <div style={{ ...iconStyle, backgroundColor: '#fef3c7', color: '#b45309' }}>📋</div>;
             case 'announcement':
                 return <div style={{ ...iconStyle, backgroundColor: '#e0e7ff', color: '#4338ca' }}>📢</div>;
+            case 'ai_risk_alert':
+                return <div style={{ ...iconStyle, backgroundColor: '#fee2e2', color: '#dc2626' }}>⚠️</div>;
             default:
                 return <div style={{ ...iconStyle, backgroundColor: '#f3f4f6', color: '#6b7280' }}>🔔</div>;
         }

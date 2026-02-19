@@ -13,6 +13,7 @@ import TaskFilters from '../../services/modules/task/TaskFilters';
 import TaskTable from '../../services/modules/task/TaskTable';
 import AddTaskModal from '../../services/modules/task/AddTaskModal';
 import SkillTagInput from './SkillTagInput';
+import { riskService } from '../../services/modules/risk';
 
 
 const LIFECYCLE_PHASES = [
@@ -44,6 +45,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
     const [selectedTask, setSelectedTask] = useState(null);
     const [processingApproval, setProcessingApproval] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
+    const [riskSnapshots, setRiskSnapshots] = useState({});
 
     useEffect(() => {
         const getUser = async () => {
@@ -207,6 +209,23 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
             setLoading(false);
         }
     };
+
+    // Fetch Risk Data when tasks change
+    useEffect(() => {
+        if (tasks.length > 0) {
+            const fetchRisks = async () => {
+                const activeTasks = tasks.filter(t => t.status !== 'completed' && t.status !== 'archived' && t.status !== 'cancelled');
+                if (activeTasks.length === 0) return;
+
+                const taskIds = activeTasks.map(t => t.id);
+                // Chunk requests if too many? For now, let's just do one bulk.
+                // Or maybe chunks of 50?
+                const snapshots = await riskService.getLatestSnapshotsForTasks(taskIds);
+                setRiskSnapshots(prev => ({ ...prev, ...snapshots }));
+            };
+            fetchRisks();
+        }
+    }, [tasks]);
 
     useEffect(() => {
         fetchData();
@@ -837,6 +856,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                             setAccessReviewTask(t);
                             setShowAccessReviewModal(true);
                         }}
+                        riskData={riskSnapshots}
                     />
                 )}
 

@@ -721,6 +721,65 @@ const TaskDetailOverlay = ({
                         </div>
                     </div>
 
+                    {/* Task Metadata Bar */}
+                    <div style={{
+                        display: 'flex',
+                        gap: '24px',
+                        marginBottom: '32px',
+                        padding: '12px 16px',
+                        backgroundColor: '#f8fafc',
+                        borderRadius: '12px',
+                        border: '1px solid #f1f5f9',
+                        flexWrap: 'wrap'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#475569' }}>
+                            <div style={{ backgroundColor: '#e0f2fe', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                                <Clock size={16} color="#0369a1" />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Start Time</span>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                                    {task.started_at ? new Date(task.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---'}
+                                    {task.started_at && <span style={{ fontSize: '0.75rem', fontWeight: 400, marginLeft: '4px', opacity: 0.8 }}>
+                                        {new Date(task.started_at).toLocaleDateString()}
+                                    </span>}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style={{ width: '1px', backgroundColor: '#e2e8f0' }} />
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#475569' }}>
+                            <div style={{ backgroundColor: '#ffedd5', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                                <Calendar size={16} color="#9a3412" />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Due Deadline</span>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                                    {task.due_time || '23:59'}
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 400, marginLeft: '4px', opacity: 0.8 }}>
+                                        {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No date'}
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
+
+                        {task.allocated_hours > 0 && (
+                            <>
+                                <div style={{ width: '1px', backgroundColor: '#e2e8f0' }} />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#475569' }}>
+                                    <div style={{ backgroundColor: '#f0fdf4', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                                        <Award size={16} color="#166534" />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Allocation</span>
+                                        <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{task.allocated_hours} Hours</span>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
                     {/* Description */}
                     <div style={{ marginBottom: '32px' }}>
                         <h3 style={{

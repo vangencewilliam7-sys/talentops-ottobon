@@ -494,6 +494,8 @@ const AddTaskModal = ({
                                         </div>
                                         <input
                                             type="number"
+                                            step="0.01"
+                                            min="0.01"
                                             value={newTask.allocatedHours}
                                             onChange={handleHoursChange}
                                             style={{

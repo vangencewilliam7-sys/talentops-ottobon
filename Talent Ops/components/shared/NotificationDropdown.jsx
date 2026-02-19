@@ -151,6 +151,8 @@ const NotificationDropdown = ({ isOpen, onClose, dropdownRef, onNotificationUpda
                 return '📋';
             case 'announcement':
                 return '📢';
+            case 'ai_risk_alert':
+                return '⚠️';
             default:
                 return '🔔';
         }

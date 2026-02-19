@@ -7,6 +7,10 @@ import { useToast } from '../context/ToastContext';
 import SkillSelectionModal from '../components/UI/SkillSelectionModal';
 import TaskNotesModal from '../../shared/TaskNotesModal';
 import TaskDetailOverlay from '../components/UI/TaskDetailOverlay';
+import ActiveStatusDot from '../../shared/ActiveStatusDot';
+import AIAssistantPopup from '../../shared/AIAssistantPopup';
+import RiskBadge from '../../shared/RiskBadge';
+import { riskService } from '../../../services/modules/risk';
 
 const LIFECYCLE_PHASES = [
     { key: 'requirement_refiner', label: 'Requirement Refiner', short: 'Req' },
@@ -62,11 +66,118 @@ const MyTasksPage = () => {
     const [showNotesModal, setShowNotesModal] = useState(false);
     const [taskForNotes, setTaskForNotes] = useState(null);
 
+    // AI Risk Coach State
+    const [showAIPopup, setShowAIPopup] = useState(false);
+    const [aiPopupData, setAiPopupData] = useState(null);
+    const [checkedRiskTaskIds, setCheckedRiskTaskIds] = useState(new Set());
+    const [riskSnapshots, setRiskSnapshots] = useState({});
+
     useEffect(() => {
         if (orgId) {
             fetchTasks();
         }
     }, [currentProject?.id, orgId]); // Refetch when project changes or org resolves
+
+    // Fetch Risk context on load
+    useEffect(() => {
+        if (!loading && tasks.length > 0) {
+            checkMyRisks();
+            fetchRiskSnapshots();
+        }
+    }, [loading, tasks]);
+
+    const fetchRiskSnapshots = async () => {
+        const activeTasks = tasks.filter(t => t.lifecycle_state !== 'closed' && t.status !== 'completed' && t.status !== 'archived');
+        if (activeTasks.length === 0) return;
+        const taskIds = activeTasks.map(t => t.id);
+        const snapshots = await riskService.getLatestSnapshotsForTasks(taskIds);
+        setRiskSnapshots(prev => ({ ...prev, ...snapshots }));
+    };
+
+    const checkMyRisks = async () => {
+        // Only analyze tasks that are actually in the current view (filtered)
+        const activeTasks = filteredTasks.filter(t =>
+            t.lifecycle_state !== 'closed' &&
+            t.status !== 'completed' &&
+            !checkedRiskTaskIds.has(t.id)
+        );
+
+        if (activeTasks.length === 0) return;
+
+        // 1. Identifying ALL Urgent/Risky Tasks
+        const urgentTasks = activeTasks.filter(t => {
+            const now = new Date();
+
+            // A. Deadline Check
+            let isDeadlineRisk = false;
+            if (t.due_date) {
+                const due = new Date(`${t.due_date}T${t.due_time || '23:59:59'}`);
+                const hoursLeft = (due - now) / (1000 * 60 * 60);
+                isDeadlineRisk = hoursLeft < 24;
+            }
+
+            // B. Allocation vs Elapsed Check (Internal Math)
+            const startedAt = t.started_at ? new Date(t.started_at) : new Date(t.created_at);
+            const elapsedHours = (now - startedAt) / (1000 * 60 * 60);
+            const isOverAllocated = t.allocated_hours > 0 && elapsedHours > t.allocated_hours;
+
+            // C. Micro-task Urgency
+            const isMicroTask = (t.allocated_hours || 0) < 5;
+
+            return isDeadlineRisk || isOverAllocated || isMicroTask;
+        });
+
+        if (urgentTasks.length > 0) {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+
+            // 2. Process ALL urgent tasks to ensure snapshots are created
+            for (const task of urgentTasks) {
+                try {
+                    let snapshot = await riskService.getLatestSnapshot(task.id);
+                    const isMicroTask = (task.allocated_hours || 0) < 5;
+
+                    // Check if snapshot is stale (re-analyze every 1h for micro, 4h for others)
+                    let isStale = false;
+                    if (snapshot) {
+                        const ageHrs = (new Date() - new Date(snapshot.computed_at)) / (1000 * 60 * 60);
+                        isStale = isMicroTask ? ageHrs > 1 : ageHrs > 4;
+                    }
+
+                    // If missing or stale analysis, trigger it
+                    if (!snapshot || isStale) {
+                        const result = await riskService.analyzeRisk(task.id, task.title, {
+                            full_name: authUser?.user_metadata?.full_name || 'Employee',
+                            role: 'employee',
+                            is_micro_task: isMicroTask
+                        });
+                        snapshot = result.analysis;
+                        setRiskSnapshots(prev => ({ ...prev, [task.id]: snapshot }));
+                    }
+
+                    // 3. Trigger Popup for the FIRST important one
+                    const shouldShowPopup = snapshot &&
+                        (snapshot.risk_level === 'high' || (isMicroTask && snapshot.risk_level === 'medium')) &&
+                        !showAIPopup;
+
+                    if (shouldShowPopup) {
+                        setAiPopupData({
+                            taskTitle: task.title,
+                            type: 'coach',
+                            message: isMicroTask
+                                ? `This micro-task is tight! You have ${Math.round(task.allocated_hours * 60)} mins allocated. Let's move fast.`
+                                : `I've performed an AI analysis on this task. At your current pace, there's a risk of delay.`,
+                            reasons: snapshot.reasons || [],
+                            recommended_actions: snapshot.recommended_actions || [],
+                            onAction: () => setShowAIPopup(false)
+                        });
+                        setShowAIPopup(true);
+                    }
+                } catch (err) {
+                    console.error(`Risk analysis failed for task ${task.id}:`, err);
+                }
+            }
+        }
+    };
 
     const fetchTasks = async () => {
         setLoading(true);
@@ -705,7 +816,7 @@ const MyTasksPage = () => {
         });
 
         return matchesSearch && matchesDate && matchesStatus;
-    });
+    }).sort((a, b) => (b.is_active_now ? 1 : 0) - (a.is_active_now ? 1 : 0));
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -1098,6 +1209,7 @@ const MyTasksPage = () => {
                             <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>TASK</th>
                             <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>PROJECT</th>
                             <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>PRIORITY</th>
+                            <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>RISK</th>
                             <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>LIFECYCLE</th>
                             <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>ALLOCATED HOURS</th>
                             <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>DUE DATE</th>
@@ -1126,8 +1238,29 @@ const MyTasksPage = () => {
                                     <tr key={task.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background-color 0.2s' }}>
                                         <td style={{ padding: '16px' }}>
                                             <div>
-                                                <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.95rem' }}>
-                                                    {task.title}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                    <ActiveStatusDot
+                                                        taskId={task.id}
+                                                        isActive={task.is_active_now}
+                                                        onToggle={(isNowActive) => {
+                                                            if (isNowActive) {
+                                                                const snapshot = riskSnapshots[task.id];
+                                                                if (snapshot && snapshot.risk_level === 'high') {
+                                                                    setAiPopupData({
+                                                                        taskTitle: task.title,
+                                                                        type: 'coach',
+                                                                        message: "I've analyzed your progress on this task. There are significant risks to the timeline if we don't adjust our strategy.",
+                                                                        reasons: snapshot.reasons,
+                                                                        recommended_actions: snapshot.recommended_actions
+                                                                    });
+                                                                    setShowAIPopup(true);
+                                                                }
+                                                            }
+                                                        }}
+                                                    />
+                                                    <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.95rem' }}>
+                                                        {task.title}
+                                                    </div>
                                                 </div>
                                                 {reassignedLabel && (
                                                     <div style={{
@@ -1165,6 +1298,13 @@ const MyTasksPage = () => {
                                             }}>
                                                 {task.priority || 'Medium'}
                                             </span>
+                                        </td>
+                                        <td style={{ padding: '16px' }}>
+                                            <RiskBadge
+                                                riskLevel={riskSnapshots[task.id]?.risk_level}
+                                                showLabel={false}
+                                                size="sm"
+                                            />
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             <LifecycleProgress
@@ -1755,6 +1895,15 @@ const MyTasksPage = () => {
                 addToast={addToast}
                 canAddNote={true}  // Employee can always add notes to their own task
             />
+
+            {/* AI Assistant Popup */}
+            {showAIPopup && aiPopupData && (
+                <AIAssistantPopup
+                    isOpen={showAIPopup}
+                    onClose={() => setShowAIPopup(false)}
+                    data={aiPopupData}
+                />
+            )}
         </div >
     );
 };
