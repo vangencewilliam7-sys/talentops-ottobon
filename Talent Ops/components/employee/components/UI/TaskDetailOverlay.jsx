@@ -332,20 +332,13 @@ const TaskDetailOverlay = ({
                 if (evidenceError) console.error('Error inserting evidence:', evidenceError);
             }
 
-            // 4. Update Task Status (Legacy/Direct columns)
-            // Store multiple file URLs as JSON array or comma-separated for legacy compatibility
+            // 2. Format file URLs
             const fileUrlsString = fileUrls.length > 0 ? JSON.stringify(fileUrls) : null;
 
-            // 2. Logic to Advance Phase (Sync with MyTasksPage logic)
-            const activePhases = task.phase_validations?.active_phases || phases.map(p => p.key);
-            const validActivePhases = activePhases.filter(pk => pk !== 'closed' && phases.some(p => p.key === pk));
+            // 3. Determine Current Phase (Do not auto-advance)
+            const currentPhase = task.lifecycle_state || 'requirement_refiner';
 
-            let currentPhase = task.lifecycle_state || 'requirement_refiner';
-            if (!validActivePhases.includes(currentPhase)) {
-                currentPhase = validActivePhases[0] || 'requirement_refiner';
-            }
-
-            // CHECK FOR EXISTING PROOFS TO APPEND
+            // Combine with existing proofs
             const existingPhaseVal = task.phase_validations?.[currentPhase] || {};
             let combinedUrls = [];
 
@@ -365,30 +358,26 @@ const TaskDetailOverlay = ({
             // Append text if exists
             const combinedText = [existingPhaseVal.proof_text, proofText].filter(Boolean).join('\n---\n');
 
-            let nextPhase = currentPhase;
-            const currentActiveIndex = validActivePhases.indexOf(currentPhase);
-
-            if (currentActiveIndex !== -1 && currentActiveIndex < validActivePhases.length - 1) {
-                // Advance to next valid phase
-                nextPhase = validActivePhases[currentActiveIndex + 1];
-            }
-
+            // Update Validation Object (Reset validated status if any)
             const updatedValidations = {
                 ...(task.phase_validations || {}),
                 [currentPhase]: {
-                    status: 'pending',
+                    status: 'pending', // Pending Manager Review
                     proof_url: combinedUrlsString,
                     proof_text: combinedText,
-                    submitted_at: new Date().toISOString()
+                    submitted_at: new Date().toISOString(),
+                    validated: false // Explicitly un-validate on new submission
                 }
             };
 
+            // Prepare Updates
             const updates = {
                 proof_text: combinedText || null,
                 proof_url: combinedUrlsString,
-                sub_state: nextPhase !== currentPhase ? 'in_progress' : 'pending_validation',
+                sub_state: 'pending_validation', // Signal ready for review
                 status: 'in_progress',
-                lifecycle_state: nextPhase,
+                // Do NOT advance lifecycle_state automatically. Manager must approve.
+                lifecycle_state: currentPhase,
                 phase_validations: updatedValidations,
                 updated_at: new Date().toISOString()
             };
@@ -730,6 +719,65 @@ const TaskDetailOverlay = ({
                                 <Star size={14} fill="currentColor" /> {task.priority || 'Medium'} Priority
                             </span>
                         </div>
+                    </div>
+
+                    {/* Task Metadata Bar */}
+                    <div style={{
+                        display: 'flex',
+                        gap: '24px',
+                        marginBottom: '32px',
+                        padding: '12px 16px',
+                        backgroundColor: '#f8fafc',
+                        borderRadius: '12px',
+                        border: '1px solid #f1f5f9',
+                        flexWrap: 'wrap'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#475569' }}>
+                            <div style={{ backgroundColor: '#e0f2fe', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                                <Clock size={16} color="#0369a1" />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Start Time</span>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                                    {task.started_at ? new Date(task.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---'}
+                                    {task.started_at && <span style={{ fontSize: '0.75rem', fontWeight: 400, marginLeft: '4px', opacity: 0.8 }}>
+                                        {new Date(task.started_at).toLocaleDateString()}
+                                    </span>}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style={{ width: '1px', backgroundColor: '#e2e8f0' }} />
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#475569' }}>
+                            <div style={{ backgroundColor: '#ffedd5', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                                <Calendar size={16} color="#9a3412" />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Due Deadline</span>
+                                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                                    {task.due_time || '23:59'}
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 400, marginLeft: '4px', opacity: 0.8 }}>
+                                        {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No date'}
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
+
+                        {task.allocated_hours > 0 && (
+                            <>
+                                <div style={{ width: '1px', backgroundColor: '#e2e8f0' }} />
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#475569' }}>
+                                    <div style={{ backgroundColor: '#f0fdf4', padding: '6px', borderRadius: '8px', display: 'flex' }}>
+                                        <Award size={16} color="#166534" />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Allocation</span>
+                                        <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{task.allocated_hours} Hours</span>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* Description */}
@@ -1083,7 +1131,7 @@ const TaskDetailOverlay = ({
                                             borderRadius: '50%',
                                             backgroundColor: status === 'completed' ? '#10b981' :
                                                 status === 'pending_validation' ? '#f59e0b' :
-                                                    status === 'in_progress' ? '#3b82f6' : '#e2e8f0',
+                                                    status === 'in_progress' ? '#e2e8f0' : '#e2e8f0', // In Progress is now Grey (Active Border only)
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
@@ -1093,7 +1141,10 @@ const TaskDetailOverlay = ({
                                             {status === 'completed' ? (
                                                 <Check size={14} color="white" />
                                             ) : (
-                                                <Circle size={10} color={(status === 'in_progress' || status === 'pending_validation') ? 'white' : '#94a3b8'} fill={(status === 'in_progress' || status === 'pending_validation') ? 'white' : 'none'} />
+                                                <Circle size={10}
+                                                    color={(status === 'pending_validation') ? 'white' : (status === 'in_progress' ? '#3b82f6' : '#94a3b8')}
+                                                    fill={(status === 'pending_validation') ? 'white' : (status === 'in_progress' ? '#3b82f6' : 'none')}
+                                                />
                                             )}
                                         </div>
                                         <div style={{

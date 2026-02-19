@@ -1,5 +1,7 @@
 import React from 'react';
 import { Calendar, Clock, ChevronDown, Eye, Edit2, Archive, AlertTriangle } from 'lucide-react';
+import RiskBadge from '../../../components/shared/RiskBadge';
+import ActiveStatusDot from '../../../components/shared/ActiveStatusDot';
 
 const LIFECYCLE_PHASES = [
     { key: 'requirement_refiner', label: 'Requirements', short: 'R' },
@@ -103,7 +105,8 @@ const TaskTable = ({
     setAccessReviewTask,
     setReviewAction,
     setShowAccessReviewModal,
-    openIssueModal
+    openIssueModal,
+    riskData = {} // New Prop
 }) => {
 
     if (loading) {
@@ -147,11 +150,12 @@ const TaskTable = ({
                             <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Due</th>
                             <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Hours</th>
                             <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Priority</th>
+                            <th style={{ padding: '16px', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Risk</th>
                             <th style={{ padding: '16px', textAlign: 'center', fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {tasks.map(task => {
+                        {[...tasks].sort((a, b) => (b.is_active_now ? 1 : 0) - (a.is_active_now ? 1 : 0)).map(task => {
                             const priorityStyle = getPriorityStyle(task.priority);
                             const statusStyle = getStatusStyle(task.status);
 
@@ -166,11 +170,19 @@ const TaskTable = ({
                             return (
                                 <tr key={task.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background-color 0.1s' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'white'}>
                                     <td style={{ padding: '16px', maxWidth: '300px' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                            <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.95rem' }}>{task.title}</span>
-                                            <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {task.project_name} • {task.assignee_name}
-                                            </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <ActiveStatusDot
+                                                isActive={task.is_active_now}
+                                                taskId={task.id}
+                                                isEditable={false}
+                                                size={10}
+                                            />
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.95rem' }}>{task.title}</span>
+                                                <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {task.project_name} • {task.assignee_name}
+                                                </span>
+                                            </div>
                                         </div>
                                     </td>
                                     {userRole !== 'manager' && (
@@ -284,6 +296,14 @@ const TaskTable = ({
                                                 color: priorityStyle.text
                                             }} />
                                         </div>
+                                    </td>
+                                    <td style={{ padding: '12px', verticalAlign: 'middle' }}>
+                                        <RiskBadge
+                                            riskLevel={riskData[task.id]?.risk_level}
+                                            delayHours={riskData[task.id]?.predicted_delay_hours}
+                                            showLabel={false} // Compact for table
+                                            size="sm"
+                                        />
                                     </td>
 
                                     <td style={{ padding: '12px', verticalAlign: 'middle', textAlign: 'center' }}>

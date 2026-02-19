@@ -2,6 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 
 import { X, Upload, FileText, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { taskService } from '.';
+import { useBusinessHours } from './hooks/useBusinessHours';
+import { calculateDueDateTime } from '../../../lib/businessHoursUtils';
+import SkillTagInput from '../../../components/shared/SkillTagInput';
 
 // Lifecycle phases constant
 const LIFECYCLE_PHASES = [
@@ -23,6 +26,7 @@ const AddTaskModal = ({
     addToast
 }) => {
     const [submitting, setSubmitting] = useState(false);
+    const [anchorMode, setAnchorMode] = useState('date'); // 'date' | 'hours'
 
     // Task State
     const [newTask, setNewTask] = useState({
@@ -36,12 +40,72 @@ const AddTaskModal = ({
         startTime: '09:00',
         dueTime: '17:00',
         priority: 'Medium',
-        skill: '',
+        skills: [],
         allocatedHours: 10,
         pointsPerHour: 100,
         requiredPhases: ['requirement_refiner', 'design_guidance', 'build_guidance', 'acceptance_criteria', 'deployment'],
         stepDuration: '2h' // Default
     });
+
+    // Custom Hook for Business Hours (SOLID: SRP)
+    const { allocatedHours: calculatedHours, calculateEndDateFromHours } = useBusinessHours(
+        newTask.startDate,
+        newTask.startTime,
+        newTask.endDate,
+        newTask.dueTime
+    );
+
+    // Sync calculated hours to task state (Forward Sync: Dates -> Hours)
+    useEffect(() => {
+        // Only update if the calculated value is different and valid
+        if (calculatedHours && calculatedHours !== newTask.allocatedHours) {
+            setNewTask(prev => ({ ...prev, allocatedHours: calculatedHours }));
+        }
+    }, [calculatedHours]);
+
+    // Handle manual hours change (Backward Sync: Hours -> Dates)
+    const handleHoursChange = (e) => {
+        const newHours = e.target.value;
+        setNewTask(prev => ({ ...prev, allocatedHours: newHours }));
+        setAnchorMode('hours');
+
+        // Calculate and update end date/time
+        if (newHours && parseFloat(newHours) > 0) {
+            const result = calculateEndDateFromHours(newHours);
+            if (result) {
+                setNewTask(prev => ({
+                    ...prev,
+                    allocatedHours: newHours,
+                    endDate: result.dueDate,
+                    dueTime: result.dueTime.slice(0, 5) // Format HH:MM
+                }));
+            }
+        }
+    };
+
+    const handleStartDateChange = (field, value) => {
+        const updates = { [field]: value };
+
+        // If anchored to hours, shift the end date to preserve duration
+        if (anchorMode === 'hours' && newTask.allocatedHours && parseFloat(newTask.allocatedHours) > 0) {
+            const tempStart = field === 'startDate' ? value : newTask.startDate;
+            const tempTime = field === 'startTime' ? value : newTask.startTime;
+
+            if (tempStart && tempTime) {
+                const startDateTime = new Date(`${tempStart}T${tempTime}`);
+                const result = calculateDueDateTime(startDateTime, parseFloat(newTask.allocatedHours));
+                updates.endDate = result.dueDate;
+                updates.dueTime = result.dueTime.slice(0, 5);
+            }
+        }
+
+        setNewTask(prev => ({ ...prev, ...updates }));
+    };
+
+    const handleEndDateChange = (field, value) => {
+        setAnchorMode('date');
+        setNewTask(prev => ({ ...prev, [field]: value }));
+    };
 
     // Phase & Steps State
     const [phaseFiles, setPhaseFiles] = useState({});
@@ -63,17 +127,30 @@ const AddTaskModal = ({
         }
     }, [isOpen, newTask.requiredPhases, activeStepPhase]);
 
-    // Smart Sort for Employees based on selected skill
+    // Helper: Enforce Single Responsibility for scoring logic
+    const getSkillScore = (employee, skillName) => {
+        if (!employee.technical_scores || !skillName) return 0;
+        // Check exact match, lowercase, or uppercase
+        return employee.technical_scores[skillName] ||
+            employee.technical_scores[skillName.toLowerCase()] ||
+            employee.technical_scores[skillName.toUpperCase()] ||
+            0;
+    };
+
+
+
+
     const sortedEmployees = useMemo(() => {
         if (!Array.isArray(employees)) return [];
-        if (!newTask.skill) return employees;
+        const primarySkill = newTask.skills?.[0];
+        if (!primarySkill) return employees;
 
         return [...employees].sort((a, b) => {
-            const scoreA = a.technical_scores?.[newTask.skill] || 0;
-            const scoreB = b.technical_scores?.[newTask.skill] || 0;
-            return scoreA - scoreB; // Ascending Order (Least skilled first) per user requirement
+            const scoreA = getSkillScore(a, primarySkill);
+            const scoreB = getSkillScore(b, primarySkill);
+            return scoreA - scoreB; // Ascending Order (Least skilled first)
         });
-    }, [employees, newTask.skill]);
+    }, [employees, newTask.skills]);
 
     const handleAddTask = async (e) => {
         e.preventDefault();
@@ -158,7 +235,7 @@ const AddTaskModal = ({
                 startTime: '09:00',
                 dueTime: '17:00',
                 priority: 'Medium',
-                skill: '',
+                skills: [],
                 allocatedHours: 10,
                 pointsPerHour: 100,
                 requiredPhases: ['requirement_refiner', 'design_guidance', 'build_guidance', 'acceptance_criteria', 'deployment'],
@@ -263,16 +340,24 @@ const AddTaskModal = ({
 
                                     {/* Dynamic Assignment Input */}
                                     {newTask.assignType === 'individual' && (
-                                        <select
-                                            value={newTask.assignedTo}
-                                            onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
-                                            style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.95rem', backgroundColor: 'white' }}
-                                        >
-                                            <option value="">Select Employee</option>
-                                            {sortedEmployees.map(emp => (
-                                                <option key={emp.id} value={emp.id}>{emp.full_name}</option>
-                                            ))}
-                                        </select>
+                                        <>
+                                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '4px', textAlign: 'right' }}>
+                                                Showing: {effectiveProjectId ? 'Project Team' : 'All Organization Members'}
+                                            </div>
+                                            <select
+                                                value={newTask.assignedTo}
+                                                onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
+                                                style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.95rem', backgroundColor: 'white' }}
+                                            >
+                                                <option value="">Select Employee</option>
+                                                {sortedEmployees.map(emp => {
+                                                    const primarySkill = newTask.skills?.[0];
+                                                    const score = getSkillScore(emp, primarySkill);
+                                                    const label = primarySkill ? `${emp.full_name} (Score: ${score})` : emp.full_name;
+                                                    return <option key={emp.id} value={emp.id}>{label}</option>;
+                                                })}
+                                            </select>
+                                        </>
                                     )}
 
                                     {newTask.assignType === 'team' && (
@@ -283,25 +368,32 @@ const AddTaskModal = ({
 
                                     {newTask.assignType === 'multi' && (
                                         <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '8px', backgroundColor: 'white' }}>
-                                            {sortedEmployees.length > 0 ? sortedEmployees.map(emp => (
-                                                <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '6px', transition: 'background 0.1s' }}
-                                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
-                                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={newTask.selectedAssignees.includes(emp.id)}
-                                                        onChange={(e) => {
-                                                            const newSelected = e.target.checked
-                                                                ? [...newTask.selectedAssignees, emp.id]
-                                                                : newTask.selectedAssignees.filter(id => id !== emp.id);
-                                                            setNewTask({ ...newTask, selectedAssignees: newSelected });
-                                                        }}
-                                                        style={{ cursor: 'pointer' }}
-                                                    />
-                                                    <span style={{ fontSize: '0.9rem', color: '#334155' }}>{emp.full_name}</span>
-                                                </label>
-                                            )) : <div style={{ padding: '8px', color: '#94a3b8', fontSize: '0.85rem' }}>No employees found.</div>}
+                                            {sortedEmployees.length > 0 ? sortedEmployees.map(emp => {
+                                                const primarySkill = newTask.skills?.[0];
+                                                const score = getSkillScore(emp, primarySkill);
+                                                const label = primarySkill ? `${emp.full_name} (Score: ${score})` : emp.full_name;
+                                                return (
+                                                    <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '6px', transition: 'background 0.1s' }}
+                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={newTask.selectedAssignees.includes(emp.id)}
+                                                            onChange={(e) => {
+                                                                const newSelected = e.target.checked
+                                                                    ? [...newTask.selectedAssignees, emp.id]
+                                                                    : newTask.selectedAssignees.filter(id => id !== emp.id);
+                                                                setNewTask({ ...newTask, selectedAssignees: newSelected });
+                                                            }}
+                                                            style={{ cursor: 'pointer' }}
+                                                        />
+                                                        <span style={{ fontSize: '0.9rem', color: '#334155' }}>
+                                                            {label}
+                                                        </span>
+                                                    </label>
+                                                );
+                                            }) : <div style={{ padding: '8px', color: '#94a3b8', fontSize: '0.85rem' }}>No employees found.</div>}
                                         </div>
                                     )}
                                 </div>
@@ -338,7 +430,7 @@ const AddTaskModal = ({
                                     <input
                                         type="date"
                                         value={newTask.startDate}
-                                        onChange={(e) => setNewTask({ ...newTask, startDate: e.target.value })}
+                                        onChange={(e) => handleStartDateChange('startDate', e.target.value)}
                                         style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
                                     />
                                 </div>
@@ -347,7 +439,7 @@ const AddTaskModal = ({
                                     <input
                                         type="time"
                                         value={newTask.startTime}
-                                        onChange={(e) => setNewTask({ ...newTask, startTime: e.target.value })}
+                                        onChange={(e) => handleStartDateChange('startTime', e.target.value)}
                                         style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
                                     />
                                 </div>
@@ -357,22 +449,18 @@ const AddTaskModal = ({
                                         type="date"
                                         value={newTask.endDate}
                                         min={newTask.startDate}
-                                        onChange={(e) => setNewTask({ ...newTask, endDate: e.target.value })}
+                                        onChange={(e) => handleEndDateChange('endDate', e.target.value)}
                                         style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
                                     />
                                 </div>
                                 <div>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>
                                         Due Time
-                                        {newTask.allocatedHours > 0 && (
-                                            <span style={{ fontSize: '0.65rem', backgroundColor: '#e0f2fe', color: '#0284c7', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>AUTO</span>
-                                        )}
                                     </label>
                                     <input
                                         type="time"
                                         value={newTask.dueTime}
-                                        readOnly={newTask.allocatedHours > 0}
-                                        onChange={(e) => !newTask.allocatedHours && setNewTask({ ...newTask, dueTime: e.target.value })}
+                                        onChange={(e) => handleEndDateChange('dueTime', e.target.value)}
                                         style={{
                                             width: '100%',
                                             padding: '10px 12px',
@@ -380,8 +468,7 @@ const AddTaskModal = ({
                                             borderRadius: '8px',
                                             fontSize: '0.9rem',
                                             outline: 'none',
-                                            backgroundColor: newTask.allocatedHours > 0 ? '#f8fafc' : 'white',
-                                            color: newTask.allocatedHours > 0 ? '#64748b' : 'inherit'
+                                            backgroundColor: 'white'
                                         }}
                                     />
                                 </div>
@@ -391,17 +478,14 @@ const AddTaskModal = ({
                             <div style={{ padding: '16px', backgroundColor: '#f0f9ff', borderRadius: '12px', border: '1px solid #e0f2fe', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#0369a1', marginBottom: '8px' }}>Required Skill</label>
-                                        <select
-                                            value={newTask.skill}
-                                            onChange={(e) => setNewTask({ ...newTask, skill: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid #bae6fd', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
-                                        >
-                                            <option value="">Select Skill</option>
-                                            {['Frontend', 'Backend', 'Workflows', 'Databases', 'Prompting', 'Non-popular LLMs', 'Fine-tuning', 'Data Labelling', 'Content Generation'].map(s => (
-                                                <option key={s} value={s}>{s}</option>
-                                            ))}
-                                        </select>
+                                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#0369a1', marginBottom: '8px' }}>
+                                            Required Skills
+                                        </label>
+                                        <SkillTagInput
+                                            selectedSkills={newTask.skills}
+                                            onChange={(newSkills) => setNewTask({ ...newTask, skills: newSkills })}
+                                            placeholder="Add skill tags..."
+                                        />
                                     </div>
                                     <div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
@@ -410,9 +494,10 @@ const AddTaskModal = ({
                                         </div>
                                         <input
                                             type="number"
+                                            step="0.01"
+                                            min="0.01"
                                             value={newTask.allocatedHours}
-                                            readOnly={Object.values(taskStepsToAdd).flat().length > 0}
-                                            onChange={(e) => setNewTask({ ...newTask, allocatedHours: e.target.value })}
+                                            onChange={handleHoursChange}
                                             style={{
                                                 width: '100%',
                                                 padding: '10px 12px',
@@ -578,6 +663,7 @@ const AddTaskModal = ({
                                     📝 Pre-define Execution Steps (Optional)
                                 </label>
 
+                                {/* Step Duration Setting - Commented out per user request
                                 <div style={{ marginBottom: '16px' }}>
                                     <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#0369a1', marginBottom: '8px' }}>Step Duration Setting</label>
                                     <div style={{ display: 'flex', gap: '8px', backgroundColor: 'white', padding: '4px', borderRadius: '8px', border: '1px solid #bae6fd', width: 'fit-content' }}>
@@ -617,6 +703,7 @@ const AddTaskModal = ({
                                         </button>
                                     </div>
                                 </div>
+                                */}
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                                     <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>
                                         Checklist for each lifecycle phase
@@ -695,6 +782,8 @@ const AddTaskModal = ({
                                                     <span style={{ fontSize: '0.85rem', color: '#334155', flex: 1 }}>
                                                         {idx + 1}. {step.title}
                                                     </span>
+
+                                                    {/* Hours display commented out
                                                     <span style={{
                                                         fontSize: '0.75rem',
                                                         color: '#64748b',
@@ -705,6 +794,7 @@ const AddTaskModal = ({
                                                     }}>
                                                         {step.hours}h
                                                     </span>
+                                                    */}
                                                     <button
                                                         type="button"
                                                         onClick={() => {
@@ -760,6 +850,7 @@ const AddTaskModal = ({
                                                 outline: 'none'
                                             }}
                                         />
+                                        {/* Hours input commented out
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                             <input
                                                 type="number"
@@ -779,6 +870,7 @@ const AddTaskModal = ({
                                             />
                                             <span style={{ fontSize: '0.8rem', color: '#64748b' }}>hrs</span>
                                         </div>
+                                        */}
                                         <button
                                             type="button"
                                             onClick={() => {
