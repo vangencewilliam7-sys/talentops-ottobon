@@ -7,6 +7,8 @@
     --font-cormorant: 'Cormorant Garamond', Garamond, serif;
     --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-space: 'Space Grotesk', sans-serif;
+    --font-redhat: 'Red Hat Display', sans-serif;
+    --font-leckerli: 'Leckerli One', cursive;
 
     /* Dashboard Theme Variables mapped to Landing Page Tokens */
     --primary: #17141F;

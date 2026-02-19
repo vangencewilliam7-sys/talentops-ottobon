@@ -1,0 +1,52 @@
+import React, { useRef } from 'react'
+import { ArrowRight } from 'lucide-react'
+import { useScrollReveal } from '../hooks/useScrollReveal'
+import { WavyBackground } from '../../components/ui/wavy-background'
+
+export function HeroSection() {
+    const sectionRef = useRef<HTMLElement>(null)
+    useScrollReveal(sectionRef)
+
+    return (
+        <section
+            ref={sectionRef}
+            id="hero"
+            className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#f7f7f9]"
+        >
+            <WavyBackground
+                containerClassName="h-full min-h-screen absolute inset-0 z-0"
+                className="w-full flex items-center justify-center"
+                colors={["#ffe2de", "#dadada", "#a5c9ff"]}
+                backgroundFill="#f7f7f9"
+                waveOpacity={0.8}
+                blur={8}
+                speed="fast"
+            >
+                <div className="container mx-auto relative z-10 w-full max-w-5xl text-center px-6">
+                    <div className="flex flex-col items-center gap-12 md:gap-16">
+                        <div className="flex flex-col items-center">
+                            <h1 className="reveal-fade font-redhat font-bold text-[#1f2937] text-[clamp(2.5rem,8vw,6rem)] leading-[1.2] text-center">
+                                The <span className="font-satisfy text-[1.4em] bg-gradient-to-r from-[#3b82f6] to-[#60a5fa] bg-clip-text text-transparent px-2 py-4 leading-none inline-block align-middle">Intelligence Layer</span><br />
+                                of Your Workforce
+                            </h1>
+
+                            <p className="reveal-fade text-lg md:text-xl text-[#6b7280] font-redhat font-normal mt-10 max-w-2xl mx-auto leading-relaxed">
+                                Connect talent data, performance metrics, and planning insights into a single, strategic command center.
+                            </p>
+                        </div>
+
+                        <div className="reveal-fade flex justify-center">
+                            <a
+                                href="#cta"
+                                className="bg-[#3b82f6] text-white px-10 py-4 rounded-full font-redhat font-bold text-lg tracking-wide hover:bg-[#2563eb] transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center gap-3 group"
+                            >
+                                Get Started
+                                <ArrowRight className="w-6 h-6 transition-transform group-hover:translate-x-1" />
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </WavyBackground>
+        </section>
+    )
+}
