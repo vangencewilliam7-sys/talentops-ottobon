@@ -201,6 +201,13 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
             }));
 
             setTasks(finalTasks);
+
+            // Sync selectedTask with fresh data so the detail overlay shows updated proofs
+            setSelectedTask(prev => {
+                if (!prev) return null;
+                const updated = finalTasks.find(t => t.id === prev.id);
+                return updated || null;
+            });
         } catch (error) {
             addToast?.('Failed to load tasks', 'error');
         } finally {
@@ -547,17 +554,18 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
-            const pointData = await taskService.submitTaskProof({
+            const result = await taskService.submitTaskProof({
                 task: taskForProof,
                 user,
                 proofFile,
                 proofText,
                 proofHours,
+                orgId,
                 onProgress: setUploadProgress
             });
 
-            if (pointData) {
-                addToast?.(`Submitted! Earned: ${pointData.final_points} Points (Bonus: ${pointData.bonus_points || 0}, Penalty: ${pointData.penalty_points || 0})`, 'success');
+            if (result?.pointData?.final_points) {
+                addToast?.(`Submitted! Earned: ${result.pointData.final_points} Points (Bonus: ${result.pointData.bonus_points || 0}, Penalty: ${result.pointData.penalty_points || 0})`, 'success');
             } else {
                 addToast?.('Proof submitted successfully!', 'success');
             }
@@ -962,8 +970,8 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                         <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Allocated Hours *</label>
                                         <input
                                             type="number"
-                                            min="0.5"
-                                            step="0.5"
+                                            min="0"
+                                            step="any"
                                             value={editingTask.allocated_hours}
                                             onChange={(e) => setEditingTask({ ...editingTask, allocated_hours: e.target.value })}
                                             placeholder="e.g. 8.0"

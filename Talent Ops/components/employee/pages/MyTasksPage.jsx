@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { useProject } from '../context/ProjectContext';
 import { useUser } from '../context/UserContext';
 import { useToast } from '../context/ToastContext';
+import { taskService } from '../../../services/modules/task';
 import SkillSelectionModal from '../components/UI/SkillSelectionModal';
 import TaskNotesModal from '../../shared/TaskNotesModal';
 import TaskDetailOverlay from '../components/UI/TaskDetailOverlay';
@@ -160,113 +161,15 @@ const MyTasksPage = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
-            let proofUrl = null;
+            await taskService.submitTaskProof({
+                task: taskForProof,
+                user,
+                proofFile,
+                proofText,
+                orgId,
+                onProgress: setUploadProgress
+            });
 
-            // 1. Upload File if present
-            if (proofFile) {
-                const fileExt = proofFile.name.split('.').pop();
-                const fileName = `${taskForProof.id}_${Date.now()}.${fileExt}`;
-                const filePath = `${user.id}/${fileName}`;
-
-                setUploadProgress(30);
-
-                const { error: uploadError } = await supabase.storage
-                    .from('task-proofs')
-                    .upload(filePath, proofFile, { cacheControl: '3600', upsert: false });
-
-                if (uploadError) throw uploadError;
-
-                const { data: urlData } = supabase.storage.from('task-proofs').getPublicUrl(filePath);
-                proofUrl = urlData?.publicUrl;
-                setUploadProgress(70);
-            }
-
-            // 2. Logic to Advance Phase
-            const activePhases = taskForProof.phase_validations?.active_phases || LIFECYCLE_PHASES.map(p => p.key);
-            const validActivePhases = activePhases.filter(pk => pk !== 'closed' && LIFECYCLE_PHASES.some(p => p.key === pk));
-
-            let currentPhase = taskForProof.lifecycle_state;
-            if (!validActivePhases.includes(currentPhase)) {
-                currentPhase = validActivePhases[0] || 'requirement_refiner';
-            }
-
-            // We are submitting for 'currentPhase'.
-            // Find the NEXT phase to move to.
-            let nextPhase = currentPhase;
-            const currentActiveIndex = validActivePhases.indexOf(currentPhase);
-
-            if (currentActiveIndex !== -1 && currentActiveIndex < validActivePhases.length - 1) {
-                // Scan forward
-                for (let i = currentActiveIndex + 1; i < validActivePhases.length; i++) {
-                    const pKey = validActivePhases[i];
-                    const existingVal = taskForProof.phase_validations?.[pKey];
-                    // If this future phase has no proof, we stop here (this is our new target)
-                    if (!existingVal?.proof_url && !existingVal?.proof_text) {
-                        nextPhase = pKey;
-                        break;
-                    }
-                    // If it HAS proof, we skip it (it's already done/pre-filled), keep looking
-                    // If we reach the end, we stay on the last phase
-                    if (i === validActivePhases.length - 1) {
-                        nextPhase = validActivePhases[validActivePhases.length - 1];
-                    }
-                }
-            }
-
-            // 3. Prepare Updates
-            const existingPhaseVal = taskForProof.phase_validations?.[currentPhase] || {};
-            let combinedUrls = [];
-
-            // Parse existing URLs
-            if (existingPhaseVal.proof_url) {
-                try {
-                    const parsed = JSON.parse(existingPhaseVal.proof_url);
-                    combinedUrls = Array.isArray(parsed) ? parsed : [existingPhaseVal.proof_url];
-                } catch (e) {
-                    combinedUrls = [existingPhaseVal.proof_url];
-                }
-            }
-            // Add new URL
-            if (proofUrl) combinedUrls = [...combinedUrls, proofUrl];
-            const combinedUrlsString = combinedUrls.length > 0 ? JSON.stringify(combinedUrls) : null;
-
-            // Append text
-            const combinedText = [existingPhaseVal.proof_text, proofText].filter(Boolean).join('\n---\n');
-
-            const currentValidations = taskForProof.phase_validations || {};
-            const updatedValidations = {
-                ...currentValidations,
-                [currentPhase]: {
-                    status: 'pending',
-                    proof_url: combinedUrlsString,
-                    proof_text: combinedText,
-                    submitted_at: new Date().toISOString()
-                }
-            };
-
-            const updates = {
-                phase_validations: updatedValidations,
-                proof_url: combinedUrlsString, // Legacy compat
-                proof_text: combinedText,
-                updated_at: new Date().toISOString()
-            };
-
-            // Only update lifecycle state if we moved
-            if (nextPhase !== currentPhase) {
-                updates.lifecycle_state = nextPhase;
-                updates.sub_state = 'in_progress';
-            } else {
-                updates.sub_state = 'pending_validation';
-            }
-
-            const { error } = await supabase
-                .from('tasks')
-                .update(updates)
-                .eq('id', taskForProof.id);
-
-            if (error) throw error;
-
-            setUploadProgress(100);
             addToast('Proof submitted successfully!', 'success');
 
             // Capture task ID before clearing state
@@ -297,17 +200,12 @@ const MyTasksPage = () => {
                 }
 
                 if (updatedTask) {
-                    console.log('Updated task:', updatedTask);
-                    console.log('Phase validations:', updatedTask.phase_validations);
-
                     // Check if skills already recorded
                     const { data: existingSkills } = await supabase
                         .from('task_skills')
                         .select('id')
                         .eq('task_id', updatedTask.id)
                         .eq('employee_id', user.id);
-
-                    console.log('Existing skills:', existingSkills);
 
                     // Get the task's active phases
                     const validations = updatedTask.phase_validations || {};
@@ -319,37 +217,18 @@ const MyTasksPage = () => {
                         'deployment'
                     ];
 
-                    // Filter out 'closed' phase
                     const requiredPhases = activePhases.filter(p => p !== 'closed');
-
-                    console.log('Required active phases:', requiredPhases);
 
                     // Check if ALL active phases have proof
                     const allPhasesComplete = requiredPhases.every(phaseKey => {
                         const phaseData = validations[phaseKey];
-                        const hasProof = phaseData && (phaseData.proof_url || phaseData.proof_text);
-                        console.log(`  ${phaseKey}: ${hasProof ? '✅' : '❌'}`);
-                        return hasProof;
+                        return phaseData && (phaseData.proof_url || phaseData.proof_text);
                     });
 
-                    console.log('All required phases complete?', allPhasesComplete);
-
                     if (allPhasesComplete && (!existingSkills || existingSkills.length === 0)) {
-                        console.log('✅ Should show skill modal!');
-                        // Check if late
                         if (!isOverdue || updatedTask.access_status === 'approved') {
                             setTaskForSkills(updatedTask);
                             setShowSkillModal(true);
-                        } else {
-                            console.log('❌ Task is overdue without approval');
-                        }
-                    } else {
-                        console.log('❌ Not showing modal - conditions not met');
-                        if (existingSkills && existingSkills.length > 0) {
-                            console.log('   Reason: Skills already recorded');
-                        }
-                        if (!allPhasesComplete) {
-                            console.log('   Reason: Not all phases complete');
                         }
                     }
                 }

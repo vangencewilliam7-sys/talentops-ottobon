@@ -6,6 +6,7 @@ import {
     StickyNote, ThumbsUp, ThumbsDown
 } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
+import { taskService } from '../../../../services/modules/task';
 import TaskNotesModal from '../../../shared/TaskNotesModal';
 
 
@@ -275,122 +276,27 @@ const TaskDetailOverlay = ({
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
-            let fileUrls = [];
-            let evidenceRecords = [];
+            const result = await taskService.submitTaskProof({
+                task,
+                user,
+                proofFiles,
+                proofText,
+                orgId,
+                onProgress: setUploadProgress
+            });
 
-            // 1. Upload all files
-            if (proofFiles.length > 0) {
-                for (let i = 0; i < proofFiles.length; i++) {
-                    const file = proofFiles[i];
-                    const fileName = `${task.id}_${Date.now()}_${file.name}`;
-                    const { data: uploadData, error: uploadError } = await supabase.storage
-                        .from('task-proofs')
-                        .upload(fileName, file);
-                    if (uploadError) throw uploadError;
+            const msg = proofFiles.length > 0
+                ? `${proofFiles.length} file(s) uploaded. Proof submitted successfully`
+                : 'Proof submitted successfully';
 
-                    const { data: { publicUrl } } = supabase.storage.from('task-proofs').getPublicUrl(fileName);
-                    fileUrls.push(publicUrl);
-                    evidenceRecords.push({
-                        file_url: publicUrl,
-                        file_type: file.type || 'application/octet-stream',
-                        file_name: file.name
-                    });
-                    setUploadProgress(Math.round(((i + 1) / proofFiles.length) * 100));
-                }
+            if (result?.pointData?.final_points) {
+                addToast?.(`${msg}! Earned: ${result.pointData.final_points} Points`, 'success');
+            } else {
+                addToast?.(msg, 'success');
             }
 
-            // 2. Create Submission Record
-            // Try to insert into task_submissions if the table exists (it should based on Manager view)
-            const { data: submissionData, error: submissionError } = await supabase
-                .from('task_submissions')
-                .insert({
-                    task_id: task.id,
-                    employee_id: user.id, // Using employee_id as per schema
-                    description: proofText,
-                    submission_time: new Date().toISOString(),
-                    org_id: orgId
-                })
-                .select()
-                .single();
-
-            if (submissionError) {
-                console.warn('Could not insert into task_submissions, falling back to basic task update:', submissionError);
-            } else if (evidenceRecords.length > 0) {
-                // 3. Insert Evidence linked to submission
-                const evidencePayload = evidenceRecords.map(e => ({
-                    submission_id: submissionData.id,
-                    file_url: e.file_url,
-                    file_type: e.file_type,
-                    org_id: orgId,
-                    uploaded_at: new Date().toISOString()
-                }));
-
-                const { error: evidenceError } = await supabase
-                    .from('task_evidence')
-                    .insert(evidencePayload);
-
-                if (evidenceError) console.error('Error inserting evidence:', evidenceError);
-            }
-
-            // 2. Format file URLs
-            const fileUrlsString = fileUrls.length > 0 ? JSON.stringify(fileUrls) : null;
-
-            // 3. Determine Current Phase (Do not auto-advance)
-            const currentPhase = task.lifecycle_state || 'requirement_refiner';
-
-            // Combine with existing proofs
-            const existingPhaseVal = task.phase_validations?.[currentPhase] || {};
-            let combinedUrls = [];
-
-            // Parse existing URLs
-            if (existingPhaseVal.proof_url) {
-                try {
-                    const parsed = JSON.parse(existingPhaseVal.proof_url);
-                    combinedUrls = Array.isArray(parsed) ? parsed : [existingPhaseVal.proof_url];
-                } catch (e) {
-                    combinedUrls = [existingPhaseVal.proof_url];
-                }
-            }
-            // Add new URLs
-            combinedUrls = [...combinedUrls, ...fileUrls];
-            const combinedUrlsString = JSON.stringify(combinedUrls);
-
-            // Append text if exists
-            const combinedText = [existingPhaseVal.proof_text, proofText].filter(Boolean).join('\n---\n');
-
-            // Update Validation Object (Reset validated status if any)
-            const updatedValidations = {
-                ...(task.phase_validations || {}),
-                [currentPhase]: {
-                    status: 'pending', // Pending Manager Review
-                    proof_url: combinedUrlsString,
-                    proof_text: combinedText,
-                    submitted_at: new Date().toISOString(),
-                    validated: false // Explicitly un-validate on new submission
-                }
-            };
-
-            // Prepare Updates
-            const updates = {
-                proof_text: combinedText || null,
-                proof_url: combinedUrlsString,
-                sub_state: 'pending_validation', // Signal ready for review
-                status: 'in_progress',
-                // Do NOT advance lifecycle_state automatically. Manager must approve.
-                lifecycle_state: currentPhase,
-                phase_validations: updatedValidations,
-                updated_at: new Date().toISOString()
-            };
-
-            const { error } = await supabase
-                .from('tasks')
-                .update(updates)
-                .eq('id', task.id);
-
-            if (error) throw error;
-            addToast?.(`${proofFiles.length > 0 ? proofFiles.length + ' file(s) uploaded. ' : ''}Proof submitted successfully`, 'success');
-            setProofFiles([]); // Clear selected files
-            setProofText('');  // Clear text box
+            setProofFiles([]);
+            setProofText('');
             onRefresh?.();
         } catch (err) {
             console.error('Upload error:', err);
