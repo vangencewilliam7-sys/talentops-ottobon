@@ -298,22 +298,43 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
         const currentIndex = getPhaseIndex(currentPhase);
         return (
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                {LIFECYCLE_PHASES.slice(0, -1).map((phase, idx) => (
-                    <React.Fragment key={phase.key}>
-                        <div style={{
-                            width: '28px', height: '28px', borderRadius: '50%',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '0.65rem', fontWeight: 600,
-                            backgroundColor: taskStatus === 'completed' ? '#10b981' : (idx < currentIndex ? '#10b981' : idx === currentIndex ? (subState === 'pending_validation' ? '#f59e0b' : '#3b82f6') : '#e5e7eb'),
-                            color: (taskStatus === 'completed' || idx <= currentIndex) ? 'white' : '#9ca3af'
-                        }} title={phase.label}>
-                            {idx < currentIndex ? '✓' : phase.short.charAt(0)}
-                        </div>
-                        {idx < LIFECYCLE_PHASES.length - 2 && (
-                            <div style={{ width: '16px', height: '3px', backgroundColor: idx < currentIndex ? '#10b981' : '#e5e7eb' }} />
-                        )}
-                    </React.Fragment>
-                ))}
+                {LIFECYCLE_PHASES.slice(0, -1).map((phase, idx) => {
+                    let color = '#e5e7eb'; // Grey default
+                    let textColor = '#9ca3af';
+
+                    if (taskStatus === 'completed') {
+                        color = '#10b981';
+                        textColor = 'white';
+                    } else if (idx < currentIndex) {
+                        color = '#10b981'; // Green = past approved phases
+                        textColor = 'white';
+                    } else if (idx === currentIndex) {
+                        if (subState === 'pending_validation') {
+                            color = '#f59e0b'; // Yellow = proof submitted, awaiting review
+                        } else {
+                            color = '#3b82f6'; // Blue = current active phase
+                        }
+                        textColor = 'white';
+                    }
+                    // Future phases stay grey
+
+                    return (
+                        <React.Fragment key={phase.key}>
+                            <div style={{
+                                width: '28px', height: '28px', borderRadius: '50%',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '0.65rem', fontWeight: 600,
+                                backgroundColor: color,
+                                color: textColor
+                            }} title={phase.label}>
+                                {idx < currentIndex ? '✓' : phase.short.charAt(0)}
+                            </div>
+                            {idx < LIFECYCLE_PHASES.length - 2 && (
+                                <div style={{ width: '16px', height: '3px', backgroundColor: idx < currentIndex ? '#10b981' : '#e5e7eb' }} />
+                            )}
+                        </React.Fragment>
+                    );
+                })}
             </div>
         );
     };

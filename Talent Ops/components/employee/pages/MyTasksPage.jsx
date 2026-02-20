@@ -110,6 +110,37 @@ const MyTasksPage = () => {
     };
 
 
+    // Toggle the "working on it" status (green dot)
+    const toggleWorkingStatus = async (task) => {
+        const isCurrentlyWorking = task.sub_state === 'in_progress';
+        const newSubState = isCurrentlyWorking ? null : 'in_progress';
+
+        try {
+            const { error } = await supabase
+                .from('tasks')
+                .update({
+                    sub_state: newSubState,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', task.id);
+
+            if (error) throw error;
+
+            // Optimistic update
+            setTasks(prev => prev.map(t =>
+                t.id === task.id ? { ...t, sub_state: newSubState } : t
+            ));
+
+            addToast?.(
+                isCurrentlyWorking ? 'Marked as idle' : '🟢 Marked as working on this task',
+                'success'
+            );
+        } catch (err) {
+            console.error('Error toggling work status:', err);
+            addToast?.('Failed to update status', 'error');
+        }
+    };
+
 
     const openProofModal = (task) => {
         setTaskForProof(task);
@@ -503,23 +534,35 @@ const MyTasksPage = () => {
                     const hasProof = validation?.proof_url || validation?.proof_text;
 
                     if (taskStatus === 'completed') {
-                        color = '#10b981';
+                        color = '#10b981'; // All green when task is completed
                     } else if (idx < currentIndex) {
                         // Past Phase
-                        if (status === 'pending') color = '#f59e0b'; // Yellow (Still Pending)
-                        else if (status === 'rejected') color = '#fee2e2'; // Red
-                        else color = '#10b981'; // Green (Approved/Default)
+                        if (status === 'approved' || (!status && hasProof)) {
+                            color = '#10b981'; // Green = Approved
+                        } else if (status === 'rejected') {
+                            color = '#ef4444'; // Red = Rejected
+                        } else if (status === 'pending' && hasProof) {
+                            color = '#f59e0b'; // Yellow = Has proof, awaiting review
+                        }
+                        // else stays grey (no proof submitted)
                     } else if (idx === currentIndex) {
                         // Current Phase
-                        if (status === 'pending' || subState === 'pending_validation') color = '#f59e0b'; // Yellow
-                        else color = '#3b82f6'; // Blue
+                        if (status === 'approved') {
+                            color = '#10b981'; // Green
+                        } else if (status === 'rejected') {
+                            color = '#ef4444'; // Red
+                        } else if (hasProof) {
+                            color = '#f59e0b'; // Yellow = Has proof, awaiting review
+                        } else {
+                            color = '#3b82f6'; // Blue = Current active phase, no proof yet
+                        }
                     } else if (hasProof) {
-                        // Future Phase but has proof (e.g. reverted state)
-                        if (status === 'pending') color = '#f59e0b';
-                        else if (status === 'rejected') color = '#fee2e2';
-                        else color = '#10b981';
+                        // Future phase but has proof (e.g. reverted state)
+                        if (status === 'approved') color = '#10b981';
+                        else if (status === 'rejected') color = '#ef4444';
+                        else color = '#f59e0b'; // Yellow = proof present
                     }
-                    // Future phases stay grey
+                    // Future phases with no proof stay grey (#e5e7eb)
 
                     return (
                         <React.Fragment key={phase.key}>
@@ -1004,31 +1047,50 @@ const MyTasksPage = () => {
                                 return (
                                     <tr key={task.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background-color 0.2s' }}>
                                         <td style={{ padding: '16px' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.95rem' }}>
-                                                    {task.title}
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                                {/* Clickable Status Dot - Click to toggle "working on it" */}
+                                                <div
+                                                    onClick={(e) => { e.stopPropagation(); toggleWorkingStatus(task); }}
+                                                    style={{
+                                                        width: '12px',
+                                                        height: '12px',
+                                                        borderRadius: '50%',
+                                                        backgroundColor: task.sub_state === 'in_progress' ? '#10b981' : '#d1d5db',
+                                                        marginTop: '5px',
+                                                        flexShrink: 0,
+                                                        cursor: 'pointer',
+                                                        boxShadow: task.sub_state === 'in_progress' ? '0 0 8px rgba(16, 185, 129, 0.6)' : 'none',
+                                                        border: task.sub_state === 'in_progress' ? '2px solid #059669' : '2px solid #9ca3af',
+                                                        transition: 'all 0.3s ease'
+                                                    }}
+                                                    title={task.sub_state === 'in_progress' ? 'Working on it ✅ (click to unset)' : 'Click to mark as working'}
+                                                />
+                                                <div>
+                                                    <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.95rem' }}>
+                                                        {task.title}
+                                                    </div>
+                                                    {reassignedLabel && (
+                                                        <div style={{
+                                                            marginTop: '6px',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '999px',
+                                                            backgroundColor: '#fef3c7',
+                                                            color: '#92400e',
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: 600,
+                                                            whiteSpace: 'nowrap'
+                                                        }}>
+                                                            {reassignedLabel}
+                                                        </div>
+                                                    )}
+                                                    {task.description && (
+                                                        <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '250px' }}>
+                                                            {task.description}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                {reassignedLabel && (
-                                                    <div style={{
-                                                        marginTop: '6px',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        padding: '2px 8px',
-                                                        borderRadius: '999px',
-                                                        backgroundColor: '#fef3c7',
-                                                        color: '#92400e',
-                                                        fontSize: '0.7rem',
-                                                        fontWeight: 600,
-                                                        whiteSpace: 'nowrap'
-                                                    }}>
-                                                        {reassignedLabel}
-                                                    </div>
-                                                )}
-                                                {task.description && (
-                                                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '250px' }}>
-                                                        {task.description}
-                                                    </div>
-                                                )}
                                             </div>
                                         </td>
                                         <td style={{ padding: '16px' }}>
