@@ -180,6 +180,25 @@ const MyTasksPage = () => {
         }
     };
 
+    const handleShowRiskAnalysis = (taskId, taskTitle) => {
+        const snapshot = riskSnapshots[taskId];
+        if (!snapshot) return;
+
+        const isMicroTask = (tasks.find(t => t.id === taskId)?.allocated_hours || 0) < 5;
+
+        setAiPopupData({
+            taskTitle: taskTitle,
+            type: 'coach',
+            message: isMicroTask
+                ? `This micro-task is tight! Let's move fast.`
+                : `Reference AI analysis for this task. At this pace, there's a risk of delay.`,
+            reasons: snapshot.reasons || [],
+            recommended_actions: snapshot.recommended_actions || snapshot.actions || [],
+            onAction: () => setShowAIPopup(false)
+        });
+        setShowAIPopup(true);
+    };
+
     const fetchTasks = async () => {
         setLoading(true);
         try {
@@ -1224,6 +1243,7 @@ const MyTasksPage = () => {
                                                 riskLevel={riskSnapshots[task.id]?.risk_level}
                                                 showLabel={false}
                                                 size="sm"
+                                                onClick={() => handleShowRiskAnalysis(task.id, task.title)}
                                             />
                                         </td>
                                         <td style={{ padding: '16px' }}>
