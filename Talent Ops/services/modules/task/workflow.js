@@ -18,140 +18,235 @@ const getPhaseIndex = (phase) => LIFECYCLE_PHASES.findIndex(p => p.key === phase
 
 /**
  * Submit Proof for a task phase.
- * Handles file upload, phase advancement logic, and submission recording.
+ * 
+ * UNIFIED handler — used by TaskDetailOverlay, MyTasksPage, and AllTasksView.
+ * Supports:
+ *   - Single file (proofFile) or multiple files (proofFiles array)
+ *   - Text-only submissions
+ *   - Merging with existing proof URLs for the same phase
+ *   - Active-phases-aware phase advancement
+ *   - task_submissions + task_evidence recording
+ *   - orgId for task_submissions table
+ * 
+ * @param {object} params
+ * @param {object} params.task - The full task object
+ * @param {object} params.user - The authenticated user { id, ... }
+ * @param {File|null} params.proofFile - Single file (legacy compat)
+ * @param {File[]|null} params.proofFiles - Multiple files
+ * @param {string} params.proofText - Proof description text
+ * @param {number|string} params.proofHours - Actual hours spent (optional)
+ * @param {string} params.orgId - Organization ID
+ * @param {function} params.onProgress - Progress callback (0-100)
+ * @returns {Promise<object>} - { updatedValidations, pointData }
  */
 export const submitTaskProof = async ({
     task,
     user,
-    proofFile,
-    proofText,
+    proofFile = null,
+    proofFiles = [],
+    proofText = '',
     proofHours,
+    orgId,
     onProgress
 }) => {
     try {
-        let proofUrl = null;
+        // Normalize files: support both single file and array
+        const filesToUpload = proofFile ? [proofFile] : (proofFiles || []);
 
-        // 1. Upload File if present
-        if (proofFile) {
-            onProgress?.(30);
-            const fileExt = proofFile.name.split('.').pop();
-            const fileName = `${task.id}_${Date.now()}.${fileExt}`;
-            const filePath = `${user.id}/${fileName}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('task-proofs')
-                .upload(filePath, proofFile, { cacheControl: '3600', upsert: false });
-
-            if (uploadError) throw uploadError;
-
-            const { data: urlData } = supabase.storage.from('task-proofs').getPublicUrl(filePath);
-            proofUrl = urlData?.publicUrl;
-            onProgress?.(70);
+        if (!proofText?.trim() && filesToUpload.length === 0) {
+            throw new Error('Please provide proof text or upload files');
         }
 
-        // 2. Update Task State
-        const currentPhase = task.lifecycle_state;
-        const currentIndex = getPhaseIndex(currentPhase);
+        // ── 1. Upload Files ──
+        let newFileUrls = [];
+        let evidenceRecords = [];
 
-        // Auto-Advance Logic
+        if (filesToUpload.length > 0) {
+            for (let i = 0; i < filesToUpload.length; i++) {
+                const file = filesToUpload[i];
+                const fileName = `${task.id}_${Date.now()}_${file.name}`;
+                const filePath = `${user.id}/${fileName}`;
+
+                onProgress?.(Math.round(((i + 0.5) / filesToUpload.length) * 60) + 10); // 10-70%
+
+                const { error: uploadError } = await supabase.storage
+                    .from('task-proofs')
+                    .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+                if (uploadError) throw uploadError;
+
+                const { data: { publicUrl } } = supabase.storage.from('task-proofs').getPublicUrl(filePath);
+                newFileUrls.push(publicUrl);
+                evidenceRecords.push({
+                    file_url: publicUrl,
+                    file_type: file.type || 'application/octet-stream',
+                    file_name: file.name
+                });
+
+                onProgress?.(Math.round(((i + 1) / filesToUpload.length) * 60) + 10);
+            }
+        }
+
+        // ── 2. Determine Current Phase ──
+        const activePhases = task.phase_validations?.active_phases
+            || LIFECYCLE_PHASES.map(p => p.key);
+        const validActivePhases = activePhases.filter(
+            pk => pk !== 'closed' && LIFECYCLE_PHASES.some(p => p.key === pk)
+        );
+
+        let currentPhase = task.lifecycle_state || validActivePhases[0] || 'requirement_refiner';
+        if (!validActivePhases.includes(currentPhase)) {
+            currentPhase = validActivePhases[0] || 'requirement_refiner';
+        }
+
+        // ── 3. Merge Proof URLs with Existing ──
+        const currentValidations = task.phase_validations || {};
+        const existingPhaseVal = currentValidations[currentPhase] || {};
+
+        let combinedUrls = [];
+        if (existingPhaseVal.proof_url) {
+            try {
+                const parsed = JSON.parse(existingPhaseVal.proof_url);
+                combinedUrls = Array.isArray(parsed) ? parsed : [existingPhaseVal.proof_url];
+            } catch {
+                combinedUrls = [existingPhaseVal.proof_url];
+            }
+        }
+        combinedUrls = [...combinedUrls, ...newFileUrls];
+        const combinedUrlsString = combinedUrls.length > 0 ? JSON.stringify(combinedUrls) : null;
+
+        // Merge proof text
+        const combinedText = [existingPhaseVal.proof_text, proofText].filter(Boolean).join('\n---\n');
+
+        // ── 4. Phase Advancement ──
         let nextPhase = currentPhase;
-        let foundNext = false;
+        const currentActiveIndex = validActivePhases.indexOf(currentPhase);
 
-        if (currentIndex < LIFECYCLE_PHASES.length - 2) {
-            let probeIndex = currentIndex + 1;
-            while (probeIndex < LIFECYCLE_PHASES.length - 1) {
-                const probePhaseKey = LIFECYCLE_PHASES[probeIndex].key;
-                const hasProof = task.phase_validations &&
-                    task.phase_validations[probePhaseKey] &&
-                    (task.phase_validations[probePhaseKey].proof_url || task.phase_validations[probePhaseKey].proof_text);
-
-                if (hasProof) {
-                    probeIndex++;
-                } else {
-                    nextPhase = probePhaseKey;
-                    foundNext = true;
+        if (currentActiveIndex !== -1 && currentActiveIndex < validActivePhases.length - 1) {
+            for (let i = currentActiveIndex + 1; i < validActivePhases.length; i++) {
+                const pKey = validActivePhases[i];
+                const phaseVal = currentValidations[pKey];
+                if (!phaseVal?.proof_url && !phaseVal?.proof_text) {
+                    nextPhase = pKey;
                     break;
                 }
+                if (i === validActivePhases.length - 1) {
+                    nextPhase = validActivePhases[validActivePhases.length - 1];
+                }
             }
-            if (!foundNext && probeIndex >= LIFECYCLE_PHASES.length - 1) {
-                nextPhase = LIFECYCLE_PHASES[LIFECYCLE_PHASES.length - 1].key;
-            }
-        } else {
-            nextPhase = currentPhase;
         }
 
-        const currentValidations = task.phase_validations || {};
-        const updatedPhaseData = {
-            ...(currentValidations[currentPhase] || {}),
-            status: 'pending',
-            submitted_at: new Date().toISOString()
-        };
-
-        if (proofUrl) updatedPhaseData.proof_url = proofUrl;
-        if (proofText) updatedPhaseData.proof_text = proofText;
-
+        // ── 5. Build Updated Validations ──
         const updatedValidations = {
             ...currentValidations,
-            [currentPhase]: updatedPhaseData
+            [currentPhase]: {
+                ...existingPhaseVal,
+                status: 'pending',
+                proof_url: combinedUrlsString,
+                proof_text: combinedText || null,
+                submitted_at: new Date().toISOString(),
+                validated: false
+            }
         };
 
+        // ── 6. Prepare Task Updates ──
         const updates = {
             phase_validations: updatedValidations,
+            proof_url: combinedUrlsString,    // Legacy column
+            proof_text: combinedText || null,  // Legacy column
+            sub_state: nextPhase !== currentPhase ? 'in_progress' : 'pending_validation',
+            status: 'in_progress',
             updated_at: new Date().toISOString()
         };
 
-        // Legacy column support
-        if (proofUrl) updates.proof_url = proofUrl;
-
-        // Advance Phase
         if (nextPhase !== currentPhase) {
             updates.lifecycle_state = nextPhase;
-            updates.sub_state = 'in_progress';
         }
+
+        onProgress?.(75);
 
         const { error } = await supabase.from('tasks').update(updates).eq('id', task.id);
         if (error) throw error;
 
-        // 3. Record Submission
-        const { data: existingSub } = await supabase
-            .from('task_submissions')
-            .select('id')
-            .eq('task_id', task.id)
-            .eq('user_id', user.id)
-            .single();
+        // ── 7. Record Submission ──
+        let submissionId = null;
+        try {
+            const { data: existingSub } = await supabase
+                .from('task_submissions')
+                .select('id')
+                .eq('task_id', task.id)
+                .eq('user_id', user.id)
+                .maybeSingle();
 
-        if (existingSub) {
-            const { error: upError } = await supabase
-                .from('task_submissions')
-                .update({
-                    actual_hours: parseFloat(proofHours),
+            if (existingSub) {
+                submissionId = existingSub.id;
+                const subUpdates = {
                     submitted_at: new Date().toISOString()
-                })
-                .eq('id', existingSub.id);
-            if (upError) throw upError;
-        } else {
-            const { error: inError } = await supabase
-                .from('task_submissions')
-                .insert({
+                };
+                if (proofHours) subUpdates.actual_hours = parseFloat(proofHours);
+                if (proofText) subUpdates.description = proofText;
+
+                await supabase
+                    .from('task_submissions')
+                    .update(subUpdates)
+                    .eq('id', existingSub.id);
+            } else {
+                const insertPayload = {
                     task_id: task.id,
                     user_id: user.id,
-                    actual_hours: parseFloat(proofHours),
                     submitted_at: new Date().toISOString()
-                });
-            if (inError) throw inError;
+                };
+                if (proofHours) insertPayload.actual_hours = parseFloat(proofHours);
+                if (proofText) insertPayload.description = proofText;
+                if (orgId) insertPayload.org_id = orgId;
+
+                const { data: newSub } = await supabase
+                    .from('task_submissions')
+                    .insert(insertPayload)
+                    .select('id')
+                    .maybeSingle();
+
+                submissionId = newSub?.id;
+            }
+        } catch (subErr) {
+            // Non-fatal: task was already updated, just log the submission error
+            console.warn('Service: task_submissions record failed (non-fatal):', subErr.message);
+        }
+
+        // ── 8. Record Evidence ──
+        if (submissionId && evidenceRecords.length > 0) {
+            try {
+                const evidencePayload = evidenceRecords.map(e => ({
+                    submission_id: submissionId,
+                    file_url: e.file_url,
+                    file_type: e.file_type,
+                    org_id: orgId || null,
+                    uploaded_at: new Date().toISOString()
+                }));
+
+                await supabase.from('task_evidence').insert(evidencePayload);
+            } catch (evErr) {
+                console.warn('Service: task_evidence insert failed (non-fatal):', evErr.message);
+            }
         }
 
         onProgress?.(100);
 
-        // Fetch Feedback
-        const { data: pointData } = await supabase
-            .from('task_submissions')
-            .select('final_points, bonus_points, penalty_points')
-            .eq('task_id', task.id)
-            .eq('user_id', user.id)
-            .single();
+        // ── 9. Fetch Points Feedback ──
+        let pointData = null;
+        try {
+            const { data } = await supabase
+                .from('task_submissions')
+                .select('final_points, bonus_points, penalty_points')
+                .eq('task_id', task.id)
+                .eq('user_id', user.id)
+                .maybeSingle();
+            pointData = data;
+        } catch {
+            // Non-fatal
+        }
 
-        return pointData;
+        return { updatedValidations, pointData };
 
     } catch (error) {
         console.error('Service: Submit Proof Error:', error);

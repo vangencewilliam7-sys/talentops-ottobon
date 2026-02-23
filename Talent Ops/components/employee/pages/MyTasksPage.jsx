@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { useProject } from '../context/ProjectContext';
 import { useUser } from '../context/UserContext';
 import { useToast } from '../context/ToastContext';
+import { taskService } from '../../../services/modules/task';
 import SkillSelectionModal from '../components/UI/SkillSelectionModal';
 import TaskNotesModal from '../../shared/TaskNotesModal';
 import TaskDetailOverlay from '../components/UI/TaskDetailOverlay';
@@ -220,6 +221,37 @@ const MyTasksPage = () => {
     };
 
 
+    // Toggle the "working on it" status (green dot)
+    const toggleWorkingStatus = async (task) => {
+        const isCurrentlyWorking = task.sub_state === 'in_progress';
+        const newSubState = isCurrentlyWorking ? null : 'in_progress';
+
+        try {
+            const { error } = await supabase
+                .from('tasks')
+                .update({
+                    sub_state: newSubState,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', task.id);
+
+            if (error) throw error;
+
+            // Optimistic update
+            setTasks(prev => prev.map(t =>
+                t.id === task.id ? { ...t, sub_state: newSubState } : t
+            ));
+
+            addToast?.(
+                isCurrentlyWorking ? 'Marked as idle' : '🟢 Marked as working on this task',
+                'success'
+            );
+        } catch (err) {
+            console.error('Error toggling work status:', err);
+            addToast?.('Failed to update status', 'error');
+        }
+    };
+
 
     const openProofModal = (task) => {
         setTaskForProof(task);
@@ -271,113 +303,15 @@ const MyTasksPage = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
-            let proofUrl = null;
+            await taskService.submitTaskProof({
+                task: taskForProof,
+                user,
+                proofFile,
+                proofText,
+                orgId,
+                onProgress: setUploadProgress
+            });
 
-            // 1. Upload File if present
-            if (proofFile) {
-                const fileExt = proofFile.name.split('.').pop();
-                const fileName = `${taskForProof.id}_${Date.now()}.${fileExt}`;
-                const filePath = `${user.id}/${fileName}`;
-
-                setUploadProgress(30);
-
-                const { error: uploadError } = await supabase.storage
-                    .from('task-proofs')
-                    .upload(filePath, proofFile, { cacheControl: '3600', upsert: false });
-
-                if (uploadError) throw uploadError;
-
-                const { data: urlData } = supabase.storage.from('task-proofs').getPublicUrl(filePath);
-                proofUrl = urlData?.publicUrl;
-                setUploadProgress(70);
-            }
-
-            // 2. Logic to Advance Phase
-            const activePhases = taskForProof.phase_validations?.active_phases || LIFECYCLE_PHASES.map(p => p.key);
-            const validActivePhases = activePhases.filter(pk => pk !== 'closed' && LIFECYCLE_PHASES.some(p => p.key === pk));
-
-            let currentPhase = taskForProof.lifecycle_state;
-            if (!validActivePhases.includes(currentPhase)) {
-                currentPhase = validActivePhases[0] || 'requirement_refiner';
-            }
-
-            // We are submitting for 'currentPhase'.
-            // Find the NEXT phase to move to.
-            let nextPhase = currentPhase;
-            const currentActiveIndex = validActivePhases.indexOf(currentPhase);
-
-            if (currentActiveIndex !== -1 && currentActiveIndex < validActivePhases.length - 1) {
-                // Scan forward
-                for (let i = currentActiveIndex + 1; i < validActivePhases.length; i++) {
-                    const pKey = validActivePhases[i];
-                    const existingVal = taskForProof.phase_validations?.[pKey];
-                    // If this future phase has no proof, we stop here (this is our new target)
-                    if (!existingVal?.proof_url && !existingVal?.proof_text) {
-                        nextPhase = pKey;
-                        break;
-                    }
-                    // If it HAS proof, we skip it (it's already done/pre-filled), keep looking
-                    // If we reach the end, we stay on the last phase
-                    if (i === validActivePhases.length - 1) {
-                        nextPhase = validActivePhases[validActivePhases.length - 1];
-                    }
-                }
-            }
-
-            // 3. Prepare Updates
-            const existingPhaseVal = taskForProof.phase_validations?.[currentPhase] || {};
-            let combinedUrls = [];
-
-            // Parse existing URLs
-            if (existingPhaseVal.proof_url) {
-                try {
-                    const parsed = JSON.parse(existingPhaseVal.proof_url);
-                    combinedUrls = Array.isArray(parsed) ? parsed : [existingPhaseVal.proof_url];
-                } catch (e) {
-                    combinedUrls = [existingPhaseVal.proof_url];
-                }
-            }
-            // Add new URL
-            if (proofUrl) combinedUrls = [...combinedUrls, proofUrl];
-            const combinedUrlsString = combinedUrls.length > 0 ? JSON.stringify(combinedUrls) : null;
-
-            // Append text
-            const combinedText = [existingPhaseVal.proof_text, proofText].filter(Boolean).join('\n---\n');
-
-            const currentValidations = taskForProof.phase_validations || {};
-            const updatedValidations = {
-                ...currentValidations,
-                [currentPhase]: {
-                    status: 'pending',
-                    proof_url: combinedUrlsString,
-                    proof_text: combinedText,
-                    submitted_at: new Date().toISOString()
-                }
-            };
-
-            const updates = {
-                phase_validations: updatedValidations,
-                proof_url: combinedUrlsString, // Legacy compat
-                proof_text: combinedText,
-                updated_at: new Date().toISOString()
-            };
-
-            // Only update lifecycle state if we moved
-            if (nextPhase !== currentPhase) {
-                updates.lifecycle_state = nextPhase;
-                updates.sub_state = 'in_progress';
-            } else {
-                updates.sub_state = 'pending_validation';
-            }
-
-            const { error } = await supabase
-                .from('tasks')
-                .update(updates)
-                .eq('id', taskForProof.id);
-
-            if (error) throw error;
-
-            setUploadProgress(100);
             addToast('Proof submitted successfully!', 'success');
 
             // Capture task ID before clearing state
@@ -408,17 +342,12 @@ const MyTasksPage = () => {
                 }
 
                 if (updatedTask) {
-                    console.log('Updated task:', updatedTask);
-                    console.log('Phase validations:', updatedTask.phase_validations);
-
                     // Check if skills already recorded
                     const { data: existingSkills } = await supabase
                         .from('task_skills')
                         .select('id')
                         .eq('task_id', updatedTask.id)
                         .eq('employee_id', user.id);
-
-                    console.log('Existing skills:', existingSkills);
 
                     // Get the task's active phases
                     const validations = updatedTask.phase_validations || {};
@@ -430,37 +359,18 @@ const MyTasksPage = () => {
                         'deployment'
                     ];
 
-                    // Filter out 'closed' phase
                     const requiredPhases = activePhases.filter(p => p !== 'closed');
-
-                    console.log('Required active phases:', requiredPhases);
 
                     // Check if ALL active phases have proof
                     const allPhasesComplete = requiredPhases.every(phaseKey => {
                         const phaseData = validations[phaseKey];
-                        const hasProof = phaseData && (phaseData.proof_url || phaseData.proof_text);
-                        console.log(`  ${phaseKey}: ${hasProof ? '✅' : '❌'}`);
-                        return hasProof;
+                        return phaseData && (phaseData.proof_url || phaseData.proof_text);
                     });
 
-                    console.log('All required phases complete?', allPhasesComplete);
-
                     if (allPhasesComplete && (!existingSkills || existingSkills.length === 0)) {
-                        console.log('✅ Should show skill modal!');
-                        // Check if late
                         if (!isOverdue || updatedTask.access_status === 'approved') {
                             setTaskForSkills(updatedTask);
                             setShowSkillModal(true);
-                        } else {
-                            console.log('❌ Task is overdue without approval');
-                        }
-                    } else {
-                        console.log('❌ Not showing modal - conditions not met');
-                        if (existingSkills && existingSkills.length > 0) {
-                            console.log('   Reason: Skills already recorded');
-                        }
-                        if (!allPhasesComplete) {
-                            console.log('   Reason: Not all phases complete');
                         }
                     }
                 }
@@ -735,23 +645,35 @@ const MyTasksPage = () => {
                     const hasProof = validation?.proof_url || validation?.proof_text;
 
                     if (taskStatus === 'completed') {
-                        color = '#10b981';
+                        color = '#10b981'; // All green when task is completed
                     } else if (idx < currentIndex) {
                         // Past Phase
-                        if (status === 'pending') color = '#f59e0b'; // Yellow (Still Pending)
-                        else if (status === 'rejected') color = '#fee2e2'; // Red
-                        else color = '#10b981'; // Green (Approved/Default)
+                        if (status === 'approved' || (!status && hasProof)) {
+                            color = '#10b981'; // Green = Approved
+                        } else if (status === 'rejected') {
+                            color = '#ef4444'; // Red = Rejected
+                        } else if (status === 'pending' && hasProof) {
+                            color = '#f59e0b'; // Yellow = Has proof, awaiting review
+                        }
+                        // else stays grey (no proof submitted)
                     } else if (idx === currentIndex) {
                         // Current Phase
-                        if (status === 'pending' || subState === 'pending_validation') color = '#f59e0b'; // Yellow
-                        else color = '#3b82f6'; // Blue
+                        if (status === 'approved') {
+                            color = '#10b981'; // Green
+                        } else if (status === 'rejected') {
+                            color = '#ef4444'; // Red
+                        } else if (hasProof) {
+                            color = '#f59e0b'; // Yellow = Has proof, awaiting review
+                        } else {
+                            color = '#3b82f6'; // Blue = Current active phase, no proof yet
+                        }
                     } else if (hasProof) {
-                        // Future Phase but has proof (e.g. reverted state)
-                        if (status === 'pending') color = '#f59e0b';
-                        else if (status === 'rejected') color = '#fee2e2';
-                        else color = '#10b981';
+                        // Future phase but has proof (e.g. reverted state)
+                        if (status === 'approved') color = '#10b981';
+                        else if (status === 'rejected') color = '#ef4444';
+                        else color = '#f59e0b'; // Yellow = proof present
                     }
-                    // Future phases stay grey
+                    // Future phases with no proof stay grey (#e5e7eb)
 
                     return (
                         <React.Fragment key={phase.key}>
@@ -1237,52 +1159,50 @@ const MyTasksPage = () => {
                                 return (
                                     <tr key={task.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background-color 0.2s' }}>
                                         <td style={{ padding: '16px' }}>
-                                            <div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                                    <ActiveStatusDot
-                                                        taskId={task.id}
-                                                        isActive={task.is_active_now}
-                                                        onToggle={(isNowActive) => {
-                                                            if (isNowActive) {
-                                                                const snapshot = riskSnapshots[task.id];
-                                                                if (snapshot && snapshot.risk_level === 'high') {
-                                                                    setAiPopupData({
-                                                                        taskTitle: task.title,
-                                                                        type: 'coach',
-                                                                        message: "I've analyzed your progress on this task. There are significant risks to the timeline if we don't adjust our strategy.",
-                                                                        reasons: snapshot.reasons,
-                                                                        recommended_actions: snapshot.recommended_actions
-                                                                    });
-                                                                    setShowAIPopup(true);
-                                                                }
-                                                            }
-                                                        }}
-                                                    />
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                                                {/* Clickable Status Dot - Click to toggle "working on it" */}
+                                                <div
+                                                    onClick={(e) => { e.stopPropagation(); toggleWorkingStatus(task); }}
+                                                    style={{
+                                                        width: '12px',
+                                                        height: '12px',
+                                                        borderRadius: '50%',
+                                                        backgroundColor: task.sub_state === 'in_progress' ? '#10b981' : '#d1d5db',
+                                                        marginTop: '5px',
+                                                        flexShrink: 0,
+                                                        cursor: 'pointer',
+                                                        boxShadow: task.sub_state === 'in_progress' ? '0 0 8px rgba(16, 185, 129, 0.6)' : 'none',
+                                                        border: task.sub_state === 'in_progress' ? '2px solid #059669' : '2px solid #9ca3af',
+                                                        transition: 'all 0.3s ease'
+                                                    }}
+                                                    title={task.sub_state === 'in_progress' ? 'Working on it ✅ (click to unset)' : 'Click to mark as working'}
+                                                />
+                                                <div>
                                                     <div style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.95rem' }}>
                                                         {task.title}
                                                     </div>
+                                                    {reassignedLabel && (
+                                                        <div style={{
+                                                            marginTop: '6px',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            padding: '2px 8px',
+                                                            borderRadius: '999px',
+                                                            backgroundColor: '#fef3c7',
+                                                            color: '#92400e',
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: 600,
+                                                            whiteSpace: 'nowrap'
+                                                        }}>
+                                                            {reassignedLabel}
+                                                        </div>
+                                                    )}
+                                                    {task.description && (
+                                                        <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '250px' }}>
+                                                            {task.description}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                {reassignedLabel && (
-                                                    <div style={{
-                                                        marginTop: '6px',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        padding: '2px 8px',
-                                                        borderRadius: '999px',
-                                                        backgroundColor: '#fef3c7',
-                                                        color: '#92400e',
-                                                        fontSize: '0.7rem',
-                                                        fontWeight: 600,
-                                                        whiteSpace: 'nowrap'
-                                                    }}>
-                                                        {reassignedLabel}
-                                                    </div>
-                                                )}
-                                                {task.description && (
-                                                    <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '250px' }}>
-                                                        {task.description}
-                                                    </div>
-                                                )}
                                             </div>
                                         </td>
                                         <td style={{ padding: '16px' }}>

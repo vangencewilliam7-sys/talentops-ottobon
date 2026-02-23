@@ -130,7 +130,11 @@ const NotificationsPage = () => {
             case 'announcement':
                 return <div style={{ ...iconStyle, backgroundColor: '#e0e7ff', color: '#4338ca' }}>📢</div>;
             case 'ai_risk_alert':
-                return <div style={{ ...iconStyle, backgroundColor: '#fee2e2', color: '#dc2626' }}>⚠️</div>;
+                return <div style={{ ...iconStyle, backgroundColor: '#fee2e2', color: '#991b1b' }}>⚠️</div>;
+            case 'task_halftime':
+                return <div style={{ ...iconStyle, backgroundColor: '#fff7ed', color: '#ea580c' }}>⏳</div>;
+            case 'task_deadline_near':
+                return <div style={{ ...iconStyle, backgroundColor: '#fee2e2', color: '#dc2626' }}>⏰</div>;
             default:
                 return <div style={{ ...iconStyle, backgroundColor: '#f3f4f6', color: '#6b7280' }}>🔔</div>;
         }

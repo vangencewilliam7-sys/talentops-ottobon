@@ -152,5 +152,16 @@ export const riskService = {
             .eq('is_active_now', true)
             .maybeSingle();
         return data;
+    },
+
+    /**
+     * 6. Bulk Sync Baseline
+     * Ensures every task has at least a mathematical baseline snapshot
+     */
+    syncDailyRisks: async (taskIds) => {
+        if (!taskIds || taskIds.length === 0) return;
+        const { data, error } = await supabase.rpc('rpc_sync_daily_task_risks', { p_task_ids: taskIds });
+        if (error) console.error('Bulk sync failed:', error);
+        return data;
     }
 };

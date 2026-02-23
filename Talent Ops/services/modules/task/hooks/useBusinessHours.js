@@ -26,8 +26,8 @@ export const useBusinessHours = (startDate, startTime, endDate, dueTime, initial
 
             if (endDateTime > startDateTime) {
                 const businessHours = calculateElapsedBusinessHours(startDateTime, endDateTime);
-                // Round to 2 decimal places for better precision (e.g., 0.03h for 2 mins)
-                const roundedHours = Math.max(0.01, Math.round(businessHours * 100) / 100);
+                // Round to 2 decimal places (allow < 1 hour)
+                const roundedHours = Math.round(businessHours * 100) / 100;
 
                 // Only update if value is different
                 if (allocatedHours !== roundedHours) {

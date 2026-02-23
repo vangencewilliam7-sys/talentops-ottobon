@@ -6,6 +6,7 @@ import {
     StickyNote, ThumbsUp, ThumbsDown
 } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
+import { taskService } from '../../../../services/modules/task';
 import TaskNotesModal from '../../../shared/TaskNotesModal';
 
 
@@ -264,6 +265,23 @@ const TaskDetailOverlay = ({
         return step.created_by === userId;
     };
 
+    // Linkify helper
+    const linkify = (text) => {
+        if (!text) return null;
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const parts = text.split(urlRegex);
+        return parts.map((part, i) => {
+            if (part.match(urlRegex)) {
+                return (
+                    <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: '#2563eb', textDecoration: 'underline' }}>
+                        {part}
+                    </a>
+                );
+            }
+            return part;
+        });
+    };
+
     const handleSubmitProof = async () => {
         if (!proofText.trim() && proofFiles.length === 0) {
             addToast?.('Please provide proof text or upload files', 'error');
@@ -275,122 +293,30 @@ const TaskDetailOverlay = ({
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('Not authenticated');
 
-            let fileUrls = [];
-            let evidenceRecords = [];
+            const result = await taskService.submitTaskProof({
+                task,
+                user,
+                proofFiles,
+                proofText,
+                orgId,
+                onProgress: setUploadProgress
+            });
 
-            // 1. Upload all files
-            if (proofFiles.length > 0) {
-                for (let i = 0; i < proofFiles.length; i++) {
-                    const file = proofFiles[i];
-                    const fileName = `${task.id}_${Date.now()}_${file.name}`;
-                    const { data: uploadData, error: uploadError } = await supabase.storage
-                        .from('task-proofs')
-                        .upload(fileName, file);
-                    if (uploadError) throw uploadError;
+            const msg = (proofFiles.length > 0 || proofText.includes('http'))
+                ? 'Proof submitted successfully'
+                : 'Notes added successfully';
 
-                    const { data: { publicUrl } } = supabase.storage.from('task-proofs').getPublicUrl(fileName);
-                    fileUrls.push(publicUrl);
-                    evidenceRecords.push({
-                        file_url: publicUrl,
-                        file_type: file.type || 'application/octet-stream',
-                        file_name: file.name
-                    });
-                    setUploadProgress(Math.round(((i + 1) / proofFiles.length) * 100));
-                }
+            if (result?.pointData?.final_points) {
+                addToast?.(`${msg}! Earned: ${result.pointData.final_points} Points`, 'success');
+            } else {
+                addToast?.(msg, 'success');
             }
 
-            // 2. Create Submission Record
-            // Try to insert into task_submissions if the table exists (it should based on Manager view)
-            const { data: submissionData, error: submissionError } = await supabase
-                .from('task_submissions')
-                .insert({
-                    task_id: task.id,
-                    employee_id: user.id, // Using employee_id as per schema
-                    description: proofText,
-                    submission_time: new Date().toISOString(),
-                    org_id: orgId
-                })
-                .select()
-                .single();
+            // Explicit log for debugging
+            console.log('Proof submission successful:', result);
 
-            if (submissionError) {
-                console.warn('Could not insert into task_submissions, falling back to basic task update:', submissionError);
-            } else if (evidenceRecords.length > 0) {
-                // 3. Insert Evidence linked to submission
-                const evidencePayload = evidenceRecords.map(e => ({
-                    submission_id: submissionData.id,
-                    file_url: e.file_url,
-                    file_type: e.file_type,
-                    org_id: orgId,
-                    uploaded_at: new Date().toISOString()
-                }));
-
-                const { error: evidenceError } = await supabase
-                    .from('task_evidence')
-                    .insert(evidencePayload);
-
-                if (evidenceError) console.error('Error inserting evidence:', evidenceError);
-            }
-
-            // 2. Format file URLs
-            const fileUrlsString = fileUrls.length > 0 ? JSON.stringify(fileUrls) : null;
-
-            // 3. Determine Current Phase (Do not auto-advance)
-            const currentPhase = task.lifecycle_state || 'requirement_refiner';
-
-            // Combine with existing proofs
-            const existingPhaseVal = task.phase_validations?.[currentPhase] || {};
-            let combinedUrls = [];
-
-            // Parse existing URLs
-            if (existingPhaseVal.proof_url) {
-                try {
-                    const parsed = JSON.parse(existingPhaseVal.proof_url);
-                    combinedUrls = Array.isArray(parsed) ? parsed : [existingPhaseVal.proof_url];
-                } catch (e) {
-                    combinedUrls = [existingPhaseVal.proof_url];
-                }
-            }
-            // Add new URLs
-            combinedUrls = [...combinedUrls, ...fileUrls];
-            const combinedUrlsString = JSON.stringify(combinedUrls);
-
-            // Append text if exists
-            const combinedText = [existingPhaseVal.proof_text, proofText].filter(Boolean).join('\n---\n');
-
-            // Update Validation Object (Reset validated status if any)
-            const updatedValidations = {
-                ...(task.phase_validations || {}),
-                [currentPhase]: {
-                    status: 'pending', // Pending Manager Review
-                    proof_url: combinedUrlsString,
-                    proof_text: combinedText,
-                    submitted_at: new Date().toISOString(),
-                    validated: false // Explicitly un-validate on new submission
-                }
-            };
-
-            // Prepare Updates
-            const updates = {
-                proof_text: combinedText || null,
-                proof_url: combinedUrlsString,
-                sub_state: 'pending_validation', // Signal ready for review
-                status: 'in_progress',
-                // Do NOT advance lifecycle_state automatically. Manager must approve.
-                lifecycle_state: currentPhase,
-                phase_validations: updatedValidations,
-                updated_at: new Date().toISOString()
-            };
-
-            const { error } = await supabase
-                .from('tasks')
-                .update(updates)
-                .eq('id', task.id);
-
-            if (error) throw error;
-            addToast?.(`${proofFiles.length > 0 ? proofFiles.length + ' file(s) uploaded. ' : ''}Proof submitted successfully`, 'success');
-            setProofFiles([]); // Clear selected files
-            setProofText('');  // Clear text box
+            setProofFiles([]);
+            setProofText('');
             onRefresh?.();
         } catch (err) {
             console.error('Upload error:', err);
@@ -798,6 +724,51 @@ const TaskDetailOverlay = ({
                         }}>
                             {task.description || 'No description provided for this task.'}
                         </p>
+                    </div>
+
+                    {/* Time Details Grid */}
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '16px',
+                        marginBottom: '32px'
+                    }}>
+                        {/* Start Time */}
+                        <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Start Date & Time</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontWeight: 600, fontSize: '0.95rem' }}>
+                                    <Calendar size={16} strokeWidth={2.5} color="#3b82f6" />
+                                    {task?.start_date ? new Date(task.start_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Not set'}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '0.9rem', paddingLeft: '24px' }}>
+                                    {task?.start_time ? task.start_time.slice(0, 5) : '--:--'}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Due Time */}
+                        <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Due Date & Time</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontWeight: 600, fontSize: '0.95rem' }}>
+                                    <Calendar size={16} strokeWidth={2.5} color="#ef4444" />
+                                    {task?.due_date ? new Date(task.due_date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : 'Not set'}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '0.9rem', paddingLeft: '24px' }}>
+                                    {task?.due_time ? task.due_time.slice(0, 5) : '--:--'}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Duration */}
+                        <div style={{ padding: '16px', backgroundColor: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                            <div style={{ fontSize: '0.75rem', color: '#3b82f6', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Wait Time</div>
+                            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e40af', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+                                {task?.allocated_hours || 0}
+                                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#60a5fa' }}>hrs</span>
+                            </div>
+                        </div>
                     </div>
 
                     {/* Reassignment Info */}
@@ -1226,9 +1197,9 @@ const TaskDetailOverlay = ({
                                     }
                                 } catch (e) {
                                     // Handle legacy comma-separated values if JSON.parse fails
-                                    if (val.proof_url.includes('http')) {
+                                    if (val.proof_url && val.proof_url.includes('http')) {
                                         displayFiles = val.proof_url.split(',').map(u => u.trim());
-                                    } else {
+                                    } else if (val.proof_url) {
                                         displayFiles = [val.proof_url];
                                     }
                                 }
@@ -1305,9 +1276,11 @@ const TaskDetailOverlay = ({
                                                 backgroundColor: '#f9fafb',
                                                 padding: '10px',
                                                 borderRadius: '8px',
-                                                borderLeft: '4px solid #10b981'
+                                                borderLeft: '4px solid #10b981',
+                                                whiteSpace: 'pre-wrap',
+                                                wordBreak: 'break-all'
                                             }}>
-                                                {val.proof_text}
+                                                {linkify(val.proof_text)}
                                             </div>
                                         )}
 
@@ -1379,198 +1352,212 @@ const TaskDetailOverlay = ({
                     position: 'sticky',
                     top: '100px'
                 }}>
-                    {/* Submit Work Section - Only show for assigned employees, not managers viewing team tasks */}
-                    {userId === task.assigned_to && <div style={{ marginBottom: '24px' }}>
-                        <h3 style={{
-                            fontSize: '1rem',
-                            fontWeight: 600,
-                            color: '#334155',
-                            marginBottom: '8px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}>
-                            <Upload size={18} /> Submit Work
-                        </h3>
-                        <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '16px' }}>
-                            Upload files or link your code repository.
-                        </p>
-
-                        {/* File Upload Area */}
-                        <div
-                            style={{
-                                border: '2px dashed #e2e8f0',
-                                borderRadius: '12px',
-                                padding: '24px',
-                                textAlign: 'center',
-                                marginBottom: '12px',
-                                backgroundColor: '#fafafa',
-                                cursor: 'pointer',
-                                transition: 'border-color 0.2s'
-                            }}
-                            onClick={() => document.getElementById('proofFileInput').click()}
-                            onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
-                            onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
-                        >
-                            <input
-                                id="proofFileInput"
-                                type="file"
-                                multiple
-                                style={{ display: 'none' }}
-                                onChange={handleFileSelect}
-                            />
-                            <Upload size={24} color="#94a3b8" style={{ marginBottom: '8px' }} />
-                            <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>
-                                Drag and drop files here or <span style={{ color: '#3b82f6', fontWeight: 500 }}>Browse Files</span>
-                            </p>
-                            <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: '8px 0 0 0' }}>
-                                You can select multiple files
-                            </p>
-                        </div>
-
-                        {/* Selected Files List */}
-                        {proofFiles.length > 0 && (
-                            <div style={{ marginBottom: '12px' }}>
-                                <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
-                                    {proofFiles.length} file(s) selected:
-                                </p>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
-                                    {proofFiles.map((file, index) => (
-                                        <div key={index} style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            padding: '8px 12px',
-                                            backgroundColor: '#f0f9ff',
-                                            borderRadius: '6px',
-                                            border: '1px solid #bfdbfe'
-                                        }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                                                <FileText size={14} color="#3b82f6" />
-                                                <span style={{ fontSize: '0.8rem', color: '#1e40af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {file.name}
-                                                </span>
-                                                <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                                                    ({(file.size / 1024).toFixed(1)} KB)
-                                                </span>
-                                            </div>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); removeFile(index); }}
-                                                style={{
-                                                    background: 'none',
-                                                    border: 'none',
-                                                    cursor: 'pointer',
-                                                    padding: '4px',
-                                                    color: '#ef4444',
-                                                    display: 'flex',
-                                                    alignItems: 'center'
-                                                }}
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Upload Progress */}
-                        {uploading && (
-                            <div style={{ marginBottom: '12px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Uploading...</span>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#3b82f6' }}>{uploadProgress}%</span>
-                                </div>
-                                <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                                    <div style={{
-                                        width: `${uploadProgress}%`,
-                                        height: '100%',
-                                        backgroundColor: '#3b82f6',
-                                        borderRadius: '3px',
-                                        transition: 'width 0.3s ease'
-                                    }} />
-                                </div>
-                            </div>
-                        )}
-
-                        <textarea
-                            value={proofText}
-                            onChange={(e) => setProofText(e.target.value)}
-                            placeholder="Add comments or notes about your submission..."
-                            style={{
-                                width: '100%',
-                                padding: '12px',
-                                borderRadius: '8px',
-                                border: '1px solid #e2e8f0',
-                                fontSize: '0.85rem',
-                                resize: 'none',
-                                minHeight: '80px',
-                                marginBottom: '12px'
-                            }}
-                        />
-
-                        {/* Pending Steps Warning */}
-                        {hasPendingSteps && (
+                    {/* Submit Work Section - Show for assigned employees OR managers/admins */}
+                    {(userId === task.assigned_to || userRole === 'manager' || userRole === 'org_admin' || userRole === 'team_lead') && (
+                        <div style={{ marginBottom: '24px' }}>
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
-                                padding: '10px 12px',
-                                backgroundColor: '#fef3c7',
-                                borderRadius: '8px',
-                                marginBottom: '12px',
-                                border: '1px solid #fcd34d'
+                                marginBottom: '16px',
+                                color: '#334155'
                             }}>
-                                <AlertTriangle size={16} color="#f59e0b" />
-                                <span style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: 500 }}>
-                                    Complete all execution steps before submitting
-                                </span>
+                                <Upload size={18} />
+                                <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>
+                                    Submit Work {userId !== task.assigned_to && <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#64748b' }}>(as {userRole})</span>}
+                                </h3>
                             </div>
-                        )}
+                            <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '16px' }}>
+                                Upload files or link your code repository.
+                            </p>
 
-                        <button
-                            onClick={handleSubmitProof}
-                            disabled={uploading || hasPendingSteps || (!proofText.trim() && proofFiles.length === 0)}
-                            style={{
-                                width: '100%',
-                                padding: '12px',
-                                borderRadius: '8px',
-                                border: 'none',
-                                background: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#e5e7eb',
-                                color: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'white' : '#9ca3af',
-                                fontWeight: 600,
-                                fontSize: '0.9rem',
-                                cursor: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'pointer' : 'not-allowed',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '8px'
-                            }}
-                        >
-                            {uploading ? 'Submitting...' : hasPendingSteps ? '🔒 Complete Steps First' : 'Submit for Review'}
-                        </button>
+                            {/* File Upload Area */}
+                            <div
+                                style={{
+                                    border: '2px dashed #e2e8f0',
+                                    borderRadius: '12px',
+                                    padding: '24px',
+                                    textAlign: 'center',
+                                    marginBottom: '12px',
+                                    backgroundColor: '#fafafa',
+                                    cursor: 'pointer',
+                                    transition: 'border-color 0.2s'
+                                }}
+                                onClick={() => document.getElementById('proofFileInput').click()}
+                                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
+                                onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+                            >
+                                <input
+                                    id="proofFileInput"
+                                    type="file"
+                                    multiple
+                                    style={{ display: 'none' }}
+                                    onChange={handleFileSelect}
+                                />
+                                <Upload size={24} color="#94a3b8" style={{ marginBottom: '8px' }} />
+                                <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>
+                                    Drag and drop files here or <span style={{ color: '#3b82f6', fontWeight: 500 }}>Browse Files</span>
+                                </p>
+                                <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: '8px 0 0 0' }}>
+                                    You can select multiple files
+                                </p>
+                            </div>
 
-                        <button
-                            style={{
-                                width: '100%',
-                                padding: '10px',
-                                borderRadius: '8px',
-                                border: '1px solid #e2e8f0',
-                                backgroundColor: 'white',
-                                color: '#334155',
-                                fontWeight: 500,
-                                fontSize: '0.85rem',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '8px',
-                                marginTop: '8px'
-                            }}
-                        >
-                            <LinkIcon size={14} /> Connect Repository
-                        </button>
-                    </div>}
+                            {/* Selected Files List */}
+                            {proofFiles.length > 0 && (
+                                <div style={{ marginBottom: '12px' }}>
+                                    <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
+                                        {proofFiles.length} file(s) selected:
+                                    </p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
+                                        {proofFiles.map((file, index) => (
+                                            <div key={index} style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '8px 12px',
+                                                backgroundColor: '#f0f9ff',
+                                                borderRadius: '6px',
+                                                border: '1px solid #bfdbfe'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                                    <FileText size={14} color="#3b82f6" />
+                                                    <span style={{ fontSize: '0.8rem', color: '#1e40af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {file.name}
+                                                    </span>
+                                                    <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                                        ({(file.size / 1024).toFixed(1)} KB)
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); removeFile(index); }}
+                                                    style={{
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        padding: '4px',
+                                                        color: '#ef4444',
+                                                        display: 'flex',
+                                                        alignItems: 'center'
+                                                    }}
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Upload Progress */}
+                            {uploading && (
+                                <div style={{ marginBottom: '12px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Uploading...</span>
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#3b82f6' }}>{uploadProgress}%</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                                        <div style={{
+                                            width: `${uploadProgress}%`,
+                                            height: '100%',
+                                            backgroundColor: '#3b82f6',
+                                            borderRadius: '3px',
+                                            transition: 'width 0.3s ease'
+                                        }} />
+                                    </div>
+                                </div>
+                            )}
+
+                            <textarea
+                                value={proofText}
+                                onChange={(e) => setProofText(e.target.value)}
+                                placeholder="Add comments or notes about your submission..."
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e2e8f0',
+                                    fontSize: '0.85rem',
+                                    resize: 'none',
+                                    minHeight: '80px',
+                                    marginBottom: '12px'
+                                }}
+                            />
+
+                            {/* Pending Steps Warning */}
+                            {hasPendingSteps && (
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    padding: '10px 12px',
+                                    backgroundColor: '#fef3c7',
+                                    borderRadius: '8px',
+                                    marginBottom: '12px',
+                                    border: '1px solid #fcd34d'
+                                }}>
+                                    <AlertTriangle size={16} color="#f59e0b" />
+                                    <span style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: 500 }}>
+                                        Complete all execution steps before submitting
+                                    </span>
+                                </div>
+                            )}
+
+                            <button
+                                onClick={handleSubmitProof}
+                                disabled={uploading || hasPendingSteps || (!proofText.trim() && proofFiles.length === 0)}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#e5e7eb',
+                                    color: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'white' : '#9ca3af',
+                                    fontWeight: 600,
+                                    fontSize: '0.9rem',
+                                    cursor: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'pointer' : 'not-allowed',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                {uploading ? 'Submitting...' : hasPendingSteps ? '🔒 Complete Steps First' : 'Submit for Review'}
+                            </button>
+
+                            <button
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #e2e8f0',
+                                    backgroundColor: 'white',
+                                    color: '#334155',
+                                    fontWeight: 500,
+                                    fontSize: '0.85rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                    marginTop: '8px'
+                                }}
+                                onClick={() => {
+                                    const url = window.prompt('Enter your repository or documentation URL:');
+                                    if (url) {
+                                        if (!url.startsWith('http')) {
+                                            addToast?.('Please enter a valid URL starting with http:// or https://', 'error');
+                                            return;
+                                        }
+                                        setProofText(prev => prev ? `${prev}\nRepository: ${url}` : `Repository: ${url}`);
+                                        addToast?.('Link added to description!', 'success');
+                                    }
+                                }}
+                            >
+                                <LinkIcon size={16} /> Connect Repository
+                            </button>
+                        </div>
+                    )}
 
                     {/* Team Notes Section */}
                     <div style={{ marginBottom: '24px' }}>

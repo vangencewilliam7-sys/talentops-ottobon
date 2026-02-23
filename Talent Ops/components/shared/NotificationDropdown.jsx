@@ -153,6 +153,10 @@ const NotificationDropdown = ({ isOpen, onClose, dropdownRef, onNotificationUpda
                 return '📢';
             case 'ai_risk_alert':
                 return '⚠️';
+            case 'task_halftime':
+                return '⏳';
+            case 'task_deadline_near':
+                return '⏰';
             default:
                 return '🔔';
         }
