@@ -8,7 +8,7 @@ export function Navigation() {
 
     useEffect(() => {
         const handleScroll = () => {
-            setScrolled(window.scrollY > 50)
+            setScrolled(window.scrollY > 20)
         }
         window.addEventListener('scroll', handleScroll, { passive: true })
         return () => window.removeEventListener('scroll', handleScroll)
@@ -21,7 +21,7 @@ export function Navigation() {
 
     return (
         <nav
-            className={`fixed top-0 left-0 right-0 z-[1000] transition-all duration-300 font-sans ${scrolled ? 'bg-white/80 backdrop-blur-md border-b border-[#dadada] py-4' : 'bg-transparent py-6'
+            className={`fixed top-0 left-0 right-0 z-[10000] transition-all duration-300 font-sans ${scrolled ? 'bg-white border-b border-[#dadada] py-3 shadow-sm' : 'bg-transparent py-4'
                 }`}
         >
             <div className="container mx-auto px-6 md:px-12 flex items-center justify-between">
@@ -51,12 +51,21 @@ export function Navigation() {
                 </div>
 
                 {/* Desktop Buttons */}
-                <div className="hidden md:flex items-center gap-6">
+                <div className="hidden md:flex items-center gap-4">
                     <button
                         onClick={handleLoginClick}
-                        className="text-[15px] font-redhat font-bold text-[#1f2937] hover:text-[#3b82f6] transition-colors"
+                        className="text-[15px] font-redhat font-bold text-[#1f2937] hover:text-[#3b82f6] transition-colors px-4 py-2"
                     >
                         Sign In
+                    </button>
+                    <button
+                        onClick={() => {
+                            const el = document.getElementById('cta');
+                            el?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="bg-[#3b82f6] text-white px-6 py-2.5 rounded-full font-redhat font-bold text-[15px] hover:bg-[#2563eb] transition-all shadow-sm hover:shadow-md"
+                    >
+                        Request a Demo
                     </button>
                 </div>
 
@@ -94,6 +103,16 @@ export function Navigation() {
                     ))}
                     <div className="flex flex-col gap-4 pt-4 border-t border-[#dadada]">
                         <button onClick={handleLoginClick} className="text-lg font-semibold text-left text-[#1f2937]">Sign In</button>
+                        <button
+                            onClick={() => {
+                                setIsMobileMenuOpen(false);
+                                const el = document.getElementById('cta');
+                                el?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                            className="bg-[#3b82f6] text-white px-6 py-3 rounded-xl font-redhat font-bold text-center"
+                        >
+                            Request a Demo
+                        </button>
                     </div>
                 </div>
             )}

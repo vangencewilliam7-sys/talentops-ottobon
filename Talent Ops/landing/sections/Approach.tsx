@@ -4,36 +4,36 @@ import { motion, AnimatePresence } from 'framer-motion';
 const steps = [
     {
         number: '01',
-        title: 'Understand',
-        description: 'We analyze your current workflows, identify gaps, and clarify your goals. Through deep research and discovery, we define the strategic direction.',
+        title: 'Integrate Workforce Data',
+        description: 'Connect HR systems, performance tools, and operational data sources.',
         image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&q=80&w=800',
         tags: ['Research', 'Audit', 'Strategic Discovery']
     },
     {
         number: '02',
-        title: 'Design',
-        description: 'We architect custom systems aligned with your team size, industry, and growth plan. Building the blueprint for scalable operations.',
+        title: 'Map Roles and Responsibilities',
+        description: 'Build a clear structural model of teams and ownership.',
         image: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&q=80&w=800',
         tags: ['Architecture', 'Workflow Design', 'Planning']
     },
     {
         number: '03',
-        title: 'Build',
-        description: 'We implement tools, templates, and operational frameworks your team will use daily. Transforming blueprints into functional ecosystems.',
+        title: 'Monitor Capacity & Performance',
+        description: 'Track workload distribution, productivity, and engagement in real time.',
         image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&q=80&w=800',
         tags: ['Implementation', 'Stack Setup', 'Automation']
     },
     {
         number: '04',
-        title: 'Train',
-        description: 'We enable managers and teams to adopt and execute the system confidently. Ensuring long-term cultural and operational adoption.',
+        title: 'Detect Risks and Gaps',
+        description: 'Identify attrition risks, skill shortages, and execution bottlenecks early.',
         image: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&q=80&w=800',
         tags: ['Enablement', 'Workshops', 'Adoption']
     },
     {
         number: '05',
-        title: 'Improve',
-        description: 'We measure results and continuously refine systems as your organization evolves. Ensuring your platform grows with your business.',
+        title: 'Plan and Act with Confidence',
+        description: 'Make hiring, restructuring, and investment decisions backed by evidence.',
         image: '/improve.jpg',
         tags: ['Optimization', 'Analysis', 'Scaling']
     }
@@ -48,10 +48,10 @@ export default function Approach() {
                 {/* Section Header */}
                 <div className="text-center mb-24">
                     <h2 className="text-[42px] md:text-[48px] lg:text-[52px] mb-6 text-[#1f2937] font-heading font-semibold tracking-tight leading-[1.15]">
-                        How We Work With You
+                        How TalentOps Enables Data-Driven Workforce Decisions
                     </h2>
                     <p className="text-[18px] text-[rgba(31,41,55,0.85)] font-serif leading-[1.7] max-w-[640px] mx-auto">
-                        A frictionless, interactive process designed to bring intelligence to your operations.
+                        From Fragmented Data to Actionable Insight
                     </p>
                 </div>
 

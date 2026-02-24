@@ -4,37 +4,24 @@ import { motion } from 'framer-motion';
 
 const services = [
     {
-        title: 'Team Structure Design',
-        image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1200',
-        description: 'We build clear frameworks for hiring, managing, and keeping talent that can scale from 10 to 100 people without friction.',
-        features: [
-            'Role Architecture & Org Mapping',
-            'Optimized Hiring Workflows',
-            'Unified Onboarding Systems',
-            'Career Path Frameworks'
-        ]
-    },
-    {
-        title: 'Performance Systems',
-        image: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?auto=format&fit=crop&q=80&w=1200',
-        description: 'Move from intuition to intelligence. We help you set clear goals and implement robust feedback loops that drive growth.',
-        features: [
-            'Evidence-Based Reviews',
-            'OKR & KPI Alignment',
-            'Manager Capability Training',
-            'Cross-Team Productivity Audits'
-        ]
-    },
-    {
-        title: 'People Data & Strategy',
+        title: 'Workforce Visibility',
         image: '/people-data-stretagy.jpg.png',
-        description: 'Leverage predictive analytics to understand sentiment, retention risks, and surface hidden growth potential in your team.',
-        features: [
-            'Team Health Diagnostics',
-            'Attrition Risk Modeling',
-            'Succession Visualization',
-            'Performance Trend Analysis'
-        ]
+        description: 'Understand how work, roles, and responsibilities are distributed across the organization, allowing leaders to spot constraints and structural gaps early.'
+    },
+    {
+        title: 'Performance Intelligence',
+        image: '/images/performance-intelligence.jpg',
+        description: 'Replace subjective assessments with continuous performance insights, enabling early detection of issues and informed management decisions.'
+    },
+    {
+        title: 'Planning & Structuring',
+        image: '/images/planning-structuring.jpg',
+        description: 'Align workforce planning with business objectives by designing team structures and resource allocation based on current capacity and future needs.'
+    },
+    {
+        title: 'Lifecycle Management',
+        image: '/images/lifecycle-management.jpg',
+        description: 'Manage the full employee lifecycle within a structured framework, from onboarding through development and retention.'
     }
 ];
 
@@ -77,17 +64,10 @@ function ServiceFlipCard({ service, index }: { service: typeof services[0], inde
                         {service.title}
                     </h3>
 
-                    <p className="text-[#E6D3C4]/80 font-elegant text-lg mb-8 leading-relaxed text-left">
-                        {service.description}
-                    </p>
-
-                    <div className="space-y-4 flex-grow overflow-y-auto no-scrollbar">
-                        {service.features.map((feature, idx) => (
-                            <div key={idx} className="flex items-start gap-3 text-sm text-[#E6D3C4]/70 font-medium font-elegant text-left">
-                                <CheckCircle2 className="w-5 h-5 text-[#FFEEDE]/40 mt-0.5 flex-shrink-0" />
-                                <span>{feature}</span>
-                            </div>
-                        ))}
+                    <div className="flex-grow overflow-y-auto no-scrollbar">
+                        <p className="text-[#E6D3C4]/80 font-elegant text-lg leading-relaxed text-left">
+                            {service.description}
+                        </p>
                     </div>
 
                     <div className="pt-6 mt-auto border-t border-[#E6D3C4]/10">
@@ -109,7 +89,7 @@ export default function Services() {
             className="py-16 md:py-24 px-6 lg:px-12 bg-[#0A0A0B] relative overflow-hidden flex flex-col justify-center"
         >
             <div className="max-w-7xl mx-auto relative z-10 w-full">
-                <div className="text-center mb-24 md:mb-32 max-w-4xl mx-auto">
+                <div className="text-center mb-24 md:mb-32 max-w-6xl mx-auto">
                     <motion.span
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
@@ -119,16 +99,17 @@ export default function Services() {
                     >
                         OUR CAPABILITIES
                     </motion.span>
-                    <motion.h2
-                        initial={{ opacity: 0, y: 20 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true, amount: 0.1 }}
-                        transition={{ duration: 0.8, delay: 0.2 }}
-                        className="text-4xl md:text-6xl lg:text-7xl font-display font-bold text-[#FFEEDE] mb-10 leading-[1.1] tracking-tight"
-                    >
-                        The Intelligence Layer for <br className="hidden md:block" />
-                        <span className="text-[#E6D3C4] italic">High-Performance</span> Teams
-                    </motion.h2>
+                    <div className="flex justify-center w-full overflow-visible">
+                        <motion.h2
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true, amount: 0.1 }}
+                            transition={{ duration: 0.8, delay: 0.2 }}
+                            className="text-xl md:text-3xl lg:text-4xl xl:text-5xl font-display font-bold text-[#FFEEDE] mb-10 leading-[1.1] tracking-tight whitespace-nowrap shrink-0 text-center"
+                        >
+                            A Unified Intelligence System for <span className="text-[#E6D3C4] italic">Workforce Decisions</span>
+                        </motion.h2>
+                    </div>
                     <motion.p
                         initial={{ opacity: 0, y: 20 }}
                         whileInView={{ opacity: 1, y: 0 }}
@@ -136,11 +117,11 @@ export default function Services() {
                         transition={{ duration: 0.8, delay: 0.4 }}
                         className="text-lg md:text-xl text-[#E6D3C4]/60 font-elegant leading-relaxed max-w-3xl mx-auto font-light"
                     >
-                        We don't just advise. We implement the execution systems, data loops, and structure required to transform talent into measurable business outcomes.
+                        TalentOps unifies people data, performance insights, and organizational structure into one system for coordinated execution, visibility, and scalable growth.
                     </motion.p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 w-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-10 w-full">
                     {services.map((service, index) => (
                         <ServiceFlipCard key={index} service={service} index={index} />
                     ))}

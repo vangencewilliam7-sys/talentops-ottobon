@@ -10,6 +10,7 @@ const Problem = lazy(() => import('./sections/Problem'));
 const Services = lazy(() => import('./sections/Services'));
 const Approach = lazy(() => import('./sections/Approach'));
 const Industries = lazy(() => import('./sections/Industries'));
+const Foundations = lazy(() => import('./sections/Foundations'));
 const Results = lazy(() => import('./sections/Results'));
 const WhyTalentOps = lazy(() => import('./sections/WhyTalentOps'));
 const FinalCTA = lazy(() => import('./sections/FinalCTA'));
@@ -33,8 +34,6 @@ export function LandingPage() {
                     <ScrollProgress />
                 </Suspense>
 
-                <Navigation />
-
                 <main>
                     <Suspense fallback={<LoadingSection />}>
                         <HeroSection />
@@ -42,6 +41,7 @@ export function LandingPage() {
                         <Services />
                         <Approach />
                         <Industries />
+                        <Foundations />
                         <Results />
                         <WhyTalentOps />
                         <FinalCTA />

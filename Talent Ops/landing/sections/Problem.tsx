@@ -5,33 +5,33 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 const painPoints = [
   {
     icon: AlertCircle,
-    title: 'No Clear Ownership',
-    description: 'When roles are blurry, tasks fall through the cracks and progress slows down.'
+    title: "Unclear Roles and Ownership",
+    description: "People don’t know who is accountable for what. Work overlaps in some areas and falls through gaps in others, slowing decisions and execution."
   },
   {
     icon: Users,
-    title: 'Disjointed Processes',
-    description: 'Hiring, onboarding, and performance reviews feel separate instead of one smooth system.'
+    title: "Hiring Without Accurate Capacity Insight",
+    description: "Recruitment decisions are driven by urgency instead of data. Some teams become overstaffed while critical skill gaps remain unfilled."
   },
   {
     icon: BarChart3,
-    title: 'Lack of Real Insight',
-    description: 'Managing on instinct instead of data makes it hard to see where the team is struggling.'
+    title: "Late Detection of Performance Issues",
+    description: "Problems surface only after targets are missed or clients complain, making recovery costly and disruptive."
   },
   {
     icon: TrendingDown,
-    title: 'Losing Great People',
-    description: 'Talent often leaves because of small, fixable issues that were never noticed.'
+    title: "Unexpected Attrition of Key Employees",
+    description: "High-impact employees leave without warning due to burnout, disengagement, or external offers, taking critical knowledge with them."
   },
   {
     icon: Workflow,
-    title: 'Growing Inefficiency',
-    description: 'As you scale, small problems compound and make daily operations more difficult.'
+    title: "Limited Visibility for Managers and Leaders",
+    description: "Leaders lack real-time insight into workload, progress, and risks, forcing decisions based on incomplete or outdated information."
   },
   {
     icon: Target,
-    title: 'Misaligned Goals',
-    description: 'Teams move in different directions without a unified strategy, slowing execution and impact.'
+    title: "Disconnected HR, Operations, and Finance Systems",
+    description: "Workforce data is scattered across tools that don’t integrate, causing misalignment between staffing, budgets, and execution plans."
   }
 ];
 
