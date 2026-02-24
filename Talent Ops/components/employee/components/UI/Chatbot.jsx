@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, MessageSquare, X, Move, Loader } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../../../lib/supabaseClient';
 
 import { useProject } from '../../context/ProjectContext';
@@ -12,6 +12,7 @@ const Chatbot = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [input, setInput] = useState('');
     const { currentProject } = useProject();
+    const navigate = useNavigate();
     const [messages, setMessages] = useState([
         { role: 'ai', text: '👋 Hello! I can answer questions about company policies, projects, and documents. Ask me anything!' }
     ]);
@@ -137,6 +138,19 @@ const Chatbot = () => {
             const data = await response.json();
 
             // Handle RAG response
+            if (data.action === 'navigate_to_module') {
+                const navMsg = data.response || data.data?.redirect_message || 'Redirecting you now...';
+                setMessages(prev => [...prev, { role: 'ai', text: navMsg }]);
+
+                if (data.data?.route && !data.data?.already_here) {
+                    setTimeout(() => {
+                        navigate(data.data.route);
+                    }, 1000);
+                }
+                setIsLoading(false);
+                return;
+            }
+
             // Handle RAG response
             const responseText = data.answer || data.response;
             if (responseText) {

@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, MessageSquare, X, Move, Loader } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../../../lib/supabaseClient';
 
 const CHATBOT_API_URL = '/api/chatbot/query';
 const SMART_BUTTONS_URL = 'http://localhost:8000/api/chatbot/context-buttons';
 
 const Chatbot = () => {
+    const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
     const [input, setInput] = useState('');
     const [messages, setMessages] = useState([
@@ -133,7 +134,19 @@ const Chatbot = () => {
 
             const data = await response.json();
 
-            // Handle RAG response
+            if (data.action === 'navigate_to_module') {
+                const navMsg = data.response || data.data?.redirect_message || 'Redirecting you now...';
+                setMessages(prev => [...prev, { role: 'ai', text: navMsg }]);
+
+                if (data.data?.route && !data.data?.already_here) {
+                    setTimeout(() => {
+                        navigate(data.data.route);
+                    }, 1000);
+                }
+                setIsLoading(false);
+                return;
+            }
+
             // Handle RAG response
             const responseText = data.answer || data.response;
             if (responseText) {
