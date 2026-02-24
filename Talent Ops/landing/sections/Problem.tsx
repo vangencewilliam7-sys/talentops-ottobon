@@ -75,8 +75,8 @@ export default function Problem() {
           transition={{ duration: 0.6 }}
           className="text-center mb-20"
         >
-          <h2 className="text-[42px] md:text-[48px] lg:text-[52px] mb-6 text-[#1f2937] font-heading font-semibold tracking-tight leading-[1.15]">
-            Why Scaling Often Feels Difficult
+          <h2 className="text-[42px] md:text-[48px] lg:text-[52px] mb-6 text-[#1f2937] font-heading font-semibold tracking-tight leading-[1.15] whitespace-nowrap">
+            Why Workforce Management Becomes Challenging at Scale
           </h2>
         </motion.div>
 

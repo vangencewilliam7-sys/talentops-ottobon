@@ -26,12 +26,13 @@ export function HeroSection() {
                     <div className="flex flex-col items-center gap-12 md:gap-16">
                         <div className="flex flex-col items-center">
                             <h1 className="reveal-fade font-redhat font-bold text-[#1f2937] text-[clamp(2.5rem,8vw,6rem)] leading-[1.2] text-center">
-                                The <span className="font-satisfy text-[1.4em] bg-gradient-to-r from-[#3b82f6] to-[#60a5fa] bg-clip-text text-transparent px-2 py-4 leading-none inline-block align-middle">Intelligence Layer</span><br />
-                                of Your Workforce
+                                A Workforce<br />
+                                <span className="font-satisfy text-[1.4em] bg-gradient-to-r from-[#3b82f6] to-[#60a5fa] bg-clip-text text-transparent px-2 py-4 leading-none inline-block align-middle whitespace-nowrap">Intelligence Platform</span><br />
+                                <span className="whitespace-nowrap">for Scaling Organizations</span>
                             </h1>
 
                             <p className="reveal-fade text-lg md:text-xl text-[#6b7280] font-redhat font-normal mt-10 max-w-2xl mx-auto leading-relaxed">
-                                Connect talent data, performance metrics, and planning insights into a single, strategic command center.
+                                Gain real-time visibility into hiring needs, team capacity, performance, and retention so leaders can make confident workforce decisions as the organization scales.
                             </p>
                         </div>
 
