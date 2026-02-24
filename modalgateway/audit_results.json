@@ -1,0 +1,128 @@
+{
+    "functional": [
+        {
+            "test": "Health Check: /health",
+            "status": "PASS",
+            "code": 200,
+            "duration": "0.134s",
+            "response": {
+                "status": "ok",
+                "services": [
+                    "slm",
+                    "llm",
+                    "rag"
+                ]
+            }
+        },
+        {
+            "test": "Health Check: /slm/health",
+            "status": "PASS",
+            "code": 200,
+            "duration": "0.006s",
+            "response": {
+                "status": "ok",
+                "service": "SLM Backend"
+            }
+        },
+        {
+            "test": "Health Check: /llm/health",
+            "status": "PASS",
+            "code": 200,
+            "duration": "0.010s",
+            "response": {
+                "status": "ok",
+                "service": "LLM Backend (OpenAI)"
+            }
+        },
+        {
+            "test": "Health Check: /rag/health",
+            "status": "PASS",
+            "code": 200,
+            "duration": "0.005s",
+            "response": {
+                "status": "ok",
+                "service": "RAG Backend"
+            }
+        },
+        {
+            "test": "SLM Chat: Basic Greeting",
+            "status": "PASS",
+            "response": {
+                "response": "Hello! Welcome to the Talentops AI Assistant. I'm here to help you with any HR-related questions, tasks, or document-related inquiries. \n\nBefore we begin, I'd like to confirm that you're an employee within the organization. If that's correct, I'll be happy to assist you with:\n\n* My Tasks: Checking your assigned tasks, deadlines, and progress.\n* Team Tasks: Viewing team-level tasks, goals, and performance metrics.\n* Analytics: Exploring employee-level analytics, such as time spent on tasks, project performance, and more.\n\nPlease let me know how I can assist you today.",
+                "action": "greeting",
+                "data": {}
+            }
+        },
+        {
+            "test": "SLM Chat: Show Tasks",
+            "status": "PASS",
+            "response": {
+                "response": "I checked the database, but no tasks found matching the criteria.",
+                "action": "get_tasks",
+                "data": {
+                    "no_data": true
+                }
+            }
+        },
+        {
+            "test": "App Switching: talentops",
+            "status": "PASS",
+            "available": true,
+            "response": {
+                "response": "I checked the database, but no tasks found matching the criteria.",
+                "action": "get_tasks",
+                "data": {
+                    "no_data": true
+                }
+            }
+        },
+        {
+            "test": "App Switching: cohort",
+            "status": "PASS",
+            "available": true,
+            "response": {
+                "response": "The Cohort service is not currently available. Please contact your administrator.",
+                "action": "error",
+                "data": {}
+            }
+        }
+    ],
+    "database": [],
+    "load": {
+        "10_users": {
+            "concurrent_users": 10,
+            "avg_latency": "9.558s",
+            "p95_latency": "17.489s",
+            "error_rate": "0.0%",
+            "total_duration": "17.493s"
+        },
+        "50_users": {
+            "concurrent_users": 50,
+            "avg_latency": "11.234s",
+            "p95_latency": "19.982s",
+            "error_rate": "76.0%",
+            "total_duration": "20.517s"
+        },
+        "100_users": {
+            "concurrent_users": 100,
+            "avg_latency": "0.000s",
+            "p95_latency": "0.000s",
+            "error_rate": "100.0%",
+            "total_duration": "20.914s"
+        }
+    },
+    "performance": {
+        "first_request_latency": "0.002s",
+        "avg_health_latency": "0.001s"
+    },
+    "stress": [],
+    "memory": {},
+    "metrics_before": {
+        "memory_mb": 32.75,
+        "cpu_percent": 95.9
+    },
+    "metrics_after": {
+        "memory_mb": 21.078125,
+        "cpu_percent": 26.1
+    }
+}
