@@ -16,6 +16,7 @@ export default {
                 accent: ['var(--font-space)'],
                 redhat: ['var(--font-redhat)'],
                 leckerli: ['var(--font-leckerli)'],
+                satisfy: ['var(--font-satisfy)'],
                 heading: ['var(--font-playfair)'],
             },
             colors: {

@@ -89,4 +89,38 @@ body {
         -webkit-text-fill-color: transparent;
         background-clip: text;
     }
+
+    .glow-btn {
+        @apply relative overflow-hidden bg-[#1a1a1a] text-white px-10 py-4 rounded-full font-redhat font-bold text-lg tracking-wide transition-all duration-300;
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+    }
+
+    .glow-btn:hover {
+        @apply -translate-y-0.5 bg-black;
+        box-shadow: 0 0 30px rgba(255, 255, 255, 0.4), 0 0 50px rgba(255, 255, 255, 0.2);
+    }
+
+    .glow-btn[data-state="clicked"] {
+        @apply scale-95 opacity-90;
+    }
+
+    /* Shine sweep effect */
+    .glow-btn::before {
+        content: '';
+        @apply absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent;
+        transition: transform 0.6s ease-in-out;
+    }
+
+    .glow-btn:hover::before {
+        @apply translate-x-full;
+    }
+
+    .glow-btn::after {
+        content: '';
+        @apply absolute inset-0 bg-white/5 opacity-0 transition-opacity duration-300;
+    }
+
+    .glow-btn:hover::after {
+        @apply opacity-100;
+    }
 }
