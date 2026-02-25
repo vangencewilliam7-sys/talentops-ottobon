@@ -27,6 +27,19 @@ export const sanitizeFileName = (fileName) => {
  */
 export const uploadFile = async ({ bucket, path, file }) => {
     try {
+        // 1. PROACTIVE AUTH CHECK: This prevents "failing after some days"
+        // by forcing a session refresh right before the high-stakes upload.
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+            throw new Error('Your session has expired. Please refresh the page and log in again.');
+        }
+
+        // 2. PATH VALIDATION: Ensure we aren't creating a "null" path which triggers 400 errors
+        if (path && (path.includes('undefined') || path.includes('null'))) {
+            console.warn('StorageService: Malformed path detected:', path);
+            // We can try to repair or just warn, but usually this means context is stale
+        }
+
         const cleanName = sanitizeFileName(file.name);
 
         // We put the uniqueness in the path and a timestamp prefix

@@ -229,7 +229,7 @@ const PayrollPage = ({ userRole, userId, addToast, orgId }) => {
             {/* Premium Header - Reusing the Dashboard Aesthetic */}
             <div style={{
                 background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                borderRadius: '24px',
+                borderRadius: '8px',
                 padding: '32px 40px',
                 color: 'white',
                 position: 'relative',
@@ -251,7 +251,7 @@ const PayrollPage = ({ userRole, userId, addToast, orgId }) => {
                 <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
                     <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.85rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '16px' }}>
-                            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', border: '1px solid rgba(255,255,255,0.1)' }}>Financials</span>
+                            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', border: '1px solid rgba(255,255,255,0.1)' }}>Financials</span>
                             <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '800' }}>•</span>
                             <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem', fontWeight: '600' }}>Payroll Control</span>
                         </div>
@@ -268,7 +268,7 @@ const PayrollPage = ({ userRole, userId, addToast, orgId }) => {
                             background: 'rgba(255, 255, 255, 0.05)',
                             backdropFilter: 'blur(12px)',
                             padding: '16px 24px',
-                            borderRadius: '20px',
+                            borderRadius: '8px',
                             border: '1px solid rgba(255, 255, 255, 0.1)',
                             display: 'flex',
                             alignItems: 'center',
@@ -280,7 +280,7 @@ const PayrollPage = ({ userRole, userId, addToast, orgId }) => {
                                     background: 'linear-gradient(135deg, #818cf8 0%, #6366f1 100%)',
                                     color: 'white',
                                     padding: '12px 24px',
-                                    borderRadius: '14px',
+                                    borderRadius: '6px',
                                     fontWeight: '800',
                                     fontSize: '0.9rem',
                                     display: 'flex',

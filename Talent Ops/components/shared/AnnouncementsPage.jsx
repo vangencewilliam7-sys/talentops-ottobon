@@ -405,12 +405,12 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
             {/* Compact Header - Matching Leave Requests Style */}
             <div style={{
                 background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                borderRadius: '16px',
+                borderRadius: '8px',
                 padding: '20px 28px',
                 color: 'white',
                 position: 'relative',
                 overflow: 'hidden',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
                 marginBottom: '20px'
             }}>
                 <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
@@ -441,7 +441,7 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                                 background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                                 color: 'white',
                                 padding: '10px 20px',
-                                borderRadius: '10px',
+                                borderRadius: '6px',
                                 fontWeight: '600',
                                 fontSize: '0.85rem',
                                 border: 'none',
@@ -469,12 +469,12 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
             {/* Toggles and Tabs */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '20px' }}>
                 {/* View Mode Toggle */}
-                <div style={{ display: 'flex', gap: '4px', backgroundColor: 'white', padding: '6px', borderRadius: '14px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', gap: '4px', backgroundColor: 'white', padding: '6px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
                     <button
                         onClick={() => setViewMode('events')}
                         style={{
                             padding: '8px 20px',
-                            borderRadius: '10px',
+                            borderRadius: '6px',
                             border: 'none',
                             backgroundColor: viewMode === 'events' ? '#0f172a' : 'transparent',
                             color: viewMode === 'events' ? 'white' : '#64748b',
@@ -492,7 +492,7 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                         onClick={() => setViewMode('announcements')}
                         style={{
                             padding: '8px 20px',
-                            borderRadius: '10px',
+                            borderRadius: '6px',
                             border: 'none',
                             backgroundColor: viewMode === 'announcements' ? '#0f172a' : 'transparent',
                             color: viewMode === 'announcements' ? 'white' : '#64748b',
@@ -527,7 +527,7 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                                     alignItems: 'center',
                                     gap: '8px',
                                     padding: '8px 16px',
-                                    borderRadius: '10px',
+                                    borderRadius: '6px',
                                     border: activeTab === tab.id ? `1px solid ${tab.color}30` : '1px solid transparent',
                                     backgroundColor: activeTab === tab.id ? `${tab.color}08` : 'transparent',
                                     color: activeTab === tab.id ? tab.color : '#64748b',
@@ -595,9 +595,9 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                             onClick={() => setSelectedEvent(event)}
                             style={{
                                 backgroundColor: 'white',
-                                borderRadius: '24px',
+                                borderRadius: '8px',
                                 padding: '32px',
-                                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.02), 0 4px 6px -2px rgba(0, 0, 0, 0.01)',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
                                 border: '1px solid #f1f5f9',
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -637,7 +637,7 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                                         <span style={{
                                             padding: '4px 10px',
-                                            borderRadius: '8px',
+                                            borderRadius: '6px',
                                             fontSize: '0.65rem',
                                             fontWeight: '800',
                                             textTransform: 'uppercase',
@@ -667,7 +667,7 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            borderRadius: '10px',
+                                            borderRadius: '6px',
                                             transition: 'all 0.2s'
                                         }}
                                         onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.backgroundColor = '#fee2e2'; }}
@@ -681,7 +681,7 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                             {/* Content Info */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingLeft: '12px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#3b82f610', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#3b82f610', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <Calendar size={14} color="#3b82f6" />
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -693,7 +693,7 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                                 </div>
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#f59e0b10', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#f59e0b10', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <Clock size={14} color="#f59e0b" />
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -703,7 +703,7 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                                 </div>
 
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: '#ef444410', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div style={{ width: '32px', height: '32px', borderRadius: '6px', backgroundColor: '#ef444410', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <MapPin size={14} color="#ef4444" />
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -740,7 +740,7 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                         onClick={(e) => e.stopPropagation()}
                         style={{
                             backgroundColor: 'white',
-                            borderRadius: '32px',
+                            borderRadius: '8px',
                             width: '560px',
                             maxWidth: '100%',
                             boxShadow: '0 30px 60px -12px rgba(0, 0, 0, 0.25)',
@@ -766,7 +766,7 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                                         <span style={{
                                             padding: '4px 12px',
-                                            borderRadius: '8px',
+                                            borderRadius: '6px',
                                             fontSize: '0.7rem',
                                             fontWeight: '800',
                                             textTransform: 'uppercase',
@@ -783,7 +783,7 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                                 <button
                                     onClick={() => setSelectedEvent(null)}
                                     style={{
-                                        background: '#f1f5f9', border: 'none', borderRadius: '12px',
+                                        background: '#f1f5f9', border: 'none', borderRadius: '6px',
                                         width: '40px', height: '40px',
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         cursor: 'pointer', color: '#64748b', transition: 'all 0.2s'
@@ -796,8 +796,8 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '32px' }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '20px', backgroundColor: '#f8fafc', borderRadius: '20px' }}>
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: '#3b82f610', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '20px', backgroundColor: '#f8fafc', borderRadius: '8px' }}>
+                                    <div style={{ width: '40px', height: '40px', borderRadius: '6px', backgroundColor: '#3b82f610', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                         <Calendar size={18} color="#3b82f6" />
                                     </div>
                                     <div>

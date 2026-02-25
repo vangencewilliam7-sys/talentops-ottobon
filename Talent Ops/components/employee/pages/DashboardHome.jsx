@@ -275,7 +275,7 @@ const DashboardHome = () => {
     const filteredTimeline = timeline.filter(event => event.date === formatDate(selectedDate));
 
     return (
-        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: '24px' }}>
+        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '12px', paddingBottom: '24px' }}>
 
             {/* Background Decorative Elements */}
             <div style={{ position: 'fixed', top: '-100px', right: '-100px', width: '400px', height: '400px', background: 'radial-gradient(circle, rgba(14, 165, 233, 0.08) 0%, transparent 70%)', filter: 'blur(60px)', zIndex: -1 }}></div>
@@ -284,8 +284,8 @@ const DashboardHome = () => {
             {/* Premium Header / Hero Section */}
             <div style={{
                 background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                borderRadius: '24px',
-                padding: '32px 40px',
+                borderRadius: '8px',
+                padding: '24px 32px',
                 color: '#ffffff',
                 position: 'relative',
                 overflow: 'hidden',
@@ -308,7 +308,7 @@ const DashboardHome = () => {
 
                 <div style={{ position: 'relative', zIndex: 1, flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                        <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', border: '1px solid rgba(255,255,255,0.1)' }}>Employee Overview</span>
+                        <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', border: '1px solid rgba(255,255,255,0.1)' }}>Employee Overview</span>
                         <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '800' }}>•</span>
                         <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem', fontWeight: '700' }}>{selectedDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
                     </div>
@@ -324,7 +324,7 @@ const DashboardHome = () => {
                     background: 'rgba(255, 255, 255, 0.03)',
                     backdropFilter: 'blur(10px)',
                     padding: '16px 24px',
-                    borderRadius: '16px',
+                    borderRadius: '4px',
                     border: '1px solid rgba(255, 255, 255, 0.05)',
                     textAlign: 'right',
                     display: 'flex',
@@ -345,7 +345,7 @@ const DashboardHome = () => {
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                gap: '16px'
+                gap: '12px'
             }}>
 
                 <StatCard
@@ -383,10 +383,10 @@ const DashboardHome = () => {
             </div>
 
             {/* Main Content Sections */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1.9fr 1fr', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.9fr 1fr', gap: '12px' }}>
 
                 {/* Left Section */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
                     {/* Integrated Attendance Tracker */}
                     <AttendanceTracker />
@@ -394,18 +394,18 @@ const DashboardHome = () => {
                     {/* Secondary Workspace Area */}
                     <div style={{
                         backgroundColor: '#ffffff',
-                        borderRadius: '32px',
+                        borderRadius: '8px',
                         border: '1px solid #eef2f6',
-                        padding: '32px',
+                        padding: '24px',
                         boxShadow: '0 4px 24px rgba(0,0,0,0.02)',
                         position: 'relative'
                     }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                             <div>
                                 <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>Quick Workspace</h3>
                                 <p style={{ color: '#94a3b8', fontSize: '0.9rem', fontWeight: 500 }}>Notes & immediate tasks for today</p>
                             </div>
-                            <div style={{ padding: '10px', backgroundColor: '#f0f9ff', borderRadius: '14px', color: '#0ea5e9' }}>
+                            <div style={{ padding: '10px', backgroundColor: '#f0f9ff', borderRadius: '8px', color: '#0ea5e9' }}>
                                 <Star size={20} fill="currentColor" />
                             </div>
                         </div>
@@ -414,25 +414,25 @@ const DashboardHome = () => {
                 </div>
 
                 {/* Right Section */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
                     {/* Modern Calendar */}
                     <div style={{
                         backgroundColor: '#ffffff',
-                        borderRadius: '32px',
-                        padding: '32px',
+                        borderRadius: '8px',
+                        padding: '24px',
                         border: '1px solid #eef2f6',
                         boxShadow: '0 4px 24px rgba(0,0,0,0.02)'
                     }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                             <span style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a', letterSpacing: '-0.02em' }}>
                                 {monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()}
                             </span>
                             <div style={{ display: 'flex', gap: '10px' }}>
-                                <button onClick={() => handleMonthChange(-1)} style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '12px', color: '#64748b', border: '1px solid #f1f5f9' }}>
+                                <button onClick={() => handleMonthChange(-1)} style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '6px', color: '#64748b', border: '1px solid #f1f5f9' }}>
                                     <ChevronRight size={18} style={{ transform: 'rotate(180deg)' }} />
                                 </button>
-                                <button onClick={() => handleMonthChange(1)} style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '12px', color: '#64748b', border: '1px solid #f1f5f9' }}>
+                                <button onClick={() => handleMonthChange(1)} style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '6px', color: '#64748b', border: '1px solid #f1f5f9' }}>
                                     <ChevronRight size={18} />
                                 </button>
                             </div>
@@ -460,7 +460,7 @@ const DashboardHome = () => {
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            borderRadius: '14px',
+                                            borderRadius: '6px',
                                             backgroundColor: isSelected ? '#38bdf8' : isToday ? '#f0f9ff' : 'transparent',
                                             color: isSelected ? '#fff' : isToday ? '#38bdf8' : '#334155',
                                             cursor: 'pointer',
@@ -482,20 +482,20 @@ const DashboardHome = () => {
                     {/* Rich Timeline Section */}
                     <div style={{
                         backgroundColor: '#ffffff',
-                        borderRadius: '32px',
-                        padding: '32px',
+                        borderRadius: '8px',
+                        padding: '24px',
                         border: '1px solid #eef2f6',
                         boxShadow: '0 4px 24px rgba(0,0,0,0.02)',
                         flex: 1
                     }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>Schedule</h3>
-                            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#6366f1', backgroundColor: '#eef2ff', padding: '6px 14px', borderRadius: '100px', letterSpacing: '0.05em' }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#6366f1', backgroundColor: '#eef2ff', padding: '6px 14px', borderRadius: '8px', letterSpacing: '0.05em' }}>
                                 {filteredTimeline.length} ACTIVE
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             {filteredTimeline.length > 0 ? (
                                 filteredTimeline.map((event) => (
                                     <div
@@ -510,7 +510,7 @@ const DashboardHome = () => {
                                             cursor: 'pointer',
                                             alignItems: 'center',
                                             padding: '16px',
-                                            borderRadius: '20px',
+                                            borderRadius: '6px',
                                             backgroundColor: '#f8fafc',
                                             border: '1px solid #f1f5f9',
                                             transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
@@ -530,7 +530,7 @@ const DashboardHome = () => {
                                     >
                                         <div style={{
                                             padding: '12px',
-                                            borderRadius: '16px',
+                                            borderRadius: '6px',
                                             backgroundColor: '#ffffff',
                                             boxShadow: '0 4px 10px rgba(0,0,0,0.04)',
                                             textAlign: 'center',
@@ -562,28 +562,28 @@ const DashboardHome = () => {
             {/* Premium Modal Styling */}
             {showAddEventModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn 0.3s ease' }}>
-                    <div style={{ backgroundColor: '#fff', padding: '40px', borderRadius: '40px', width: '480px', boxShadow: '0 50px 100px -20px rgba(15, 23, 42, 0.25)', animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+                    <div style={{ backgroundColor: '#fff', padding: '40px', borderRadius: '8px', width: '480px', boxShadow: '0 50px 100px -20px rgba(15, 23, 42, 0.25)', animation: 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
                             <div>
                                 <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.03em' }}>Create Event</h3>
                                 <p style={{ color: '#94a3b8', fontSize: '0.9rem', fontWeight: 500 }}>Schedule something spectacular</p>
                             </div>
-                            <button onClick={() => setShowAddEventModal(false)} style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '14px', color: '#64748b', transition: 'all 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}><X size={24} /></button>
+                            <button onClick={() => setShowAddEventModal(false)} style={{ padding: '10px', backgroundColor: '#f8fafc', borderRadius: '6px', color: '#64748b', transition: 'all 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}><X size={24} /></button>
                         </div>
                         <form onSubmit={handleAddEvent} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 <label style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Event Details</label>
-                                <input name="title" type="text" placeholder="What's happening?" required style={{ padding: '16px 20px', borderRadius: '20px', border: '1px solid #eef2f6', fontSize: '1rem', outline: 'none', backgroundColor: '#f8fafc', fontWeight: 500 }} />
+                                <input name="title" type="text" placeholder="What's happening?" required style={{ padding: '16px 20px', borderRadius: '6px', border: '1px solid #eef2f6', fontSize: '1rem', outline: 'none', backgroundColor: '#f8fafc', fontWeight: 500 }} />
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     <label style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Start Time</label>
-                                    <input name="time" type="time" required style={{ padding: '16px 20px', borderRadius: '20px', border: '1px solid #eef2f6', fontSize: '1rem', outline: 'none', backgroundColor: '#f8fafc', fontWeight: 600 }} />
+                                    <input name="time" type="time" required style={{ padding: '16px 20px', borderRadius: '6px', border: '1px solid #eef2f6', fontSize: '1rem', outline: 'none', backgroundColor: '#f8fafc', fontWeight: 600 }} />
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     <label style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tag</label>
-                                    <select style={{ padding: '16px 20px', borderRadius: '20px', border: '1px solid #eef2f6', fontSize: '1rem', outline: 'none', backgroundColor: '#f8fafc', fontWeight: 600 }}>
+                                    <select style={{ padding: '16px 20px', borderRadius: '6px', border: '1px solid #eef2f6', fontSize: '1rem', outline: 'none', backgroundColor: '#f8fafc', fontWeight: 600 }}>
                                         <option>🚀 Sprint</option>
                                         <option>🤝 Meeting</option>
                                         <option>🎨 Design</option>
@@ -594,10 +594,10 @@ const DashboardHome = () => {
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 <label style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Location / Link</label>
-                                <input name="location" type="text" placeholder="Where is it?" required style={{ padding: '16px 20px', borderRadius: '20px', border: '1px solid #eef2f6', fontSize: '1rem', outline: 'none', backgroundColor: '#f8fafc', fontWeight: 500 }} />
+                                <input name="location" type="text" placeholder="Where is it?" required style={{ padding: '16px 20px', borderRadius: '6px', border: '1px solid #eef2f6', fontSize: '1rem', outline: 'none', backgroundColor: '#f8fafc', fontWeight: 500 }} />
                             </div>
 
-                            <button type="submit" style={{ background: 'linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%)', color: '#fff', padding: '18px', borderRadius: '20px', fontWeight: 800, fontSize: '1.05rem', border: 'none', cursor: 'pointer', marginTop: '12px', boxShadow: '0 20px 40px -10px rgba(14, 165, 233, 0.4)' }}>
+                            <button type="submit" style={{ background: 'linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%)', color: '#fff', padding: '18px', borderRadius: '6px', fontWeight: 800, fontSize: '1.05rem', border: 'none', cursor: 'pointer', marginTop: '12px', boxShadow: '0 20px 40px -10px rgba(14, 165, 233, 0.4)' }}>
                                 Save Event
                             </button>
                         </form>
@@ -624,12 +624,12 @@ const StatCard = ({ label, value, trend, icon, color, subLabel, bg }) => {
             style={{
                 backgroundColor: '#ffffff',
                 padding: '16px',
-                borderRadius: '16px',
+                borderRadius: '6px',
                 border: '1px solid #eef2f6',
                 boxShadow: isHovered ? '0 20px 40px -10px rgba(0,0,0,0.06)' : '0 4px 20px rgba(0,0,0,0.01)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '20px',
+                gap: '12px',
                 position: 'relative',
                 overflow: 'hidden',
                 transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -642,7 +642,7 @@ const StatCard = ({ label, value, trend, icon, color, subLabel, bg }) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{
                     padding: '12px',
-                    borderRadius: '16px',
+                    borderRadius: '4px',
                     backgroundColor: `${color}15`,
                     color: color,
                     display: 'flex',
@@ -660,7 +660,7 @@ const StatCard = ({ label, value, trend, icon, color, subLabel, bg }) => {
                         color: trend.startsWith('+') ? '#10b981' : '#ef4444',
                         backgroundColor: trend.startsWith('+') ? '#f0fdf4' : '#fef2f2',
                         padding: '6px 12px',
-                        borderRadius: '100px',
+                        borderRadius: '8px',
                         border: `1px solid ${trend.startsWith('+') ? '#dcfce7' : '#fee2e2'}`
                     }}>
                         {trend}

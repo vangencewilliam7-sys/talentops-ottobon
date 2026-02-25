@@ -793,7 +793,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                     padding: '10px 16px',
                                     backgroundColor: 'rgba(255,255,255,0.1)',
                                     border: '1px solid rgba(255,255,255,0.2)',
-                                    borderRadius: '10px',
+                                    borderRadius: '8px',
                                     color: 'rgba(255,255,255,0.8)',
                                     fontWeight: 500,
                                     cursor: 'pointer',
@@ -923,7 +923,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                         disabled={resolvingIssue}
                                         style={{
                                             padding: '12px 24px',
-                                            borderRadius: '10px',
+                                            borderRadius: '8px',
                                             background: 'linear-gradient(135deg, #10b981, #059669)',
                                             color: 'white',
                                             border: 'none',
@@ -1287,7 +1287,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                             step="0.5"
                                             style={{
                                                 padding: '12px',
-                                                borderRadius: '10px',
+                                                borderRadius: '8px',
                                                 border: '1px solid #e2e8f0',
                                                 fontSize: '0.95rem',
                                                 outline: 'none',
@@ -1316,7 +1316,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                         style={{
                                             width: '100%',
                                             padding: '12px',
-                                            borderRadius: '12px',
+                                            borderRadius: '6px',
                                             border: '1px solid #e2e8f0',
                                             fontSize: '0.95rem',
                                             resize: 'vertical',
@@ -1347,7 +1347,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                         disabled={uploading}
                                         style={{
                                             padding: '12px 24px',
-                                            borderRadius: '10px',
+                                            borderRadius: '6px',
                                             backgroundColor: 'white',
                                             border: '1px solid #e2e8f0',
                                             cursor: 'pointer',
@@ -1363,7 +1363,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                         disabled={(!proofFile && !proofText.trim()) || uploading}
                                         style={{
                                             padding: '12px 24px',
-                                            borderRadius: '10px',
+                                            borderRadius: '6px',
                                             background: (!proofFile && !proofText.trim()) ? '#e2e8f0' : 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                                             color: (!proofFile && !proofText.trim()) ? '#94a3b8' : 'white',
                                             border: 'none',
@@ -1391,7 +1391,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                             backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, backdropFilter: 'blur(4px)'
                         }}>
-                            <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', width: '450px', maxWidth: '90%', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+                            <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', width: '450px', maxWidth: '90%', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
                                 <h3 style={{ marginTop: 0, fontSize: '1.25rem', color: '#111827' }}>Request Task Access</h3>
                                 <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '16px' }}>
                                     The deadline for this task has passed. Please provide a reason to request renewed access.
@@ -1402,14 +1402,14 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                     onChange={(e) => setAccessReason(e.target.value)}
                                     placeholder="Reason for late submission or access request..."
                                     style={{
-                                        width: '100%', minHeight: '100px', padding: '12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '0.95rem', marginBottom: '16px', outline: 'none'
+                                        width: '100%', minHeight: '100px', padding: '12px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '0.95rem', marginBottom: '16px', outline: 'none'
                                     }}
                                 />
 
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                                     <button
                                         onClick={() => setShowAccessRequestModal(false)}
-                                        style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #d1d5db', backgroundColor: 'white', color: '#374151', cursor: 'pointer', fontWeight: 500 }}
+                                        style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', color: '#374151', cursor: 'pointer', fontWeight: 500 }}
                                     >
                                         Cancel
                                     </button>
@@ -1417,7 +1417,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                         onClick={handleRequestAccess}
                                         disabled={requestingAccess}
                                         style={{
-                                            padding: '8px 16px', borderRadius: '8px', border: 'none',
+                                            padding: '8px 16px', borderRadius: '6px', border: 'none',
                                             backgroundColor: '#ea580c', color: 'white', cursor: requestingAccess ? 'wait' : 'pointer', fontWeight: 600
                                         }}
                                     >
@@ -1435,17 +1435,17 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                             backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, backdropFilter: 'blur(4px)'
                         }}>
-                            <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', width: '500px', maxWidth: '90%', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+                            <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '10px', width: '500px', maxWidth: '90%', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
                                 <h3 style={{ marginTop: 0, marginBottom: '4px', fontSize: '1.25rem', color: '#111827' }}>Review Access Request</h3>
                                 <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '20px' }}>Task: <span style={{ fontWeight: 600, color: '#374151' }}>{accessReviewTask.title}</span></p>
 
-                                <div style={{ backgroundColor: '#fff7ed', padding: '12px', borderRadius: '8px', border: '1px solid #ffedd5', marginBottom: '20px' }}>
+                                <div style={{ backgroundColor: '#fff7ed', padding: '12px', borderRadius: '6px', border: '1px solid #ffedd5', marginBottom: '20px' }}>
                                     <p style={{ margin: 0, fontSize: '0.85rem', color: '#c2410c', fontWeight: 600 }}>Request Reason:</p>
                                     <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: '#9a3412' }}>{accessReviewTask.access_reason}</p>
                                 </div>
 
                                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>Action</label>
-                                <div style={{ display: 'flex', gap: '4px', padding: '4px', backgroundColor: '#f3f4f6', borderRadius: '8px', marginBottom: '20px' }}>
+                                <div style={{ display: 'flex', gap: '4px', padding: '4px', backgroundColor: '#f3f4f6', borderRadius: '6px', marginBottom: '20px' }}>
                                     {['approve', 'reassign', 'close'].map(action => (
                                         <button
                                             key={action}
@@ -1475,7 +1475,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                         <select
                                             value={reassignTarget}
                                             onChange={(e) => setReassignTarget(e.target.value)}
-                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none' }}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none' }}
                                         >
                                             <option value="">Select Employee</option>
                                             {employees.filter(e => e.id !== accessReviewTask.assigned_to).map(emp => (
@@ -1492,7 +1492,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                             value={closureReason}
                                             onChange={(e) => setClosureReason(e.target.value)}
                                             placeholder="Explain why the task is being closed..."
-                                            style={{ width: '100%', minHeight: '80px', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db', outline: 'none', fontSize: '0.9rem' }}
+                                            style={{ width: '100%', minHeight: '80px', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none', fontSize: '0.9rem' }}
                                         />
                                     </div>
                                 )}

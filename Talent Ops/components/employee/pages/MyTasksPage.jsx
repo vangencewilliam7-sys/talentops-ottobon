@@ -764,7 +764,7 @@ const MyTasksPage = () => {
             {/* Premium Dark Header */}
             <div style={{
                 background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-                borderRadius: '16px',
+                borderRadius: '8px',
                 padding: '24px',
                 position: 'relative',
                 overflow: 'hidden',
@@ -791,7 +791,7 @@ const MyTasksPage = () => {
                         background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
                         color: 'white',
                         padding: '4px 12px',
-                        borderRadius: '20px',
+                        borderRadius: '8px',
                         fontSize: '0.7rem',
                         fontWeight: 700,
                         letterSpacing: '0.1em',
@@ -850,7 +850,7 @@ const MyTasksPage = () => {
                 flexWrap: 'wrap',
                 backgroundColor: 'white',
                 padding: '12px 16px',
-                borderRadius: '16px',
+                borderRadius: '8px',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
                 border: '1px solid rgba(226, 232, 240, 0.8)'
             }}>
@@ -871,7 +871,7 @@ const MyTasksPage = () => {
                         style={{
                             width: '100%',
                             padding: '12px 16px 12px 42px',
-                            borderRadius: '12px',
+                            borderRadius: '8px',
                             border: '1px solid #e2e8f0',
                             fontSize: '0.9rem',
                             outline: 'none',
@@ -902,7 +902,7 @@ const MyTasksPage = () => {
                         alignItems: 'center',
                         backgroundColor: '#f8fafc',
                         border: '1px solid #e2e8f0',
-                        borderRadius: '12px',
+                        borderRadius: '8px',
                         padding: '4px',
                         transition: 'all 0.2s'
                     }}>
@@ -942,7 +942,7 @@ const MyTasksPage = () => {
                             alignItems: 'center',
                             gap: '8px',
                             padding: '10px 18px',
-                            borderRadius: '12px',
+                            borderRadius: '8px',
                             border: 'none',
                             background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
                             color: 'white',
@@ -971,7 +971,7 @@ const MyTasksPage = () => {
                                 justifyContent: 'center',
                                 width: '42px',
                                 height: '42px',
-                                borderRadius: '12px',
+                                borderRadius: '8px',
                                 border: '1px solid #fee2e2',
                                 backgroundColor: '#fff1f2',
                                 color: '#e11d48',
@@ -1003,7 +1003,7 @@ const MyTasksPage = () => {
                             alignItems: 'center',
                             gap: '8px',
                             padding: '10px 16px',
-                            borderRadius: '12px',
+                            borderRadius: '8px',
                             border: '1px solid #e2e8f0',
                             backgroundColor: statusFilters.length > 0 ? '#eff6ff' : '#f8fafc',
                             color: '#334155',
@@ -1046,7 +1046,7 @@ const MyTasksPage = () => {
                                 top: '48px',
                                 right: 0,
                                 backgroundColor: 'white',
-                                borderRadius: '12px',
+                                borderRadius: '8px',
                                 border: '1px solid #e2e8f0',
                                 boxShadow: '0 10px 40px rgba(0,0,0,0.12)',
                                 padding: '8px 0',
@@ -1143,7 +1143,7 @@ const MyTasksPage = () => {
 
 
             {/* Tasks Table */}
-            <div style={{ backgroundColor: 'white', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '800px' }}>
                     <thead>
                         <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
@@ -1231,7 +1231,7 @@ const MyTasksPage = () => {
                                         </td>
                                         <td style={{ padding: '16px' }}>
                                             <span style={{
-                                                fontSize: '0.75rem', padding: '4px 10px', borderRadius: '20px',
+                                                fontSize: '0.75rem', padding: '4px 10px', borderRadius: '8px',
                                                 backgroundColor: priorityColor.bg, color: priorityColor.text, fontWeight: 600,
                                                 textTransform: 'capitalize'
                                             }}>
@@ -1301,7 +1301,7 @@ const MyTasksPage = () => {
                                                             <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                                                                 <span style={{
                                                                     padding: '6px 12px',
-                                                                    borderRadius: '20px',
+                                                                    borderRadius: '8px',
                                                                     backgroundColor: '#f1f5f9',
                                                                     color: '#475569',
                                                                     fontSize: '0.8rem',
@@ -1337,7 +1337,7 @@ const MyTasksPage = () => {
                                                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                                                             <span style={{
                                                                 padding: '6px 12px',
-                                                                borderRadius: '20px',
+                                                                borderRadius: '8px',
                                                                 backgroundColor: '#dcfce7',
                                                                 color: '#166534',
                                                                 fontSize: '0.8rem',
@@ -1477,9 +1477,9 @@ const MyTasksPage = () => {
             {
                 showProofModal && taskForProof && (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001, backdropFilter: 'blur(4px)' }}>
-                        <div style={{ backgroundColor: 'var(--surface)', padding: '32px', borderRadius: '20px', width: '500px', maxWidth: '90%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                        <div style={{ backgroundColor: 'var(--surface)', padding: '32px', borderRadius: '8px', width: '500px', maxWidth: '90%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                                <div style={{ backgroundColor: '#ede9fe', borderRadius: '12px', padding: '12px' }}>
+                                <div style={{ backgroundColor: '#ede9fe', borderRadius: '8px', padding: '12px' }}>
                                     <Upload size={24} color="#8b5cf6" />
                                 </div>
                                 <div>
@@ -1488,7 +1488,7 @@ const MyTasksPage = () => {
                                 </div>
                             </div>
 
-                            <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#fef3c7', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                            <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#fef3c7', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                                 <AlertCircle size={20} color="#b45309" style={{ flexShrink: 0, marginTop: '2px' }} />
                                 <div style={{ fontSize: '0.9rem', color: '#92400e' }}>
                                     <strong>Proof Required:</strong> Upload documentation showing your completed work before requesting validation.
@@ -1502,7 +1502,7 @@ const MyTasksPage = () => {
                                     </label>
                                     <div style={{
                                         border: '2px dashed var(--border)',
-                                        borderRadius: '12px',
+                                        borderRadius: '8px',
                                         padding: '24px',
                                         textAlign: 'center',
                                         backgroundColor: proofFile ? '#f0fdf4' : 'var(--background)',
@@ -1556,7 +1556,7 @@ const MyTasksPage = () => {
                                         style={{
                                             width: '100%',
                                             padding: '12px',
-                                            borderRadius: '10px',
+                                            borderRadius: '6px',
                                             border: '1px solid var(--border)',
                                             backgroundColor: 'var(--background)',
                                             fontSize: '0.9rem',
@@ -1582,12 +1582,12 @@ const MyTasksPage = () => {
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                                 <button onClick={() => { setShowProofModal(false); setTaskForProof(null); setProofFile(null); setProofText(''); }} disabled={uploading}
-                                    style={{ padding: '12px 24px', borderRadius: '10px', backgroundColor: 'var(--background)', border: '1px solid var(--border)', cursor: 'pointer', fontWeight: 600 }}>
+                                    style={{ padding: '12px 24px', borderRadius: '6px', backgroundColor: 'var(--background)', border: '1px solid var(--border)', cursor: 'pointer', fontWeight: 600 }}>
                                     Cancel
                                 </button>
                                 <button onClick={uploadProofAndRequestValidation} disabled={(!proofFile && !proofText.trim()) || uploading}
                                     style={{
-                                        padding: '12px 24px', borderRadius: '10px',
+                                        padding: '12px 24px', borderRadius: '6px',
                                         background: (proofFile || proofText.trim()) ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : '#e5e7eb',
                                         color: (proofFile || proofText.trim()) ? 'white' : '#9ca3af', border: 'none', fontWeight: 600,
                                         cursor: (proofFile || proofText.trim()) ? 'pointer' : 'not-allowed',
@@ -1607,9 +1607,9 @@ const MyTasksPage = () => {
             {
                 showIssueModal && taskForIssue && (
                     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001, backdropFilter: 'blur(4px)' }}>
-                        <div style={{ backgroundColor: 'var(--surface)', padding: '32px', borderRadius: '20px', width: '600px', maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                        <div style={{ backgroundColor: 'var(--surface)', padding: '32px', borderRadius: '8px', width: '600px', maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                                <div style={{ backgroundColor: '#fef2f2', borderRadius: '12px', padding: '12px' }}>
+                                <div style={{ backgroundColor: '#fef2f2', borderRadius: '8px', padding: '12px' }}>
                                     <AlertTriangle size={24} color="#ef4444" />
                                 </div>
                                 <div>
@@ -1619,7 +1619,7 @@ const MyTasksPage = () => {
                             </div>
 
                             {taskForIssue.issues && (
-                                <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '1px solid #fecaca' }}>
+                                <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}>
                                     <h4 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#991b1b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <AlertCircle size={16} /> Existing Issues
                                     </h4>
@@ -1641,7 +1641,7 @@ const MyTasksPage = () => {
                                     style={{
                                         width: '100%',
                                         padding: '12px',
-                                        borderRadius: '12px',
+                                        borderRadius: '8px',
                                         border: '2px solid var(--border)',
                                         fontSize: '0.9rem',
                                         resize: 'vertical',
@@ -1657,7 +1657,7 @@ const MyTasksPage = () => {
                                 <button
                                     onClick={() => { setShowIssueModal(false); setTaskForIssue(null); setIssueText(''); }}
                                     disabled={submittingIssue}
-                                    style={{ padding: '12px 24px', borderRadius: '10px', backgroundColor: 'var(--background)', border: '1px solid var(--border)', cursor: 'pointer', fontWeight: 600 }}
+                                    style={{ padding: '12px 24px', borderRadius: '6px', backgroundColor: 'var(--background)', border: '1px solid var(--border)', cursor: 'pointer', fontWeight: 600 }}
                                 >
                                     Cancel
                                 </button>
@@ -1666,7 +1666,7 @@ const MyTasksPage = () => {
                                     disabled={!issueText.trim() || submittingIssue}
                                     style={{
                                         padding: '12px 24px',
-                                        borderRadius: '10px',
+                                        borderRadius: '6px',
                                         background: issueText.trim() ? 'linear-gradient(135deg, #ef4444, #dc2626)' : '#e5e7eb',
                                         color: issueText.trim() ? 'white' : '#9ca3af',
                                         border: 'none',
@@ -1717,7 +1717,7 @@ const MyTasksPage = () => {
                 }}>
                     <div style={{
                         backgroundColor: 'white',
-                        borderRadius: '16px',
+                        borderRadius: '8px',
                         width: '100%',
                         maxWidth: '500px',
                         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
@@ -1771,7 +1771,7 @@ const MyTasksPage = () => {
                             padding: '20px 24px',
                             backgroundColor: '#f8fafc',
                             borderTop: '1px solid #f1f5f9',
-                            borderRadius: '0 0 16px 16px',
+                            borderRadius: '0 0 8px 8px',
                             display: 'flex',
                             justifyContent: 'flex-end',
                             gap: '12px'
