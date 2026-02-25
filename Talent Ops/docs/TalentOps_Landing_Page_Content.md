@@ -91,10 +91,11 @@ This document provides a section-by-section breakdown of the content featured on
 ## 8. Final Call to Action (CTA)
 **Headline:** Build Structure Into Your Growth  
 **Subtext:** Stop managing talent by instinct. Start building with intention.  
-**Primary CTA:** Book a Strategy Call  
+**Primary CTA:** Request a Demo  
 **Social Proof/Incentive:** 30-minute consultation • No commitment required
 
 ---
 
 ## Footer
-**Links Included:** Navigation to sections (Problem, Services, Results, About) and Brand identification (TalentOps).
+**Links Included:** Navigation to sections (Problem, Services, Results, About), LinkedIn, Twitter, Instagram.
+**Brand Identification:** TalentOps.

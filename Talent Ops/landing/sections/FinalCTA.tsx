@@ -40,7 +40,7 @@ export default function FinalCTA() {
           transition={{ duration: 0.2 }}
           className="group bg-white text-[#121212] px-10 py-5 rounded-xl text-lg flex items-center justify-center gap-3 mx-auto shadow-2xl"
         >
-          Book a Strategy Call
+          Request a Demo
           <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
         </motion.button>
 

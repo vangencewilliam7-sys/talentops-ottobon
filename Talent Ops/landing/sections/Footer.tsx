@@ -77,24 +77,34 @@ export default function Footer() {
             </ul>
           </motion.div>
 
-          {/* Contact Info */}
+          {/* Connect Section */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.4, duration: 0.5 }}
           >
-            <h3 className="text-lg mb-4 text-[#121212]">Get in Touch</h3>
+            <h3 className="text-lg mb-4 text-[#121212]">Connect</h3>
             <ul className="space-y-3">
-              <li className="text-[#121212] opacity-60">
-                hello@talentops.co
-              </li>
-              <li className="text-[#121212] opacity-60">
-                +1 (555) 123-4567
-              </li>
-              <li className="text-[#121212] opacity-60">
-                San Francisco, CA
-              </li>
+              {[
+                { name: 'LinkedIn', href: '#' },
+                { name: 'Twitter', href: '#' },
+                { name: 'Instagram', href: '#' }
+              ].map((link, index) => (
+                <li key={link.name}>
+                  <motion.a
+                    href={link.href}
+                    initial={{ opacity: 0, x: 10 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.4 + index * 0.05, duration: 0.4 }}
+                    whileHover={{ x: 5, opacity: 1 }}
+                    className="text-[#121212] opacity-60 capitalize inline-block"
+                  >
+                    {link.name}
+                  </motion.a>
+                </li>
+              ))}
             </ul>
             <motion.button
               whileHover={{ scale: 1.05, backgroundColor: "#2a2a2a" }}
@@ -102,7 +112,7 @@ export default function Footer() {
               transition={{ duration: 0.2 }}
               className="mt-6 bg-[#121212] text-white px-6 py-3 rounded-lg text-sm"
             >
-              Book a Strategy Call
+              Request a Demo
             </motion.button>
           </motion.div>
         </motion.div>
