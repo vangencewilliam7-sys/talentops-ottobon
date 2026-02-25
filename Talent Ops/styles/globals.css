@@ -91,7 +91,7 @@ body {
     }
 
     .glow-btn {
-        @apply relative overflow-hidden bg-[#1a1a1a] text-white px-10 py-4 rounded-full font-redhat font-bold text-lg tracking-wide transition-all duration-300;
+        @apply relative overflow-hidden bg-[#1a1a1a] text-white px-10 py-4 rounded-full font-display font-bold text-lg tracking-wide transition-all duration-300;
         box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
     }
 
@@ -122,5 +122,23 @@ body {
 
     .glow-btn:hover::after {
         @apply opacity-100;
+    }
+
+    @keyframes auraPulse {
+
+        0%,
+        100% {
+            opacity: 0.1;
+            transform: scale(1);
+        }
+
+        50% {
+            opacity: 0.3;
+            transform: scale(1.1);
+        }
+    }
+
+    .animate-aura {
+        animation: auraPulse 8s ease-in-out infinite;
     }
 }

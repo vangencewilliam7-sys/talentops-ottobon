@@ -40,14 +40,15 @@ export const WavyBackground = ({
             case "slow":
                 return 0.001;
             case "fast":
-                return 0.005;
-            default:
                 return 0.002;
+            default:
+                return 0.001;
         }
     };
 
     const init = () => {
         canvas = canvasRef.current;
+        if (!canvas) return;
         ctx = canvas.getContext("2d");
         w = ctx.canvas.width = window.innerWidth;
         h = ctx.canvas.height = window.innerHeight;
@@ -62,20 +63,20 @@ export const WavyBackground = ({
     };
 
     const waveColors = colors ?? [
-        "#38bdf8",
-        "#818cf8",
-        "#c084fc",
-        "#e879f9",
-        "#22d3ee",
+        "#ffffff",
+        "#cccccc",
+        "#999999",
+        "#666666",
+        "#333333",
     ];
     const drawWave = (n: number) => {
         nt += getSpeed();
         for (i = 0; i < n; i++) {
             ctx.beginPath();
-            ctx.lineWidth = waveWidth || 60;
+            ctx.lineWidth = waveWidth || 50;
             ctx.strokeStyle = waveColors[i % waveColors.length];
-            for (x = 0; x < w; x += 12) {
-                var y = noise(x / 600, 0.3 * i, nt) * 120;
+            for (x = 0; x < w; x += 5) {
+                var y = noise(x / 800, 0.3 * i, nt) * 100;
                 ctx.lineTo(x, y + h * 0.5); // adjust for height, currently at 50% of the container
             }
             ctx.stroke();
@@ -85,10 +86,9 @@ export const WavyBackground = ({
 
     let animationId: number;
     const render = () => {
-        ctx.fillStyle = backgroundFill || "black";
-        ctx.globalAlpha = 1;
-        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = backgroundFill || "transparent";
         ctx.globalAlpha = waveOpacity || 0.5;
+        ctx.clearRect(0, 0, w, h);
         drawWave(5);
         animationId = requestAnimationFrame(render);
     };
@@ -108,36 +108,6 @@ export const WavyBackground = ({
             navigator.userAgent.includes("Safari") &&
             !navigator.userAgent.includes("Chrome")
         );
-    }, []);
-
-    // Optimization: Pause animation when not in viewport
-    useEffect(() => {
-        const container = canvasRef.current?.parentElement;
-        if (!container) return;
-
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    if (!animationId) {
-                        render();
-                    }
-                } else {
-                    if (animationId) {
-                        cancelAnimationFrame(animationId);
-                        // @ts-ignore
-                        animationId = null;
-                    }
-                }
-            },
-            { threshold: 0 }
-        );
-
-        observer.observe(container);
-
-        return () => {
-            observer.disconnect();
-            if (animationId) cancelAnimationFrame(animationId);
-        };
     }, []);
 
     return (

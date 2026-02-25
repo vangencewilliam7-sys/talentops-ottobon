@@ -1,6 +1,6 @@
 import React from 'react';
-import { ArrowUpRight, CheckCircle2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { ArrowUpRight } from 'lucide-react';
+import { motion, useAnimation } from 'framer-motion';
 
 const services = [
     {
@@ -26,15 +26,32 @@ const services = [
 ];
 
 function ServiceFlipCard({ service, index }: { service: typeof services[0], index: number }) {
+    const controls = useAnimation();
+
+    const handleMouseEnter = () => {
+        controls.start({ rotateY: 180, transition: { duration: 0.7, ease: "easeInOut" } });
+    };
+
+    const handleMouseLeave = async () => {
+        await controls.start({ rotateY: 360, transition: { duration: 0.7, ease: "easeInOut" } });
+        controls.set({ rotateY: 0 });
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, amount: 0.1 }}
             transition={{ duration: 0.8, delay: index * 0.2, ease: "easeOut" }}
-            className="group h-[480px] w-full [perspective:1000px]"
+            className="h-[480px] w-full [perspective:1000px]"
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
         >
-            <div className="relative h-full w-full transition-all duration-700 [transform-style:preserve-3d] group-hover:[transform:rotateY(180deg)]">
+            <motion.div
+                className="relative h-full w-full [transform-style:preserve-3d]"
+                animate={controls}
+                initial={{ rotateY: 0 }}
+            >
 
                 {/* Front Side */}
                 <div className="absolute inset-0 h-full w-full overflow-hidden rounded-[32px] bg-[#0A0A0B] border border-mist/40 [backface-visibility:hidden] flex flex-col">
@@ -43,7 +60,7 @@ function ServiceFlipCard({ service, index }: { service: typeof services[0], inde
                         <img
                             src={service.image}
                             alt={service.title}
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                            className="w-full h-full object-cover transition-transform duration-700"
                         />
                     </div>
 
@@ -77,7 +94,7 @@ function ServiceFlipCard({ service, index }: { service: typeof services[0], inde
                     </div>
                 </div>
 
-            </div>
+            </motion.div>
         </motion.div>
     );
 }

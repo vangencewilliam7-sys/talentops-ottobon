@@ -21,12 +21,15 @@ export function Navigation() {
 
     return (
         <nav
-            className={`fixed top-0 left-0 right-0 z-[10000] transition-all duration-300 font-sans bg-white border-b border-[#dadada] ${scrolled ? 'py-3 shadow-sm' : 'py-4'
+            className={`fixed top-0 left-0 right-0 z-[10000] transition-all duration-300 font-display ${scrolled
+                ? 'py-3 bg-white/90 backdrop-blur-md border-b border-[#dadada] shadow-sm'
+                : 'py-5 bg-transparent border-transparent'
                 }`}
         >
             <div className="container mx-auto px-6 md:px-12 flex items-center justify-between">
                 <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-                    <span className="text-xl md:text-2xl font-bold tracking-tighter text-[#1f2937]">
+                    <span className={`text-xl md:text-2xl font-display font-bold tracking-tighter transition-colors ${scrolled ? 'text-[#1f2937]' : 'text-white'
+                        }`}>
                         Talent<span className="text-[#3b82f6] font-leckerli">Ops</span>
                     </span>
                 </div>
@@ -38,12 +41,16 @@ export function Navigation() {
                         { name: 'Services', href: '#services' },
                         { name: 'How It Works', href: '#approach' },
                         { name: 'Industries', href: '#industries' },
+                        { name: 'Foundations', href: '#foundations' },
                         { name: 'Results', href: '#results' }
                     ].map((item) => (
                         <a
                             key={item.name}
                             href={item.href}
-                            className="text-[15px] font-redhat font-medium text-[#1f2937]/70 hover:text-[#3b82f6] transition-colors"
+                            className={`text-[15px] font-display font-medium transition-colors ${scrolled
+                                ? 'text-[#1f2937]/70 hover:text-[#3b82f6]'
+                                : 'text-white/80 hover:text-white'
+                                }`}
                         >
                             {item.name}
                         </a>
@@ -54,7 +61,10 @@ export function Navigation() {
                 <div className="hidden md:flex items-center gap-4">
                     <button
                         onClick={handleLoginClick}
-                        className="text-[15px] font-redhat font-bold text-[#1f2937] hover:text-[#3b82f6] transition-colors px-4 py-2"
+                        className={`text-[15px] font-display font-bold transition-colors px-4 py-2 ${scrolled
+                            ? 'text-[#1f2937] hover:text-[#3b82f6]'
+                            : 'text-white hover:text-white/80'
+                            }`}
                     >
                         Sign In
                     </button>
@@ -63,7 +73,7 @@ export function Navigation() {
                             const el = document.getElementById('cta');
                             el?.scrollIntoView({ behavior: 'smooth' });
                         }}
-                        className="bg-[#3b82f6] text-white px-6 py-2.5 rounded-full font-redhat font-bold text-[15px] hover:bg-[#2563eb] transition-all shadow-sm hover:shadow-md"
+                        className="bg-[#3b82f6] text-white px-6 py-2.5 rounded-full font-display font-bold text-[15px] hover:bg-[#2563eb] transition-all shadow-sm hover:shadow-md"
                     >
                         Request a Demo
                     </button>
@@ -71,7 +81,7 @@ export function Navigation() {
 
                 {/* Mobile Menu Button */}
                 <button
-                    className="md:hidden p-2 text-[#1f2937]"
+                    className={`md:hidden p-2 transition-colors ${scrolled ? 'text-[#1f2937]' : 'text-white'}`}
                     onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 >
                     <div className="w-6 h-5 flex flex-col justify-between">
@@ -90,26 +100,27 @@ export function Navigation() {
                         { name: 'Services', href: '#services' },
                         { name: 'How It Works', href: '#approach' },
                         { name: 'Industries', href: '#industries' },
+                        { name: 'Foundations', href: '#foundations' },
                         { name: 'Results', href: '#results' }
                     ].map((item) => (
                         <a
                             key={item.name}
                             href={item.href}
-                            className="text-lg font-semibold text-[#1f2937]"
+                            className="text-lg font-display font-semibold text-[#1f2937]"
                             onClick={() => setIsMobileMenuOpen(false)}
                         >
                             {item.name}
                         </a>
                     ))}
                     <div className="flex flex-col gap-4 pt-4 border-t border-[#dadada]">
-                        <button onClick={handleLoginClick} className="text-lg font-semibold text-left text-[#1f2937]">Sign In</button>
+                        <button onClick={handleLoginClick} className="text-lg font-display font-semibold text-left text-[#1f2937]">Sign In</button>
                         <button
                             onClick={() => {
                                 setIsMobileMenuOpen(false);
                                 const el = document.getElementById('cta');
                                 el?.scrollIntoView({ behavior: 'smooth' });
                             }}
-                            className="bg-[#3b82f6] text-white px-6 py-3 rounded-xl font-redhat font-bold text-center"
+                            className="bg-[#3b82f6] text-white px-6 py-3 rounded-xl font-display font-bold text-center"
                         >
                             Request a Demo
                         </button>
