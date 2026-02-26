@@ -46,18 +46,34 @@ export const WavyBackground = ({
         }
     };
 
+    const [isVisible, setIsVisible] = useState(true);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => setIsVisible(entry.isIntersecting),
+            { threshold: 0.1 }
+        );
+        if (canvasRef.current) observer.observe(canvasRef.current);
+        return () => observer.disconnect();
+    }, []);
+
     const init = () => {
         canvas = canvasRef.current;
         if (!canvas) return;
-        ctx = canvas.getContext("2d");
+        ctx = canvas.getContext("2d", { alpha: false }); // Optimization: disable alpha if possible
         w = ctx.canvas.width = window.innerWidth;
         h = ctx.canvas.height = window.innerHeight;
         ctx.filter = `blur(${blur}px)`;
         nt = 0;
+
+        let resizeTimeout: any;
         window.onresize = function () {
-            w = ctx.canvas.width = window.innerWidth;
-            h = ctx.canvas.height = window.innerHeight;
-            ctx.filter = `blur(${blur}px)`;
+            if (resizeTimeout) clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                w = ctx.canvas.width = window.innerWidth;
+                h = ctx.canvas.height = window.innerHeight;
+                ctx.filter = `blur(${blur}px)`;
+            }, 100);
         };
         render();
     };
@@ -77,7 +93,7 @@ export const WavyBackground = ({
             ctx.strokeStyle = waveColors[i % waveColors.length];
             for (x = 0; x < w; x += 5) {
                 var y = noise(x / 800, 0.3 * i, nt) * 100;
-                ctx.lineTo(x, y + h * 0.5); // adjust for height, currently at 50% of the container
+                ctx.lineTo(x, y + h * 0.5);
             }
             ctx.stroke();
             ctx.closePath();
@@ -86,7 +102,11 @@ export const WavyBackground = ({
 
     let animationId: number;
     const render = () => {
-        ctx.fillStyle = backgroundFill || "transparent";
+        if (!isVisible) {
+            animationId = requestAnimationFrame(render);
+            return;
+        }
+        ctx.fillStyle = backgroundFill || "black"; // Optimization: Avoid transparent if possible
         ctx.globalAlpha = waveOpacity || 0.5;
         ctx.clearRect(0, 0, w, h);
         drawWave(5);

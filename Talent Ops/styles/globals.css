@@ -43,7 +43,8 @@
 * {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-
+    scroll-behavior: smooth;
+    text-rendering: optimizeLegibility;
 }
 
 body {
@@ -140,5 +141,16 @@ body {
 
     .animate-aura {
         animation: auraPulse 8s ease-in-out infinite;
+    }
+
+    .gpu-accel {
+        transform: translateZ(0);
+        backface-visibility: hidden;
+        perspective: 1000px;
+        will-change: transform, opacity;
+    }
+
+    .optimize-gpu {
+        will-change: transform;
     }
 }

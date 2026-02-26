@@ -83,7 +83,7 @@ export default function Industries() {
                                     }
                                 }}
                                 transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-                                className="relative z-10 p-10 bg-white rounded-2xl border border-[#dadada] flex flex-col items-center text-center h-full overflow-hidden"
+                                className="relative z-10 p-10 bg-white rounded-2xl border border-[#dadada] flex flex-col items-center text-center h-full overflow-hidden gpu-accel"
                             >
                                 {/* Independent Inner Content Movement */}
                                 <motion.div

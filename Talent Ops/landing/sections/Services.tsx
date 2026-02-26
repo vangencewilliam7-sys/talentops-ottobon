@@ -60,6 +60,8 @@ function ServiceFlipCard({ service, index }: { service: typeof services[0], inde
                         <img
                             src={service.image}
                             alt={service.title}
+                            loading="lazy"
+                            decoding="async"
                             className="w-full h-full object-cover transition-transform duration-700"
                         />
                     </div>

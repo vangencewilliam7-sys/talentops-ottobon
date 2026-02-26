@@ -37,6 +37,9 @@ export function LandingPage() {
                 <main>
                     <Suspense fallback={<LoadingSection />}>
                         <HeroSection />
+                    </Suspense>
+
+                    <Suspense fallback={null}>
                         <Problem />
                         <Services />
                         <Approach />

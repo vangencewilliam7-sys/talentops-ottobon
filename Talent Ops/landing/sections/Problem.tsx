@@ -45,7 +45,7 @@ function PainPointCard({ point, index }: { point: typeof painPoints[0]; index: n
       viewport={{ once: true, amount: 0.4 }}
       transition={{ duration: 0.5, delay: index * 0.1, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -5, boxShadow: "0 15px 30px rgba(18, 18, 18, 0.08)" }}
-      className="p-8 border border-[#dadada] rounded-xl transition-all bg-white cursor-pointer"
+      className="p-8 border border-[#dadada] rounded-xl transition-all bg-white cursor-pointer gpu-accel"
     >
       <motion.div
         whileHover={{ scale: 1.1 }}
