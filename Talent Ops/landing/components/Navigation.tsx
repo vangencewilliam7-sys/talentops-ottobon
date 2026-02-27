@@ -46,33 +46,21 @@ export function Navigation({ isDark = false }: NavigationProps) {
                         { name: 'Problem', href: '/#problem' },
                         { name: 'Services', href: '/#services' },
                         { name: 'How It Works', href: '/#approach' },
+                        { name: 'Industries', href: '/#industries' },
                         { name: 'Foundations', href: '/#foundations' },
-                        { name: 'Pricing', href: '/pricing', isLink: true },
-                        { name: 'Results', href: '/#results' }
+                        { name: 'Results', href: '/#results' },
+                        { name: 'Pricing', href: '/#pricing' }
                     ].map((item) => (
-                        item.isLink ? (
-                            <button
-                                key={item.name}
-                                onClick={() => navigate(item.href)}
-                                className={`text-[15px] font-display font-medium transition-colors ${isSolid
-                                    ? 'text-[#1f2937]/70 hover:text-[#3b82f6]'
-                                    : 'text-white/80 hover:text-white'
-                                    }`}
-                            >
-                                {item.name}
-                            </button>
-                        ) : (
-                            <a
-                                key={item.name}
-                                href={item.href}
-                                className={`text-[15px] font-display font-medium transition-colors ${isSolid
-                                    ? 'text-[#1f2937]/70 hover:text-[#3b82f6]'
-                                    : 'text-white/80 hover:text-white'
-                                    }`}
-                            >
-                                {item.name}
-                            </a>
-                        )
+                        <a
+                            key={item.name}
+                            href={item.href}
+                            className={`text-[15px] font-display font-medium transition-colors ${isSolid
+                                ? 'text-[#1f2937]/70 hover:text-[#3b82f6]'
+                                : 'text-white/80 hover:text-white'
+                                }`}
+                        >
+                            {item.name}
+                        </a>
                     ))}
                 </div>
 
@@ -88,7 +76,7 @@ export function Navigation({ isDark = false }: NavigationProps) {
                         Sign In
                     </button>
                     <button
-                        onClick={() => navigate('/request-demo')}
+                        onClick={() => navigate('/request-demo', { state: { from: 'navbar' } })}
                         className="bg-[#3b82f6] text-white px-6 py-2.5 rounded-full font-display font-bold text-[15px] hover:bg-[#2563eb] transition-all shadow-sm hover:shadow-md"
                     >
                         Request a Demo
@@ -117,7 +105,8 @@ export function Navigation({ isDark = false }: NavigationProps) {
                         { name: 'How It Works', href: '#approach' },
                         { name: 'Industries', href: '#industries' },
                         { name: 'Foundations', href: '#foundations' },
-                        { name: 'Results', href: '#results' }
+                        { name: 'Results', href: '#results' },
+                        { name: 'Pricing', href: '#pricing' }
                     ].map((item) => (
                         <a
                             key={item.name}
@@ -133,7 +122,7 @@ export function Navigation({ isDark = false }: NavigationProps) {
                         <button
                             onClick={() => {
                                 setIsMobileMenuOpen(false);
-                                navigate('/request-demo');
+                                navigate('/request-demo', { state: { from: 'navbar' } });
                             }}
                             className="bg-[#3b82f6] text-white px-6 py-3 rounded-xl font-display font-bold text-center"
                         >

@@ -34,15 +34,33 @@ const STYLES = `
 html.lenis, html.lenis body { height: auto; }
 .lenis.lenis-smooth { scroll-behavior: auto !important; }
 .lenis.lenis-stopped { overflow: hidden; }
+
+/* Performance optimization for smooth scrolling */
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Enable hardware acceleration for fixed backgrounds or large sections if needed */
+.gpu-accel {
+  transform: translateZ(0);
+  will-change: transform;
+}
 `
 
 export const StylesInjection = () => {
   useEffect(() => {
-    // Inject Inter Font
-    const link = document.createElement('link')
-    link.href = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=Leckerli+One&family=Satisfy&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Red+Hat+Display:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,300&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
-    link.rel = "stylesheet"
-    document.head.appendChild(link)
+    // Inject Optimized Fonts
+    const linkId = 'talentops-fonts'
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement('link')
+      link.id = linkId
+      // Optimized font string: reduced weights and added swap
+      link.href = "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;700&family=Red+Hat+Display:wght@400;700&family=Space+Grotesk:wght@400;700&display=swap"
+      link.rel = "stylesheet"
+      document.head.appendChild(link)
+    }
 
     // Inject Styles
     const styleId = 'talentops-minimal-styles'

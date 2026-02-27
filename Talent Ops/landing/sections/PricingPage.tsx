@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { Check, Globe, Users, Zap, Briefcase, ChevronRight, Lock } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Check, Globe, Users, Zap, Briefcase, ChevronRight, Lock, ArrowLeft } from 'lucide-react';
 import { Navigation } from '../components/Navigation';
 import Footer from './Footer';
 
@@ -9,6 +9,12 @@ type PlanType = 'SaaS' | 'Managed';
 
 export default function PricingPage() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const scrollTarget = (location.state as any)?.scrollTo || 'pricing';
+
+    const handleBackToHome = () => {
+        navigate('/', { state: { scrollTo: scrollTarget } });
+    };
     const [planType, setPlanType] = useState<PlanType>('Managed');
     const [currency, setCurrency] = useState<'INR' | 'USD'>('INR');
 
@@ -95,8 +101,21 @@ export default function PricingPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-white">
+        <div className="min-h-screen bg-white relative">
             <Navigation isDark={true} />
+
+            {/* Back to Home button */}
+            <div className="fixed bottom-8 left-8 md:left-12 z-50">
+                <button
+                    onClick={handleBackToHome}
+                    className="inline-flex items-center gap-2 text-[#1f2937]/80 hover:text-[#3b82f6] transition-colors font-bold group text-sm"
+                >
+                    <div className="w-7 h-7 rounded-full bg-white border border-[#dadada] flex items-center justify-center group-hover:bg-[#3b82f6] group-hover:border-[#3b82f6] group-hover:text-white transition-all shadow-sm">
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                    </div>
+                    Back to Home
+                </button>
+            </div>
 
             <main className="pt-24 pb-8 px-6 lg:px-12">
                 <div className="max-w-7xl mx-auto">
@@ -108,7 +127,7 @@ export default function PricingPage() {
                             transition={{ delay: 0.1 }}
                             className="text-4xl md:text-5xl font-heading font-bold text-[#111111] mb-2"
                         >
-                            Transparent Pricing
+                            Plans and Pricing
                         </motion.h1>
                         <motion.p
                             initial={{ opacity: 0, y: 20 }}
@@ -312,7 +331,7 @@ export default function PricingPage() {
                                 </div>
                             </div>
                             <motion.button
-                                onClick={() => navigate('/request-demo')}
+                                onClick={() => navigate('/request-demo', { state: { from: 'pricing' } })}
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 className={`px-6 py-3 rounded-xl text-[9px] font-black tracking-[0.2em] uppercase shadow-xl transition-all duration-500 ${planType === 'Managed' ? 'bg-[#3b82f6] text-white shadow-[#3b82f6]/20 hover:bg-[#2563eb] group-hover:bg-white group-hover:text-[#111111]' : 'bg-[#111111] text-white shadow-[#111111]/20 hover:bg-black group-hover:bg-white group-hover:text-[#111111]'}`}

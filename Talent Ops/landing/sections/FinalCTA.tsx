@@ -44,7 +44,7 @@ export default function FinalCTA() {
         </p>
 
         <motion.button
-          onClick={() => navigate('/request-demo')}
+          onClick={() => navigate('/request-demo', { state: { from: 'cta' } })}
           whileHover={{ scale: 1.05, boxShadow: "0 20px 50px rgba(255, 255, 255, 0.2)" }}
           whileTap={{ scale: 0.98 }}
           transition={{ duration: 0.2 }}

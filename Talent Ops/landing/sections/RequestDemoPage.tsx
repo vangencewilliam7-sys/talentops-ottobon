@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, CheckCircle2, ChevronRight, Loader2, Building2, Mail, User, Phone } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export function RequestDemoPage() {
     const navigate = useNavigate();
+    const location = useLocation();
+    const fromSection = (location.state as any)?.from || null;
+
+    const handleReturnHome = () => {
+        navigate('/', { state: { scrollTo: fromSection } });
+    };
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [formData, setFormData] = useState({
@@ -69,7 +75,7 @@ export function RequestDemoPage() {
                         Thank you for your interest in TalentOps. One of our workforce intelligence experts will reach out to you within 24 hours to schedule your personalized demo.
                     </p>
                     <button
-                        onClick={() => navigate('/')}
+                        onClick={handleReturnHome}
                         className="bg-[#1f2937] text-white px-8 py-4 rounded-xl font-bold flex items-center justify-center gap-2 mx-auto hover:bg-[#111827] transition-colors"
                     >
                         Return Home
@@ -217,12 +223,12 @@ export function RequestDemoPage() {
 
             {/* Bottom Left Back Link */}
             <div className="absolute bottom-8 left-8 md:left-12">
-                <Link to="/" className="inline-flex items-center gap-2 text-[#1f2937]/80 hover:text-[#3b82f6] transition-colors font-bold group text-sm">
+                <button onClick={handleReturnHome} className="inline-flex items-center gap-2 text-[#1f2937]/80 hover:text-[#3b82f6] transition-colors font-bold group text-sm">
                     <div className="w-7 h-7 rounded-full bg-white border border-[#dadada] flex items-center justify-center group-hover:bg-[#3b82f6] group-hover:border-[#3b82f6] group-hover:text-white transition-all">
                         <ArrowLeft className="w-3.5 h-3.5" />
                     </div>
                     Back to Home
-                </Link>
+                </button>
             </div>
         </div>
     );

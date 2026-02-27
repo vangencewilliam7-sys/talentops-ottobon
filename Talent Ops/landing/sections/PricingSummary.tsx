@@ -34,7 +34,7 @@ export default function PricingSummary() {
     const navigate = useNavigate();
 
     return (
-        <section className="py-20 px-6 lg:px-12 bg-white relative">
+        <section id="pricing" className="py-20 px-6 lg:px-12 bg-white relative">
             <div className="max-w-7xl mx-auto">
                 <div className="text-center">
                     <motion.h2
@@ -50,7 +50,7 @@ export default function PricingSummary() {
                     </p>
 
                     <motion.button
-                        onClick={() => navigate('/pricing')}
+                        onClick={() => navigate('/pricing', { state: { scrollTo: 'pricing' } })}
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         className="px-10 py-4 bg-[#1f2937] text-white font-bold rounded-xl shadow-lg hover:bg-[#3b82f6] transition-all duration-300"

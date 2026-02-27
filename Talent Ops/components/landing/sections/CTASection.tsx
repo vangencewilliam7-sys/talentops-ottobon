@@ -70,7 +70,7 @@ export function CTASection() {
                 </p>
 
                 <button
-                    onClick={() => navigate('/request-demo')}
+                    onClick={() => navigate('/request-demo', { state: { from: 'cta' } })}
                     className="cta-button inline-flex items-center gap-4 font-accent text-sm font-semibold tracking-[0.2em] uppercase text-ink bg-paper px-16 py-8 rounded-sm transition-all duration-300 hover:text-paper relative overflow-hidden group"
                 >
                     <span className="absolute top-0 left-[-100%] w-full h-full bg-gradient-to-r from-accent-indigo via-accent-violet to-accent-cyan transition-all duration-300 group-hover:left-0 z-0" />

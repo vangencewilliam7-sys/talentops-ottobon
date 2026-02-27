@@ -110,7 +110,7 @@ export default function Footer() {
               ))}
             </ul>
             <motion.button
-              onClick={() => navigate('/request-demo')}
+              onClick={() => navigate('/request-demo', { state: { from: 'footer' } })}
               whileHover={{ scale: 1.05, backgroundColor: "#2a2a2a" }}
               whileTap={{ scale: 0.95 }}
               transition={{ duration: 0.2 }}

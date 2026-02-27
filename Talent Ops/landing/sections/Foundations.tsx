@@ -115,7 +115,7 @@ export default function Foundations() {
                     className="flex justify-center"
                 >
                     <motion.button
-                        onClick={() => navigate('/request-demo')}
+                        onClick={() => navigate('/request-demo', { state: { from: 'foundations' } })}
                         animate={{
                             boxShadow: [
                                 "0 0 0 0px rgba(59, 130, 246, 0.4)",

@@ -1,4 +1,5 @@
 import React, { useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { useScrollReveal } from '../hooks/useScrollReveal'
@@ -8,6 +9,7 @@ import { WavyBackground } from '@/components/ui/wavy-background'
 
 export function HeroSection() {
     const sectionRef = useRef<HTMLElement>(null)
+    const navigate = useNavigate()
     useScrollReveal(sectionRef)
 
     return (
@@ -63,7 +65,7 @@ export function HeroSection() {
 
                         <div className="reveal-fade flex justify-center">
                             <GlowButton
-                                href="/request-demo"
+                                onClick={() => navigate('/request-demo', { state: { from: 'hero' } })}
                                 label="Request a Demo"
                             />
                         </div>
