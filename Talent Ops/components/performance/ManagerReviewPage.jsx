@@ -14,7 +14,8 @@ import {
     Brain,
     Heart,
     Save,
-    Loader2
+    Loader2,
+    Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -25,6 +26,8 @@ const TeamReviewsPage = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('all'); // all, pending, reviewed
     const [selectedEmployee, setSelectedEmployee] = useState(null);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
     // Review Form State
     const [reviewForm, setReviewForm] = useState({
@@ -48,7 +51,7 @@ const TeamReviewsPage = () => {
 
     useEffect(() => {
         fetchTeamData();
-    }, []);
+    }, [selectedMonth, selectedYear]);
 
     const fetchTeamData = async () => {
         try {
@@ -80,7 +83,9 @@ const TeamReviewsPage = () => {
             const { data: reviews, error: reviewError } = await supabase
                 .from('employee_reviews')
                 .select('*')
-                .in('user_id', profiles.map(p => p.id));
+                .in('user_id', profiles.map(p => p.id))
+                .eq('review_month', selectedMonth)
+                .eq('review_year', selectedYear);
 
             if (reviewError) throw reviewError;
 
@@ -167,7 +172,10 @@ const TeamReviewsPage = () => {
                 manager_score_soft: softTotal,
                 manager_score_total: grandTotal,
                 manager_score_percentage: percentage,
-                date_reviewed: new Date().toISOString()
+                date_reviewed: new Date().toISOString(),
+                review_month: selectedMonth,
+                review_year: selectedYear,
+                is_locked: true // Lock the assessment after manager review
             };
 
             let error;
@@ -245,6 +253,38 @@ const TeamReviewsPage = () => {
 
                 {/* Filters */}
                 <div className="flex flex-col gap-4 bg-white p-4 rounded-xl border border-mist shadow-sm">
+                    {/* Month Selector */}
+                    <div className="flex items-center gap-2 bg-paper px-3 py-2 border border-mist rounded-lg self-start">
+                        <Calendar className="w-4 h-4 text-graphite-light" />
+                        <select
+                            value={selectedMonth}
+                            onChange={(e) => {
+                                setSelectedMonth(parseInt(e.target.value));
+                                setSelectedEmployee(null); // Clear selection on month change
+                            }}
+                            className="bg-transparent text-sm font-medium text-ink focus:outline-none cursor-pointer"
+                        >
+                            {[
+                                "January", "February", "March", "April", "May", "June",
+                                "July", "August", "September", "October", "November", "December"
+                            ].map((month, idx) => (
+                                <option key={idx} value={idx + 1}>{month}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => {
+                                setSelectedYear(parseInt(e.target.value));
+                                setSelectedEmployee(null);
+                            }}
+                            className="bg-transparent text-sm font-medium text-ink focus:outline-none cursor-pointer border-l pl-2 border-mist ml-1"
+                        >
+                            <option value={2024}>2024</option>
+                            <option value={2025}>2025</option>
+                            <option value={2026}>2026</option>
+                        </select>
+                    </div>
+
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite-light" />
                         <input

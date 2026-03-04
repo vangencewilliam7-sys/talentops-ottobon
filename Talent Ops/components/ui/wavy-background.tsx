@@ -35,122 +35,124 @@ export const WavyBackground = ({
         ctx: any,
         canvas: any;
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const animationFrameRef = useRef<number>();
-
-    // Quality multiplier for downsampling (0.5 means half resolution)
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
-    const qualityMultiplier = 0.5;
-
     const getSpeed = () => {
         switch (speed) {
             case "slow":
                 return 0.001;
             case "fast":
-                return 0.002;
+                return 0.005;
             default:
-                return 0.001;
+                return 0.002;
         }
     };
 
-    const isVisibleRef = useRef(true);
-
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                isVisibleRef.current = entry.isIntersecting;
-            },
-            { threshold: 0.05 }
-        );
-        if (canvasRef.current) observer.observe(canvasRef.current);
-        return () => observer.disconnect();
-    }, []);
-
     const init = () => {
         canvas = canvasRef.current;
-        if (!canvas) return;
-        ctx = canvas.getContext("2d", { alpha: false, desynchronized: true });
-
-        const updateDimensions = () => {
-            w = ctx.canvas.width = window.innerWidth * qualityMultiplier;
-            h = ctx.canvas.height = window.innerHeight * qualityMultiplier;
-            // No need for ctx.filter, we use CSS blur for better performance
-            nt = 0;
+        ctx = canvas.getContext("2d");
+        w = ctx.canvas.width = window.innerWidth;
+        h = ctx.canvas.height = window.innerHeight;
+        ctx.filter = `blur(${blur}px)`;
+        nt = 0;
+        window.onresize = function () {
+            w = ctx.canvas.width = window.innerWidth;
+            h = ctx.canvas.height = window.innerHeight;
+            ctx.filter = `blur(${blur}px)`;
         };
-
-        updateDimensions();
-
-        let resizeTimeout: any;
-        window.addEventListener('resize', () => {
-            if (resizeTimeout) clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(updateDimensions, 150);
-        });
-
         render();
     };
 
     const waveColors = colors ?? [
-        "#ffffff",
-        "#cccccc",
-        "#999999",
-        "#666666",
-        "#333333",
+        "#38bdf8",
+        "#818cf8",
+        "#c084fc",
+        "#e879f9",
+        "#22d3ee",
     ];
-
     const drawWave = (n: number) => {
         nt += getSpeed();
         for (i = 0; i < n; i++) {
             ctx.beginPath();
-            ctx.lineWidth = (waveWidth || 50) * qualityMultiplier;
+            ctx.lineWidth = waveWidth || 60;
             ctx.strokeStyle = waveColors[i % waveColors.length];
-            for (x = 0; x < w; x += 10) { // Increased step for performance
-                var y = noise(x / (400 * qualityMultiplier), 0.3 * i, nt) * (50 * qualityMultiplier);
-                ctx.lineTo(x, y + h * 0.5);
+            for (x = 0; x < w; x += 12) {
+                var y = noise(x / 600, 0.3 * i, nt) * 120;
+                ctx.lineTo(x, y + h * 0.5); // adjust for height, currently at 50% of the container
             }
             ctx.stroke();
             ctx.closePath();
         }
     };
 
+    let animationId: number;
     const render = () => {
-        if (!isVisibleRef.current) {
-            animationFrameRef.current = requestAnimationFrame(render);
-            return;
-        }
-
         ctx.fillStyle = backgroundFill || "black";
-        ctx.globalAlpha = 1.0; // Avoid globalAlpha if possible for drawing background
+        ctx.globalAlpha = 1;
         ctx.fillRect(0, 0, w, h);
-
         ctx.globalAlpha = waveOpacity || 0.5;
-        drawWave(4); // Reduced wave count slightly
-
-        animationFrameRef.current = requestAnimationFrame(render);
+        drawWave(5);
+        animationId = requestAnimationFrame(render);
     };
 
     useEffect(() => {
         init();
         return () => {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
+            cancelAnimationFrame(animationId);
+        };
+    }, []);
+
+    const [isSafari, setIsSafari] = useState(false);
+    useEffect(() => {
+        // I'm sorry but i have got to support it on safari.
+        setIsSafari(
+            typeof window !== "undefined" &&
+            navigator.userAgent.includes("Safari") &&
+            !navigator.userAgent.includes("Chrome")
+        );
+    }, []);
+
+    // Optimization: Pause animation when not in viewport
+    useEffect(() => {
+        const container = canvasRef.current?.parentElement;
+        if (!container) return;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    if (!animationId) {
+                        render();
+                    }
+                } else {
+                    if (animationId) {
+                        cancelAnimationFrame(animationId);
+                        // @ts-ignore
+                        animationId = null;
+                    }
+                }
+            },
+            { threshold: 0 }
+        );
+
+        observer.observe(container);
+
+        return () => {
+            observer.disconnect();
+            if (animationId) cancelAnimationFrame(animationId);
         };
     }, []);
 
     return (
         <div
             className={cn(
-                "flex flex-col items-center justify-center bg-black",
+                "flex flex-col items-center justify-center",
                 containerClassName
             )}
         >
             <canvas
-                className="absolute inset-0 z-0 w-full h-full"
+                className="absolute inset-0 z-0"
                 ref={canvasRef}
                 id="canvas"
                 style={{
-                    filter: `blur(${blur}px)`,
-                    transform: 'scale(1.05)', // Prevent blur edges from showing
-                    imageRendering: 'auto',
+                    ...(isSafari ? { filter: `blur(${blur}px)` } : {}),
                 }}
             ></canvas>
             <div className={cn("relative z-10", className)} {...props}>

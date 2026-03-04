@@ -44,8 +44,10 @@ const Sidebar = ({
     // ── Derived ──
     const filteredConversations = conversations.filter(conv => {
         if (!searchQuery) return true;
-        const lastMsg = conv.conversation_indexes?.[0]?.last_message || '';
-        return lastMsg.toLowerCase().includes(searchQuery.toLowerCase());
+        const query = searchQuery.toLowerCase();
+        const name = (conv.name || '').toLowerCase();
+        const lastMsg = (conv.conversation_indexes?.[0]?.last_message || '').toLowerCase();
+        return name.includes(query) || lastMsg.includes(query);
     });
 
     // ── Handlers that wrap parent callbacks ──
@@ -288,6 +290,8 @@ const Sidebar = ({
                             const lastMsgTime = conv.conversation_indexes?.[0]?.last_message_at ? new Date(conv.conversation_indexes[0].last_message_at).getTime() : 0;
                             const lastReadTime = lastReadTimes[conv.id] || 0;
                             const isUnread = lastMsgTime > lastReadTime;
+                            const lastMessage = conv.conversation_indexes?.[0]?.last_message || '';
+                            const isSentByMe = conv.conversation_indexes?.[0]?.last_sender_id === currentUserId;
 
                             return (
                                 <div
@@ -315,17 +319,44 @@ const Sidebar = ({
                                             {conv.name || 'Conversation'}
                                         </div>
                                         <div className="conversation-preview">
-                                            {conv.conversation_indexes?.[0]?.last_message
+                                            {/* Double checkmark for sent messages */}
+                                            {!isUnread && lastMessage && (
+                                                <span className="seen-indicator read" title="Seen">
+                                                    <svg width="16" height="11" viewBox="0 0 16 11" fill="none">
+                                                        <path d="M11.071 0.929L4.5 7.5L1.929 4.929" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                        <path d="M14.071 0.929L7.5 7.5L6.5 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                    </svg>
+                                                </span>
+                                            )}
+                                            {lastMessage
                                                 || (conv.conversation_indexes?.[0]?.last_message_at ? '📎 Attachment' : 'No messages yet')}
                                         </div>
                                     </div>
-                                    <div className="conversation-time">
-                                        {conv.conversation_indexes?.[0]?.last_message_at ? (
-                                            new Date(conv.conversation_indexes[0].last_message_at).toLocaleTimeString([], {
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                            })
-                                        ) : ''}
+                                    <div className="conversation-meta">
+                                        <div className="conversation-time">
+                                            {conv.conversation_indexes?.[0]?.last_message_at ? (() => {
+                                                const msgDate = new Date(conv.conversation_indexes[0].last_message_at);
+                                                const now = new Date();
+                                                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                                                const yesterday = new Date(today);
+                                                yesterday.setDate(yesterday.getDate() - 1);
+                                                const weekAgo = new Date(today);
+                                                weekAgo.setDate(weekAgo.getDate() - 6);
+
+                                                if (msgDate >= today) {
+                                                    return msgDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                                } else if (msgDate >= yesterday) {
+                                                    return 'Yesterday';
+                                                } else if (msgDate >= weekAgo) {
+                                                    return msgDate.toLocaleDateString([], { weekday: 'short' });
+                                                } else {
+                                                    return msgDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                                                }
+                                            })() : ''}
+                                        </div>
+                                        {isUnread && (
+                                            <span className="unread-badge">●</span>
+                                        )}
                                     </div>
                                 </div>
                             );

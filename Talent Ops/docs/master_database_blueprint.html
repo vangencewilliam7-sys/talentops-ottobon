@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>master_database_blueprint.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre-wrap;
+	overflow-wrap: break-word;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="the-talentops-master-database-blueprint">The TalentOps Master Database Blueprint</h1>
+<p><em>A completely exhaustive, live-validated architectural map of the entire Supabase backend.</em></p>
+<hr>
+<h2 id="part-1-status-summary--validation">Part 1: Status Summary &amp; Validation</h2>
+<p>Based on direct validation between your local codebase and the live Supabase dashboard row checks:</p>
+<ul>
+<li><strong>Total Live Tables:</strong> 69</li>
+<li><strong>Total Live Views:</strong> 6</li>
+<li><strong>Total Live Storage Buckets:</strong> 8</li>
+<li><strong>Total Live SQL Functions (RPCs):</strong> 6 <em>(Note: ~38 other functions exist locally but remain undeployed)</em></li>
+<li><strong>Total Edge Functions:</strong> 2</li>
+</ul>
+<p><strong>Live Table Health Analysis:</strong></p>
+<ul>
+<li><code>33 Tables</code> are <strong>Completely Empty (0 rows)</strong>. Specifically, Candidate ATS tracking, B2B Invoicing, and highly redundant audit logging sections are unused. These modules can be dropped or ignored.</li>
+<li><code>Approx 20 Tables</code> have <strong>1-2 Rows</strong>. These are your <strong>Core Essential Tables</strong> holding dummy initialization data (e.g., your admin profile, one test company). <strong>Do NOT delete these.</strong></li>
+</ul>
+<hr>
+<h2 id="part-2-the-complete-69-table-architecture-map">Part 2: The Complete 69 Table Architecture Map</h2>
+<p>Below is every single active table, exactly what data it maps, what storage buckets it triggers, and its validated necessity status based on the live row audits.</p>
+<table>
+<thead>
+<tr>
+<th>Table Name</th>
+<th>Exact Data Mapped (Columns)</th>
+<th style="text-align:center">Necessity Status</th>
+<th>Connected Storage / Logic</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>announcements</code></strong></td>
+<td><code>id</code>, <code>org_id</code>, <code>title</code>, <code>content</code>, <code>status</code>, <code>created_by</code>...</td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>attachments</code></strong></td>
+<td><code>id</code>, <code>message_id</code>, <code>file_name</code>, <code>url</code>, <code>storage_path</code>...</td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td><code>message-attachments</code> Bucket</td>
+</tr>
+<tr>
+<td><strong><code>attendance</code></strong></td>
+<td><code>id</code>, <code>org_id</code>, <code>employee_id</code>, <code>date</code>, <code>clock_in</code>, <code>clock_out</code>...</td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>candidates</code></strong></td>
+<td><em>(Dormant Optional Module)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td><code>resumes</code> Bucket</td>
+</tr>
+<tr>
+<td><strong><code>chat_history</code></strong></td>
+<td><em>(Dormant Audit Table)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>clients</code></strong></td>
+<td><em>(Dormant Invoicing Module)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>company_details</code></strong></td>
+<td><em>(Initialization Data)</em></td>
+<td style="text-align:center"><strong>Core</strong> <em>(Sparse)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>conversation_indexes</code></strong></td>
+<td><code>conversation_id</code>, <code>last_message</code>, <code>last_message_at</code>...</td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td><em>Aggregation Target</em></td>
+</tr>
+<tr>
+<td><strong><code>conversation_members</code></strong></td>
+<td><code>id</code>, <code>conversation_id</code>, <code>user_id</code>, <code>is_admin</code>, <code>joined_at</code></td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>conversations</code></strong></td>
+<td><code>id</code>, <code>org_id</code>, <code>type</code>, <code>name</code>, <code>created_by</code>, <code>created_at</code></td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>departments</code></strong></td>
+<td><code>id</code>, <code>org_id</code>, <code>department_name</code></td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>document_chunks</code></strong></td>
+<td><em>(AI Rag Module - Embeddings)</em></td>
+<td style="text-align:center">🟡 <em>Depends on AI Use</em></td>
+<td>Vector Indexes</td>
+</tr>
+<tr>
+<td><strong><code>documents</code></strong></td>
+<td><em>(AI Rag Module - Context)</em></td>
+<td style="text-align:center">🟡 <em>Depends on AI Use</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>employee_finance</code></strong></td>
+<td><code>id</code>, <code>org_id</code>, <code>employee_id</code>, <code>basic_salary</code>, <code>hra</code>...</td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>employee_monthly_logs</code></strong></td>
+<td><em>(Dormant Logs)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>employee_performance_snapshots</code></strong></td>
+<td><em>(Dormant Logs)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>employee_reviews</code></strong></td>
+<td><em>(Dormant Feature)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>employee_skills</code></strong></td>
+<td><em>(Dormant Module)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>employee_stage_history</code></strong></td>
+<td><em>(Dormant Audit Table)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>extension_requests</code></strong></td>
+<td><em>(Dormant Feature)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>feedback</code></strong></td>
+<td><em>(Dormant Feature)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>interviews</code></strong></td>
+<td><em>(Dormant Optional Module)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>invoice_emails</code></strong></td>
+<td><em>(Dormant Invoicing Module)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>invoice_items</code></strong></td>
+<td><em>(Dormant Invoicing Module)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>invoice_templates</code></strong></td>
+<td><em>(Dormant Invoicing Module)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>invoices</code></strong></td>
+<td><em>(Dormant Invoicing Module)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td><code>invoices</code> Bucket</td>
+</tr>
+<tr>
+<td><strong><code>job_descriptions</code></strong></td>
+<td><em>(Dormant Optional Module)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>jobs</code></strong></td>
+<td><em>(Dormant Optional Module)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>leave_ai_analysis</code></strong></td>
+<td><code>id</code>, <code>leave_id</code>, <code>analysis_data</code>, <code>risk_level</code>...</td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td><strong>Edge Fn:</strong> <code>analyze-task-risk</code></td>
+</tr>
+<tr>
+<td><strong><code>leave_audit_logs</code></strong></td>
+<td><em>(Dormant Audit Table)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>leaves</code></strong></td>
+<td><code>id</code>, <code>org_id</code>, <code>employee_id</code>, <code>from_date</code>, <code>to_date</code>...</td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>message_reactions</code></strong></td>
+<td><code>message_id</code>, <code>user_id</code>, <code>emoji</code></td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>messages</code></strong></td>
+<td><code>id</code>, <code>conversation_id</code>, <code>sender_user_id</code>, <code>content</code>...</td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td><code>message-attachments</code> Bucket</td>
+</tr>
+<tr>
+<td><strong><code>notes</code></strong></td>
+<td><em>(Dormant Feature)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>notifications</code></strong></td>
+<td><em>(Realtime Layer)</em></td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>Supabase Realtime App</td>
+</tr>
+<tr>
+<td><strong><code>offers</code></strong></td>
+<td><em>(Dormant Optional Module)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>organization_memberships</code></strong></td>
+<td><em>(Dormant Duplicate Mapping)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>orgs</code></strong></td>
+<td><code>id</code>, <code>name</code>, <code>created_at</code> <em>(Supersedes organizations)</em></td>
+<td style="text-align:center"><strong>Core</strong> <em>(Sparse)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>payroll</code></strong></td>
+<td><code>id</code>, <code>org_id</code>, <code>employee_id</code>, <code>month</code>, <code>basic_salary</code>...</td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td><code>payslips</code> Bucket</td>
+</tr>
+<tr>
+<td><strong><code>payslips</code></strong></td>
+<td><em>(Dormant Documents Table)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td><code>payslips</code> Bucket</td>
+</tr>
+<tr>
+<td><strong><code>policies</code></strong></td>
+<td><em>(Dormant Documents Table)</em></td>
+<td style="text-align:center">🟡 <em>Depends on Usage</em></td>
+<td><code>policies</code> Bucket</td>
+</tr>
+<tr>
+<td><strong><code>poll_votes</code></strong></td>
+<td><code>id</code>, <code>poll_option_id</code>, <code>user_id</code></td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>profiles</code></strong></td>
+<td><code>id</code>, <code>org_id</code>, <code>email</code>, <code>full_name</code>, <code>role</code>, <code>avatar_url</code>...</td>
+<td style="text-align:center"><strong>Core</strong> <em>(Sparse)</em></td>
+<td><code>avatars</code> Bucket</td>
+</tr>
+<tr>
+<td><strong><code>project_documents</code></strong></td>
+<td><em>(Dormant Documents Table)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td><code>project-docs</code> Bucket</td>
+</tr>
+<tr>
+<td><strong><code>project_members</code></strong></td>
+<td><code>id</code>, <code>org_id</code>, <code>project_id</code>, <code>user_id</code>, <code>role</code></td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>project_time_logs</code></strong></td>
+<td><em>(Dormant Logs)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>projects</code></strong></td>
+<td><code>id</code>, <code>org_id</code>, <code>name</code>, <code>status</code></td>
+<td style="text-align:center"><strong>Core</strong> <em>(Sparse)</em></td>
+<td><code>project-docs</code> Bucket</td>
+</tr>
+<tr>
+<td><strong><code>semantic_cache</code></strong></td>
+<td><em>(AI Rag Module)</em></td>
+<td style="text-align:center">🟡 <em>Depends on AI Use</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>skills_master</code></strong></td>
+<td><code>id</code>, <code>name</code>, <code>description</code>, <code>category</code></td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>task_audit</code></strong></td>
+<td><em>(Dormant Audit Table)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>task_evidence</code></strong></td>
+<td><em>(Empty - Needs UI Fix)</em></td>
+<td style="text-align:center">🔴 <em>Broken Flow</em></td>
+<td><code>task-proofs</code> Bucket</td>
+</tr>
+<tr>
+<td><strong><code>task_feedback</code></strong></td>
+<td><em>(Dormant Feature)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>task_notes</code></strong></td>
+<td><em>(Dormant Feature)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>task_reviews</code></strong></td>
+<td><em>(Dormant Feature)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>task_risk_snapshots</code></strong></td>
+<td><em>(Dormant AI Feature)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>task_skills</code></strong></td>
+<td><em>(Dormant Feature)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>task_stage_history</code></strong></td>
+<td><em>(Dormant Audit Table)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>task_stages</code></strong></td>
+<td><em>(Empty - Needs UI Fix)</em></td>
+<td style="text-align:center">🔴 <em>Broken Flow</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>task_state_history</code></strong></td>
+<td><em>(Audit Table)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>task_steps</code></strong></td>
+<td><code>id</code>, <code>task_id</code>, <code>step_title</code>, <code>status</code>...</td>
+<td style="text-align:center"><strong>Core</strong></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>task_submission_skills</code></strong></td>
+<td><em>(Dormant Feature)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>task_submissions</code></strong></td>
+<td><em>(Empty - Needs UI Fix)</em></td>
+<td style="text-align:center">🔴 <em>Broken Flow</em></td>
+<td>Triggers points calc</td>
+</tr>
+<tr>
+<td><strong><code>tasks</code></strong></td>
+<td><code>id</code>, <code>project_id</code>, <code>title</code>, <code>description</code>, <code>status</code>...</td>
+<td style="text-align:center"><strong>Core</strong> <em>(Sparse)</em></td>
+<td><strong>Edge Fn:</strong> <code>generate-task</code></td>
+</tr>
+<tr>
+<td><strong><code>team_financials</code></strong></td>
+<td><em>(Dormant Financial Module)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>team_members</code></strong></td>
+<td><em>(Dormant Profile Mapping)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>teams</code></strong></td>
+<td><em>(Empty - Needs UI Fix)</em></td>
+<td style="text-align:center">🔴 <em>Broken Flow</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>tickets</code></strong></td>
+<td><em>(Dormant Feature)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Drop Safe)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>time_logs</code></strong></td>
+<td><em>(Dormant Logs)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+<tr>
+<td><strong><code>timesheets</code></strong></td>
+<td><em>(Dormant Logs)</em></td>
+<td style="text-align:center">🗑️ <em>Empty (Redundant)</em></td>
+<td>None</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="part-3-live-view-list-6-virtual-tables">Part 3: Live View List (6 Virtual Tables)</h2>
+<ol>
+<li><code>employee_rankings_view</code></li>
+<li><code>project_work_summary</code></li>
+<li><code>v_resource_gaps</code></li>
+<li><code>v_team_analytics</code></li>
+<li><code>view_assignable_employees</code></li>
+<li><code>view_employee_aggregate_performance</code></li>
+</ol>
+<hr>
+<h2 id="part-4-the-8-supabase-storage-buckets">Part 4: The 8 Supabase Storage Buckets</h2>
+<ul>
+<li><strong><code>task-proofs</code></strong> -&gt; Secured (Authenticated). Connected to <code>task_evidence</code>.</li>
+<li><strong><code>project-docs</code></strong> -&gt; Secured (Authenticated). Connected to <code>project_documents</code>.</li>
+<li><strong><code>policies</code></strong> -&gt; Secured (Authenticated). Connected to <code>policies</code>.</li>
+<li><strong><code>avatars</code></strong> -&gt; <strong>Public Read Allowed</strong>. Connected to profile avatars.</li>
+<li><strong><code>resumes</code></strong> -&gt; Secured (Authenticated). Connected to <code>candidates</code>.</li>
+<li><strong><code>invoices</code></strong> -&gt; Secured (Authenticated). Built for billing PDFs.</li>
+<li><strong><code>payslips</code></strong> -&gt; Secured (Authenticated). Built for payroll PDFs.</li>
+<li><strong><code>message-attachments</code></strong> -&gt; Secured (Authenticated). Holds chat images.</li>
+</ul>
+<hr>
+<h2 id="part-5-deno-edge-functions-serverless-ai">Part 5: Deno Edge Functions (Serverless AI)</h2>
+<p>Stored in local repo <code>supabase/functions/</code> and leveraging OpenAI outputs:</p>
+<ol>
+<li><strong><code>analyze-task-risk</code></strong>: Activated on leave requests to dictate bottleneck risks to the team. Logs results to <code>leave_ai_analysis</code>.</li>
+<li><strong><code>generate-task-plan</code></strong>: Triggered from new tasks to auto-generate the step-by-step arrays natively mapped into <code>task_steps</code>.</li>
+</ol>
+<hr>
+<h2 id="part-6-postgresql-remote-procedure-calls-rpcs--functions">Part 6: PostgreSQL Remote Procedure Calls (RPCs / Functions)</h2>
+<p>🔴 <strong>MAJOR VALIDATION FINDING:</strong>
+Your dashboard shows exactly <strong>6 Deployments</strong>, but the local <code>.sql</code> codebase holds exactly <strong>44 distinct functions</strong>. This means 38 custom logic hooks developed locally (like <code>apply_leave()</code>, <code>clock_in()</code>, <code>generate_monthly_payroll()</code>) have not been pushed to the live server.</p>
+<p><strong>The 6 Known Deployed Functions:</strong></p>
+<ol>
+<li><strong><code>get_table_schema</code></strong>: A UI utility reflection function.</li>
+<li><strong><code>calculate_task_points</code></strong>: Calculates score logic post-submission.</li>
+<li><strong><code>update_task_points_trigger</code></strong>: Wraps the calculation trigger.</li>
+<li><strong><code>get_user_performance_stats</code></strong>: Retrieves data for the aggregation views.</li>
+<li><strong><code>rpc_compute_task_risk_metrics</code></strong>: A helper function linking to the Deno AI edge function.</li>
+<li><em>(Internal standard timestamp or authentication wrappers)</em></li>
+</ol>
+
+</body>
+</html>

@@ -1,0 +1,13 @@
+﻿[dotenv@17.2.4] injecting env (6) from .env -- tip: ΓÜÖ∩╕Å  enable debug logging with { debug: true }
+--- Inspecting skills_master ---
+skills_master is empty (but readable).
+
+--- Inspecting task_submissions ---
+task_submissions is empty (but readable).
+
+--- Testing Insert Permissions ---
+Cannot verify columns of task_submissions because table is empty or unreadable.
+
+--- Inspecting leave_ai_analysis details ---
+Successfully inserted and retrieved row. Columns found:
+id, leave_id, employee_id, org_id, analysis_data, risk_level, created_at, team_coverage_impact, role_criticality_impact, alternate_dates, role_criticality, overlapping_leaves, deadline_impact, coverage_risk, impact_score, analysis_result, summary, suggested_dates, analyzed_at, details, secondary_warning, updated_at, recommendations, task_conflicts, team_coverage, single_point_dependencies, risk_score, primary_warning

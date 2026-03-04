@@ -16,12 +16,7 @@ const MessageNotificationStack = () => {
         sendQuickReply
     } = useMessages();
 
-    // Don't show notifications if already on messages page
-    const isOnMessagesPage = location.pathname.includes('/messages');
-
-    if (isOnMessagesPage) {
-        return null;
-    }
+    // Notifications always show, even on the messages page
 
     // Determine dashboard path based on current route
     const getDashboardPath = () => {

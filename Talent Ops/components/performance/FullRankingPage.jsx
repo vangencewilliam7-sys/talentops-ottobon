@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { Trophy, Search, TrendingUp, Medal, Download, Filter } from 'lucide-react';
+import { Trophy, Search, TrendingUp, Medal, Download, Filter, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const FullRankingPage = () => {
@@ -8,10 +8,12 @@ const FullRankingPage = () => {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [departmentFilter, setDepartmentFilter] = useState('All');
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
     useEffect(() => {
         fetchRankings();
-    }, []);
+    }, [selectedMonth, selectedYear]);
 
     const fetchRankings = async () => {
         try {
@@ -21,6 +23,8 @@ const FullRankingPage = () => {
             const { data: reviews, error: reviewsError } = await supabase
                 .from('employee_reviews')
                 .select('*')
+                .eq('review_month', selectedMonth)
+                .eq('review_year', selectedYear)
                 .order('manager_score_total', { ascending: false });
 
             if (reviewsError) throw reviewsError;
@@ -147,21 +151,48 @@ const FullRankingPage = () => {
                         />
                     </div>
 
-                    <div className="flex items-center gap-3 w-full md:w-auto">
-                        <Filter className="w-4 h-4 text-graphite-light" />
-                        <select
-                            value={departmentFilter}
-                            onChange={(e) => setDepartmentFilter(e.target.value)}
-                            className="bg-paper border border-mist rounded-lg text-sm px-3 py-2 outline-none focus:border-accent-violet"
-                        >
-                            {departments.map(dept => (
-                                <option key={dept} value={dept}>{dept}</option>
-                            ))}
-                        </select>
-                        <button className="flex items-center gap-2 px-4 py-2 bg-white border border-mist text-graphite hover:bg-paper rounded-lg text-sm font-medium transition-colors ml-auto">
-                            <Download className="w-4 h-4" />
-                            Export
-                        </button>
+                    <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+                        <div className="flex items-center gap-2 bg-paper px-3 py-2 border border-mist rounded-lg w-full sm:w-auto">
+                            <Calendar className="w-4 h-4 text-graphite-light" />
+                            <select
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                                className="bg-transparent text-sm font-medium text-ink focus:outline-none cursor-pointer"
+                            >
+                                {[
+                                    "January", "February", "March", "April", "May", "June",
+                                    "July", "August", "September", "October", "November", "December"
+                                ].map((month, idx) => (
+                                    <option key={idx} value={idx + 1}>{month}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                                className="bg-transparent text-sm font-medium text-ink focus:outline-none cursor-pointer border-l pl-2 border-mist ml-1"
+                            >
+                                <option value={2024}>2024</option>
+                                <option value={2025}>2025</option>
+                                <option value={2026}>2026</option>
+                            </select>
+                        </div>
+
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                            <Filter className="w-4 h-4 text-graphite-light hidden sm:block" />
+                            <select
+                                value={departmentFilter}
+                                onChange={(e) => setDepartmentFilter(e.target.value)}
+                                className="bg-paper border border-mist rounded-lg text-sm px-3 py-2 outline-none focus:border-accent-violet"
+                            >
+                                {departments.map(dept => (
+                                    <option key={dept} value={dept}>{dept}</option>
+                                ))}
+                            </select>
+                            <button className="flex items-center justify-center gap-2 px-4 py-2 bg-white border border-mist text-graphite hover:bg-paper rounded-lg text-sm font-medium transition-colors sm:ml-auto w-full sm:w-auto">
+                                <Download className="w-4 h-4" />
+                                Export
+                            </button>
+                        </div>
                     </div>
                 </div>
 

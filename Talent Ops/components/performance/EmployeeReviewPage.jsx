@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 // @ts-ignore
 import RankingTab from './components/RankingTab';
 import { supabase } from '../../lib/supabaseClient';
-import { Save, Brain, Heart, Sparkles, Loader2, CheckCircle2, AlertCircle, User, Users, Trophy } from 'lucide-react';
+import { Save, Brain, Heart, Sparkles, Loader2, CheckCircle2, AlertCircle, User, Users, Trophy, Calendar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 // @ts-ignore
 import Leaderboard from './components/Leaderboard';
@@ -14,6 +14,8 @@ const ReviewPage = () => {
     const [activeTab, setActiveTab] = useState('self'); // 'self' or 'manager'
     const [reviewData, setReviewData] = useState(null);
     const [currentUserProfile, setCurrentUserProfile] = useState(null);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
     const devSkillsList = [
         "Frontend", "Backend", "Workflows", "Databases", "Prompting",
@@ -35,25 +37,43 @@ const ReviewPage = () => {
             if (user) {
                 setUserId(user.id);
                 setCurrentUserProfile(user);
-                fetchReview(user.id);
+                fetchReview(user.id, selectedMonth, selectedYear);
             }
         };
         fetchUserData();
-    }, []);
+    }, [selectedMonth, selectedYear]);
 
-    const fetchReview = async (uid) => {
+    const fetchReview = async (uid, month, year) => {
         try {
+            setLoading(true);
             const { data, error } = await supabase
                 .from('employee_reviews')
                 .select('*')
                 .eq('user_id', uid)
-                .single();
+                .eq('review_month', month)
+                .eq('review_year', year)
+                .maybeSingle();
 
             if (data) {
                 setReviewData(data);
-                if (data.development_skills) setDevScores(data.development_skills);
-                if (data.soft_skills) setSoftScores(data.soft_skills);
+
+                if (data.development_skills && Object.keys(data.development_skills).length > 0) {
+                    setDevScores(data.development_skills);
+                } else {
+                    const initialDev = {};
+                    devSkillsList.forEach(skill => initialDev[skill] = 5);
+                    setDevScores(initialDev);
+                }
+
+                if (data.soft_skills && Object.keys(data.soft_skills).length > 0) {
+                    setSoftScores(data.soft_skills);
+                } else {
+                    const initialSoft = {};
+                    softTraitsList.forEach(trait => initialSoft[trait] = 5);
+                    setSoftScores(initialSoft);
+                }
             } else {
+                setReviewData(null);
                 // Initialize default scores
                 const initialDev = {};
                 devSkillsList.forEach(skill => initialDev[skill] = 5);
@@ -65,6 +85,8 @@ const ReviewPage = () => {
             }
         } catch (error) {
             console.error('Error fetching review:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -80,24 +102,47 @@ const ReviewPage = () => {
         if (!userId) return;
         setLoading(true);
         try {
-            const payload = {
-                user_id: userId,
-                development_skills: devScores,
-                soft_skills: softScores
-            };
-
-            const { error } = await supabase
+            // First check if a record already exists to retain other fields if they exist
+            const { data: existingData } = await supabase
                 .from('employee_reviews')
-                .upsert(payload, { onConflict: 'user_id' });
+                .select('id')
+                .eq('user_id', userId)
+                .eq('review_month', selectedMonth)
+                .eq('review_year', selectedYear)
+                .maybeSingle();
+
+            let error;
+
+            if (existingData?.id) {
+                const { error: updateError } = await supabase
+                    .from('employee_reviews')
+                    .update({
+                        development_skills: devScores,
+                        soft_skills: softScores,
+                    })
+                    .eq('id', existingData.id);
+                error = updateError;
+            } else {
+                const { error: insertError } = await supabase
+                    .from('employee_reviews')
+                    .insert({
+                        user_id: userId,
+                        review_month: selectedMonth,
+                        review_year: selectedYear,
+                        development_skills: devScores,
+                        soft_skills: softScores,
+                    });
+                error = insertError;
+            }
 
             if (error) throw error;
 
             setSubmitted(true);
             setTimeout(() => setSubmitted(false), 3000);
-            fetchReview(userId); // Refresh data
+            fetchReview(userId, selectedMonth, selectedYear); // Refresh data
         } catch (error) {
             console.error('Error saving review:', error);
-            alert('Failed to save review. Please try again.');
+            alert('Failed to save review. Please try again. Detailed error: ' + error.message);
         } finally {
             setLoading(false);
         }
@@ -169,8 +214,8 @@ const ReviewPage = () => {
                                         if (val < 0) val = 0;
                                         handleDevChange(skill, val || 0)
                                     }}
-                                    disabled={!!reviewData?.development_skills}
-                                    className={`absolute right-0 -top-8 w-16 px-2 py-1 text-center text-sm border rounded-lg z-30 bg-white ${!!reviewData?.development_skills ? 'cursor-not-allowed bg-gray-50' : 'cursor-text focus:outline-none focus:ring-1 focus:ring-accent-violet'}`}
+                                    disabled={reviewData?.is_locked}
+                                    className={`absolute right-0 -top-8 w-16 px-2 py-1 text-center text-sm border rounded-lg z-30 bg-white ${reviewData?.is_locked ? 'cursor-not-allowed bg-gray-50' : 'cursor-text focus:outline-none focus:ring-1 focus:ring-accent-violet'}`}
                                 />
                             </div>
 
@@ -183,8 +228,8 @@ const ReviewPage = () => {
                                     step="0.5"
                                     value={devScores[skill] || 5}
                                     onChange={(e) => handleDevChange(skill, e.target.value)}
-                                    disabled={!!reviewData?.development_skills}
-                                    className={`absolute top-0 left-0 w-full h-full opacity-0 z-20 ${!!reviewData?.development_skills ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                    disabled={reviewData?.is_locked}
+                                    className={`absolute top-0 left-0 w-full h-full opacity-0 z-20 ${reviewData?.is_locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                                 />
                                 <div
                                     className="absolute top-0 left-0 h-full bg-accent-violet transition-all duration-300 rounded-full z-10"
@@ -232,8 +277,8 @@ const ReviewPage = () => {
                                         if (val < 0) val = 0;
                                         handleSoftChange(trait, val || 0)
                                     }}
-                                    disabled={!!reviewData?.soft_skills}
-                                    className={`absolute right-0 -top-8 w-16 px-2 py-1 text-center text-sm border rounded-lg z-30 bg-white ${!!reviewData?.soft_skills ? 'cursor-not-allowed bg-gray-50' : 'cursor-text focus:outline-none focus:ring-1 focus:ring-accent-violet'}`}
+                                    disabled={reviewData?.is_locked}
+                                    className={`absolute right-0 -top-8 w-16 px-2 py-1 text-center text-sm border rounded-lg z-30 bg-white ${reviewData?.is_locked ? 'cursor-not-allowed bg-gray-50' : 'cursor-text focus:outline-none focus:ring-1 focus:ring-accent-violet'}`}
                                 />
                             </div>
                             <div className="relative h-2 w-full bg-mist rounded-full overflow-hidden mt-1">
@@ -244,8 +289,8 @@ const ReviewPage = () => {
                                     step="0.5"
                                     value={softScores[trait] || 5}
                                     onChange={(e) => handleSoftChange(trait, e.target.value)}
-                                    disabled={!!reviewData?.soft_skills}
-                                    className={`absolute top-0 left-0 w-full h-full opacity-0 z-20 ${!!reviewData?.soft_skills ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                                    disabled={reviewData?.is_locked}
+                                    className={`absolute top-0 left-0 w-full h-full opacity-0 z-20 ${reviewData?.is_locked ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                                 />
                                 <div
                                     className="absolute top-0 left-0 h-full bg-pink-500 transition-all duration-300 rounded-full z-10"
@@ -444,7 +489,7 @@ const ReviewPage = () => {
     return (
         <div className="min-h-screen bg-paper font-body p-6 pb-24">
             {/* Header Section */}
-            <header className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <header className="mb-8 flex flex-col xl:flex-row xl:items-end justify-between gap-4">
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -461,49 +506,75 @@ const ReviewPage = () => {
                     </p>
                 </motion.div>
 
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                    {/* Month Selector */}
+                    <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-mist shadow-sm">
+                        <Calendar className="w-4 h-4 text-accent-violet" />
+                        <select
+                            value={selectedMonth}
+                            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                            className="bg-transparent text-sm font-medium text-ink focus:outline-none cursor-pointer"
+                        >
+                            {[
+                                "January", "February", "March", "April", "May", "June",
+                                "July", "August", "September", "October", "November", "December"
+                            ].map((month, idx) => (
+                                <option key={idx} value={idx + 1}>{month}</option>
+                            ))}
+                        </select>
+                        <select
+                            value={selectedYear}
+                            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                            className="bg-transparent text-sm font-medium text-ink focus:outline-none cursor-pointer border-l pl-2 border-mist ml-1"
+                        >
+                            <option value={2024}>2024</option>
+                            <option value={2025}>2025</option>
+                            <option value={2026}>2026</option>
+                        </select>
+                    </div>
 
-
-                {/* Tabs */}
-                <div className="bg-white p-1 rounded-xl border border-mist flex gap-1 shadow-sm">
-                    <button
-                        onClick={() => setActiveTab('self')}
-                        className={`
+                    {/* Tabs */}
+                    <div className="bg-white p-1 rounded-xl border border-mist flex gap-1 shadow-sm">
+                        <button
+                            onClick={() => setActiveTab('self')}
+                            className={`
                             px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all
                             ${activeTab === 'self'
-                                ? 'bg-accent-violet text-white shadow-sm'
-                                : 'text-graphite hover:bg-paper'
-                            }
+                                    ? 'bg-accent-violet text-white shadow-sm'
+                                    : 'text-graphite hover:bg-paper'
+                                }
                         `}
-                    >
-                        <User className="w-4 h-4" />
-                        Self Assessment
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('manager')}
-                        className={`
+                        >
+                            <User className="w-4 h-4" />
+                            Self Assessment
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('manager')}
+                            className={`
                             px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all
                             ${activeTab === 'manager'
-                                ? 'bg-accent-violet text-white shadow-sm'
-                                : 'text-graphite hover:bg-paper'
-                            }
+                                    ? 'bg-accent-violet text-white shadow-sm'
+                                    : 'text-graphite hover:bg-paper'
+                                }
                         `}
-                    >
-                        <Users className="w-4 h-4" />
-                        Manager Review
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('ranking')}
-                        className={`
+                        >
+                            <Users className="w-4 h-4" />
+                            Manager Review
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('ranking')}
+                            className={`
                             px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all
                             ${activeTab === 'ranking'
-                                ? 'bg-accent-violet text-white shadow-sm'
-                                : 'text-graphite hover:bg-paper'
-                            }
+                                    ? 'bg-accent-violet text-white shadow-sm'
+                                    : 'text-graphite hover:bg-paper'
+                                }
                         `}
-                    >
-                        <Trophy className="w-4 h-4" />
-                        Ranking
-                    </button>
+                        >
+                            <Trophy className="w-4 h-4" />
+                            Ranking
+                        </button>
+                    </div>
                 </div>
             </header>
 
@@ -529,28 +600,35 @@ const ReviewPage = () => {
                             <div className="flex items-start gap-3">
                                 <AlertCircle className="w-5 h-5 text-accent-violet mt-0.5" />
                                 <div>
-                                    {reviewData?.development_skills ? (
+                                    {reviewData?.is_locked ? (
                                         <>
-                                            <h3 className="text-sm font-semibold text-ink">Assessment Completed</h3>
+                                            <h3 className="text-sm font-semibold text-ink">Assessment Locked</h3>
                                             <p className="text-sm text-graphite-light max-w-lg">
-                                                You have successfully submitted your self-assessment. The scores are now locked.
+                                                The review for this month has been finalized and locked by your manager.
+                                            </p>
+                                        </>
+                                    ) : reviewData?.development_skills ? (
+                                        <>
+                                            <h3 className="text-sm font-semibold text-ink">Update Assessment?</h3>
+                                            <p className="text-sm text-graphite-light max-w-lg">
+                                                You have already submitted your self-assessment for this month. You can still update it until it is finalized.
                                             </p>
                                         </>
                                     ) : (
                                         <>
                                             <h3 className="text-sm font-semibold text-ink">Ready to Submit?</h3>
                                             <p className="text-sm text-graphite-light max-w-lg">
-                                                Please ensure all ratings accurately reflect your current capabilities. This data will be used for your quarterly review.
+                                                Please ensure all ratings accurately reflect your current capabilities.
                                             </p>
                                         </>
                                     )}
                                 </div>
                             </div>
 
-                            {reviewData?.development_skills ? (
+                            {reviewData?.is_locked ? (
                                 <div className="px-6 py-3 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-2 cursor-default font-medium text-sm">
                                     <CheckCircle2 className="w-4 h-4" />
-                                    Assessment Submitted
+                                    Finalized
                                 </div>
                             ) : (
                                 <button
