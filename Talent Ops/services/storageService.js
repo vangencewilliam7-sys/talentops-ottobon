@@ -49,7 +49,11 @@ export const uploadFile = async ({ bucket, path, file }) => {
 
         const { error: uploadError } = await supabase.storage
             .from(bucket)
-            .upload(filePath, file, { cacheControl: '3600', upsert: false });
+            .upload(filePath, file, {
+                cacheControl: '3600',
+                upsert: false,
+                contentType: file.type || 'application/octet-stream'
+            });
 
         if (uploadError) throw uploadError;
 

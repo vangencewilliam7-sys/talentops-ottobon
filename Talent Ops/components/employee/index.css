@@ -145,15 +145,16 @@ button {
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 0 !important;
+  display: none !important;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: transparent !important;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--text-secondary);
+  background: transparent !important;
   border-radius: 4px;
-  opacity: 0.5;
+  opacity: 0 !important;
 }

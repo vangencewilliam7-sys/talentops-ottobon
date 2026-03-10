@@ -148,21 +148,22 @@ id,
         if (!userId) return;
 
         const channel = supabase
-            .channel(`message - notifs - ${userId} `)
+            .channel(`message-notifs-${userId}`)
             .on(
                 'postgres_changes',
                 {
                     event: 'INSERT',
                     schema: 'public',
                     table: 'notifications',
-                    filter: `receiver_id = eq.${userId} `
+                    filter: `receiver_id=eq.${userId}`
                 },
                 async (payload) => {
+                    console.log('🔔 Real-time notification received:', payload);
                     // Handle ALL Notification Types
                     // 1. Determine title and body based on type
                     let notifTitle = 'New Notification';
                     let notifBody = payload.new.message || 'You have a new update';
-                    let notifIcon = '/pwa-192x192.png';
+                    let notifIcon = null; // Use browser default since specified icons are missing
 
                     if (payload.new.type === 'message') {
                         // Message specific logic
@@ -241,6 +242,22 @@ id,
                         notifTitle = 'New Task Assigned';
                         notifBody = payload.new.message;
                         if (addToast) addToast(notifBody, 'info');
+                    } else if (payload.new.type === 'task_updated') {
+                        notifTitle = 'Task Updated';
+                        notifBody = payload.new.message;
+                        if (addToast) addToast(notifBody, 'info');
+                    } else if (payload.new.type === 'task_proof_submitted') {
+                        notifTitle = 'Proof Submitted';
+                        notifBody = payload.new.message;
+                        if (addToast) addToast(notifBody, 'info');
+                    } else if (payload.new.type === 'task_phase_approved') {
+                        notifTitle = 'Phase Approved';
+                        notifBody = payload.new.message;
+                        if (addToast) addToast(notifBody, 'success');
+                    } else if (payload.new.type === 'task_phase_rejected') {
+                        notifTitle = 'Phase Rejected';
+                        notifBody = payload.new.message;
+                        if (addToast) addToast(notifBody, 'warning');
                     } else if (payload.new.type === 'task_closed') {
                         notifTitle = 'Task Update';
                         notifBody = payload.new.message;
@@ -265,33 +282,8 @@ id,
                     // 2. System Notification (Always trigger if permission granted, regardless of focus)
                     // User requested "even though... it didn't blink".
                     // Explicitly triggering for visual feedback.
-                    // 2. System Notification (Always trigger if permission granted)
-                    // 2. System Notification
-                    if ('Notification' in window && Notification.permission === 'granted') {
-                        try {
-                            const senderName = payload.new.sender_name || 'User';
-                            const isMessage = payload.new.type === 'message';
-                            const systemTitle = isMessage ? `New Message from ${senderName} ` : notifTitle;
-                            const systemBody = isMessage ? `New message from ${senderName} ` : (notifBody || 'You have a new update');
-
-                            // Use basic notification (no CTA text) to match native style
-                            const notification = new Notification(systemTitle, {
-                                body: systemBody,
-                                icon: isMessage ? undefined : (notifIcon && notifIcon.startsWith('http') ? notifIcon : undefined),
-                                silent: false,
-                                requireInteraction: true
-                            });
-
-                            notification.onclick = function () {
-                                window.focus();
-                                this.close();
-                            };
-                        } catch (err) {
-                            console.error("System notification failed:", err);
-                        }
-                    } else if ('Notification' in window && Notification.permission !== 'denied') {
-                        console.log("Notification permission not granted yet:", Notification.permission);
-                    }
+                    // 2. Browser Notifications are handled separately by useBrowserNotification hook
+                    // to prevent duplicates.
 
 
                     // 3. Trigger Tab Blinking (via unreadCount or separate state?)
@@ -410,29 +402,15 @@ id,
     const sendQuickReply = async (conversationId, text) => {
         if (!userId || !conversationId || !text.trim()) return;
         try {
-            await sendMessage(conversationId, userId, text.trim());
+            // Get org_id from conversation
+            const { data: conv } = await supabase
+                .from('conversations')
+                .select('org_id')
+                .eq('id', conversationId)
+                .single();
 
-            // Get recipient from conversation
-            const { data: members } = await supabase
-                .from('conversation_members')
-                .select('user_id')
-                .eq('conversation_id', conversationId)
-                .neq('user_id', userId);
+            await sendMessage(conversationId, userId, text.trim(), [], conv?.org_id);
 
-            if (members?.length > 0) {
-                const { data: myProfile } = await supabase
-                    .from('profiles')
-                    .select('full_name')
-                    .eq('id', userId)
-                    .single();
-
-                const myName = myProfile?.full_name || 'Someone';
-
-                // Notify all other members
-                for (const member of members) {
-                    await sendNotification(member.user_id, userId, myName, text, 'message');
-                }
-            }
             return true;
         } catch (err) {
             console.error('Quick reply error:', err);

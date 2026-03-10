@@ -39,6 +39,8 @@ Deno.serve(async (req) => {
     // 2. Fetch Similar Task Context (SLM / RAG Lite)
     // We only fetch step titles to respect privacy (No PII)
     const { data: contextData } = await supabase.rpc('rpc_get_similar_task_context', {
+      p_title: title,
+      p_description: description,
       p_skill_tags: skills || [],
       p_limit: 3
     })

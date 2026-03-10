@@ -90,15 +90,23 @@ const Layout = ({ children }) => {
                     onMouseEnter={() => setIsCollapsed(false)}
                     onMouseLeave={() => setIsCollapsed(true)}
                 />
-                <div style={{
+                <div className="no-scrollbar" style={{
                     marginLeft: isCollapsed ? '70px' : '240px',
                     flex: 1,
                     display: 'flex',
                     flexDirection: 'column',
-                    transition: 'margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    overflowX: 'hidden',
+                    minWidth: 0
                 }}>
                     <Header />
-                    <main style={{ flex: 1, padding: location.pathname.includes('/messages') ? 0 : '1.5rem', backgroundColor: location.pathname.includes('/messages') ? '#ffffff' : 'var(--background)' }}>
+                    <main className="no-scrollbar" style={{
+                        flex: 1,
+                        overflowY: 'auto',
+                        overflowX: 'hidden',
+                        padding: location.pathname.includes('/messages') ? 0 : '1.5rem',
+                        backgroundColor: location.pathname.includes('/messages') ? '#ffffff' : 'var(--background)'
+                    }}>
                         {children}
                     </main>
                     <Chatbot />

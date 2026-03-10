@@ -12,6 +12,7 @@ import ActiveStatusDot from '../../shared/ActiveStatusDot';
 import AIAssistantPopup from '../../shared/AIAssistantPopup';
 import RiskBadge from '../../shared/RiskBadge';
 import { riskService } from '../../../services/modules/risk';
+import { calculateElapsedBusinessHours } from '../../../lib/businessHoursUtils';
 
 const LIFECYCLE_PHASES = [
     { key: 'requirement_refiner', label: 'Requirement Refiner', short: 'Req' },
@@ -98,8 +99,9 @@ const MyTasksPage = () => {
     const checkMyRisks = async () => {
         // Only analyze tasks that are actually in the current view (filtered)
         const activeTasks = filteredTasks.filter(t =>
-            t.lifecycle_state !== 'closed' &&
             t.status !== 'completed' &&
+            t.status !== 'archived' &&
+            t.status !== 'cancelled' &&
             !checkedRiskTaskIds.has(t.id)
         );
 
@@ -119,7 +121,7 @@ const MyTasksPage = () => {
 
             // B. Allocation vs Elapsed Check (Internal Math)
             const startedAt = t.started_at ? new Date(t.started_at) : new Date(t.created_at);
-            const elapsedHours = (now - startedAt) / (1000 * 60 * 60);
+            const elapsedHours = calculateElapsedBusinessHours(startedAt, now);
             const isOverAllocated = t.allocated_hours > 0 && elapsedHours > t.allocated_hours;
 
             // C. Micro-task Urgency
@@ -151,7 +153,14 @@ const MyTasksPage = () => {
                             role: 'employee',
                             is_micro_task: isMicroTask
                         });
-                        snapshot = result.analysis;
+
+                        // Merge metrics (numbers) and analysis (logic/text) into the snapshot state
+                        snapshot = {
+                            ...(result.analysis || {}),
+                            ...(result.metrics || {}),
+                            snapshot_id: result.snapshotId
+                        };
+
                         setRiskSnapshots(prev => ({ ...prev, [task.id]: snapshot }));
                     }
 
@@ -667,11 +676,11 @@ const MyTasksPage = () => {
                         color = '#10b981'; // All green when task is completed
                     } else if (idx < currentIndex) {
                         // Past Phase
-                        if (status === 'approved' || (!status && hasProof)) {
+                        if (status === 'approved') {
                             color = '#10b981'; // Green = Approved
                         } else if (status === 'rejected') {
                             color = '#ef4444'; // Red = Rejected
-                        } else if (status === 'pending' && hasProof) {
+                        } else if (hasProof) {
                             color = '#f59e0b'; // Yellow = Has proof, awaiting review
                         }
                         // else stays grey (no proof submitted)
@@ -706,7 +715,7 @@ const MyTasksPage = () => {
                                 {color === '#10b981' ? '✓' : phase.short.charAt(0)}
                             </div>
                             {idx < filteredPhases.length - 1 && (
-                                <div style={{ width: '12px', height: '2px', backgroundColor: idx < currentIndex ? '#10b981' : '#e5e7eb' }} />
+                                <div style={{ width: '12px', height: '2px', backgroundColor: (color === '#10b981' || color === '#f59e0b' || color === '#ef4444') ? color : '#e5e7eb' }} />
                             )}
                         </React.Fragment>
                     );
@@ -1241,6 +1250,7 @@ const MyTasksPage = () => {
                                         <td style={{ padding: '16px' }}>
                                             <RiskBadge
                                                 riskLevel={riskSnapshots[task.id]?.risk_level}
+                                                delayHours={riskSnapshots[task.id]?.delay_hours || riskSnapshots[task.id]?.predicted_delay_hours}
                                                 showLabel={false}
                                                 size="sm"
                                                 onClick={() => handleShowRiskAnalysis(task.id, task.title)}

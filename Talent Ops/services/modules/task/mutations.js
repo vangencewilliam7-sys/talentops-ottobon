@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabaseClient';
 import { calculateDueDateTime } from '../../../lib/businessHoursUtils';
+import { sendNotification, sendBulkNotifications } from '../../notificationService';
 
 /**
  * Task Mutations
@@ -24,15 +25,16 @@ export const requestTaskAccess = async (taskId, orgId, reason, currentUserId, as
 
     // Notify Manager
     if (assignedByUserId) {
-        await supabase.from('notifications').insert({
-            receiver_id: assignedByUserId,
-            sender_id: currentUserId,
-            message: `Access requested for task: ${taskTitle}`,
-            type: 'access_requested',
-            is_read: false,
-            created_at: new Date().toISOString(),
-            org_id: orgId
-        });
+        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', currentUserId).single();
+        const senderName = profile?.full_name || 'Someone';
+
+        await sendNotification(
+            assignedByUserId,
+            currentUserId,
+            senderName,
+            `Access requested for task: ${taskTitle}`,
+            'access_requested'
+        );
     }
     return true;
 };
@@ -67,8 +69,30 @@ export const resolveTaskIssue = async (task, user, orgId) => {
 };
 
 export const updateTask = async (taskId, updates) => {
+    // Fetch task to get assignee and title before update
+    const { data: task } = await supabase
+        .from('tasks')
+        .select('assigned_to, assigned_by, title')
+        .eq('id', taskId)
+        .single();
+
     const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
     if (error) throw error;
+
+    // Notify Assignee of the update
+    if (task && task.assigned_to) {
+        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', task.assigned_by || '').single();
+        const senderName = profile?.full_name || 'Manager';
+
+        await sendNotification(
+            task.assigned_to,
+            task.assigned_by || '',
+            senderName,
+            `Task updated: ${task.title}`,
+            'task_updated'
+        );
+    }
+
     return true;
 };
 
@@ -216,17 +240,16 @@ export const createTask = async ({
             }
 
             // Notifications for multi
-            const notifications = tasksToInsert.map(task => ({
-                receiver_id: task.assigned_to,
-                sender_id: user.id,
-                sender_name: senderName,
-                message: `New task assigned: ${task.title}`,
-                type: 'task_assigned',
-                is_read: false,
-                created_at: new Date().toISOString(),
-                org_id: orgId
-            }));
-            await supabase.from('notifications').insert(notifications);
+            const assigneeIds = tasksToInsert.map(t => t.assigned_to).filter(Boolean);
+            if (assigneeIds.length > 0) {
+                await sendBulkNotifications(
+                    assigneeIds,
+                    user.id,
+                    senderName,
+                    `New task assigned: ${newTask.title}`,
+                    'task_assigned'
+                );
+            }
 
             return createdMultiTasks;
 
@@ -292,29 +315,22 @@ export const createTask = async ({
             // Send Notifications
             try {
                 if (newTask.assignType === 'individual' && newTask.assignedTo) {
-                    await supabase.from('notifications').insert({
-                        receiver_id: newTask.assignedTo,
-                        sender_id: user.id,
-                        sender_name: senderName,
-                        message: `New task assigned: ${newTask.title}`,
-                        type: 'task_assigned',
-                        is_read: false,
-                        created_at: new Date().toISOString(),
-                        org_id: orgId
-                    });
+                    await sendNotification(
+                        newTask.assignedTo,
+                        user.id,
+                        senderName,
+                        `New task assigned: ${newTask.title}`,
+                        'task_assigned'
+                    );
                 } else if (newTask.assignType === 'team' && employees.length > 0) {
-                    // Filter logic for notifications should ideally be here or passed in
-                    const notifications = employees.map(emp => ({
-                        receiver_id: emp.id,
-                        sender_id: user.id,
-                        sender_name: senderName,
-                        message: `New team task created: ${newTask.title}`,
-                        type: 'task_assigned',
-                        is_read: false,
-                        created_at: new Date().toISOString(),
-                        org_id: orgId
-                    }));
-                    await supabase.from('notifications').insert(notifications);
+                    const empIds = employees.map(e => e.id);
+                    await sendBulkNotifications(
+                        empIds,
+                        user.id,
+                        senderName,
+                        `New team task created: ${newTask.title}`,
+                        'task_assigned'
+                    );
                 }
             } catch (notifyError) {
                 console.error('Error sending notification:', notifyError);

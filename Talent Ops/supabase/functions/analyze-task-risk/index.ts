@@ -43,7 +43,9 @@ Deno.serve(async (req) => {
         - Allocated Time: ${metrics.allocated_hours * 60} minutes
         - Time Already Spent: ${Math.round(metrics.elapsed_hours * 60)} minutes
         - Completion: ${Math.round((metrics.progress_ratio || 0) * 100)}%
-        - Threat Level: ${metrics.base_risk_level}
+        - Expected Completion by now: ${Math.round((metrics.expected_progress || 0) * 100)}%
+        - Current Velocity: ${metrics.velocity} points/hour
+        - Threat Level: ${metrics.risk_level || metrics.base_risk_level}
         - Is Micro-task: ${!!employeeContext?.is_micro_task}
         `
 

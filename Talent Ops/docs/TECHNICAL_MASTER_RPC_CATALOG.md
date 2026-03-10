@@ -1,108 +1,98 @@
-# Technical Master: RPC Catalog & Implementation
+# Technical Master: TalentOps Logic Layer & RPC Catalog
 
-## Technical Overview
-This document serves as the comprehensive technical reference for the Remote Procedure Calls (RPCs) that power the TalentOps backend. It details the server-side logic, security constraints, and data flows for every major module.
+## 🏗️ Architectural Core: Logical Integrity
+TalentOps operates on a **Logic-Authoritative** model. The database is the **CPU** of the organization's business rules.
 
----
-
-## 🚀 The Global Pattern: End-to-End Data Flow
-To maintain a high-performance and secure system, every module follows a standardized **"Request-Execute-Respond"** pipeline:
-
-1.  **Frontend (React/UI):** The component triggers an action (e.g., `attendanceService.clockIn()`). It contains **zero** business logic; it only knows "what" it wants to achieve.
-2.  **Payload (Supabase Client):** The service layer calls `supabase.rpc('function_name', { params })`. Authentication is handled via JWT, which the database resolves to `auth.uid()`.
-3.  **Engine (PostgreSQL RPC):** The database function (marked `SECURITY DEFINER`) executes the logic:
-    - **Identity:** Verifies the user via `auth.uid()`.
-    - **Validation:** Ensures data types and business constraints are met.
-    - **Transaction:** Performs atomic updates across multiple tables (e.g., Inserting a record + updating a status).
-4.  **Sync (JSON Response):** The RPC returns a clean JSON object `{ "success": true, "data": {...} }`. The UI then uses a simple `setState` to display the new reality from the database.
+### **The Global Pattern**
+1. **Request**: UI calls `supabase.rpc('function_name', { params })`.
+2. **Identity**: `SECURITY DEFINER` + `auth.uid()` ensures zero-bypass authentication.
+3. **Execution**: PL/pgSQL Atomic Transactions.
+4. **Resolution**: Structured JSON return `{ "success": boolean, "data": jsonb, "error": text }`.
 
 ---
 
-## 📅 1. Attendance & Session Module
-**Goal:** Centralize time-keeping and prevent session conflicts.
+## 📅 1. Attendance & High-Integrity Timekeeping
+**Goal**: Prevent clock-masking and session fraud.
 
-### `clock_in()`
-- **Logic:** Ensures the user doesn't already have an open session (`check_out IS NULL`) for today. 
-- **Security:** Hard-coded to the caller's `auth.uid()`.
+### `clock_in()` & `clock_out()`
+- **Signature**: `RETURNS json` | `SECURITY DEFINER`
+- **Logic**: 
+  - Validates `auth.uid()` against existing open sessions (`check_out IS NULL`).
+  - Injects server-side `NOW()` to prevent client clock manipulation.
+  - Automatically normalizes to **IST (Asia/Kolkata)**.
+
+---
+
+## 📊 2. Task Lifecycle & Points Engine
+**Goal**: Move tasks through a strictly audited pipeline with automated merit rewards.
+
+### `trg_calculate_points()` (Trigger)
+- **Source**: [calculate_task_points.sql](file:///c:/Users/vardh/OneDrive/Desktop/t-ops/talentops-ottobon/Talent%20Ops/triggers/calculate_task_points.sql)
+- **Logic Breakdown**:
+  1. **Early Completion**: `Bonus = (Allocated - Actual) * Base_Rate`.
+  2. **Late Completion**: `Penalty = (Actual - Allocated) * Penalty_Rate`.
+  3. **Immutability**: Once `actual_hours` is inserted, the `final_points` are locked.
+- **SQL Snippet**:
 ```sql
-CREATE OR REPLACE FUNCTION clock_in()
-RETURNS json LANGUAGE plpgsql SECURITY DEFINER AS $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM attendance WHERE employee_id = auth.uid() AND check_out IS NULL AND date = CURRENT_DATE) THEN
-        RETURN json_build_object('success', false, 'error', 'Already clocked in.');
-    END IF;
-
-    INSERT INTO attendance (employee_id, date, check_in, status)
-    VALUES (auth.uid(), CURRENT_DATE, NOW(), 'present');
-
-    RETURN json_build_object('success', true);
-END;
-$$;
+v_hours_diff := v_allocated_hours - v_actual_hours;
+v_bonus_pts := v_hours_diff * COALESCE(v_points_per_hour, 0);
+v_final_pts := v_total_points + v_bonus_pts;
 ```
 
----
-
-## 👤 2. User Profile Module
-**Goal:** Securely manage PII (Personal Identifiable Information).
-
-### `update_my_profile(p_phone, p_location, p_avatar_url)`
-- **Logic:** Allows modification of "safe" fields only. 
-- **Security:** Prevents tampering with sensitive fields like `role`, `department`, or `salary`.
-```sql
-CREATE OR REPLACE FUNCTION update_my_profile(p_phone text, p_location text, p_avatar_url text)
-RETURNS json LANGUAGE plpgsql SECURITY DEFINER AS $$
-BEGIN
-    UPDATE public.profiles
-    SET phone = p_phone, location = p_location, avatar_url = COALESCE(p_avatar_url, avatar_url)
-    WHERE id = auth.uid();
-    RETURN json_build_object('success', true);
-END;
-$$;
-```
+### `handle_task_lifecycle(p_task_id, p_action, p_payload)`
+- **The Engine**: Orchestrates transitions between `Backlog` -> `In Progress` -> `Validation Pending` -> `Approved/Rejected`.
+- **RBAC**: Ensures only assigned employees can submit proof, and only managers/leads can approve.
 
 ---
 
-## 💰 3. Payroll & Finance Engine
-**Goal:** Industrial-scale financial batch processing.
+## 🤖 3. AI Planning & Risk Engine: Contextual Inference
+**Goal**: Use mathematical projection to trigger proactive human intervention.
 
-### `generate_monthly_payroll(p_month_str, p_total_working_days)`
-- **Logic:** Loops through every active employee in the organization, joins their financial records, calculates pro-rata deductions for LOP (Loss of Pay), and inserts official payslips.
-- **RBAC:** Strictly limited to `executive`, `manager`, or `admin` roles.
+### `rpc_compute_task_risk_metrics(p_task_id)`
+- **Source**: [fix_ai_progress_metrics.sql](file:///c:/Users/vardh/OneDrive/Desktop/t-ops/talentops-ottobon/Talent%20Ops/fix_ai_progress_metrics.sql)
+- **Math Logic**:
+  - `v_progress_ratio := v_steps_completed::numeric / v_total_steps` (if steps exist).
+  - **Fallback**: Parses `phase_validations` JSONB array to count `'approved'` keys.
+  - `v_predicted_total := v_elapsed_hours / v_progress_ratio`.
+  - `v_predicted_delay := GREATEST(0, v_predicted_total - v_task.allocated_hours)`.
+
+### `rpc_bulk_save_task_plan(p_task_id, p_steps, p_ai_metadata)`
+- **Source**: [feature_ai_planning_migration.sql](file:///c:/Users/vardh/OneDrive/Desktop/t-ops/talentops-ottobon/Talent%20Ops/feature_ai_planning_migration.sql)
+- **Transactional Atomicity**:
+  1. Updates `tasks.ai_metadata`.
+  2. Loops through `p_steps` array and `INSERT`s into `task_steps`.
+  3. Bulk-updates `tasks.allocated_hours` and `tasks.task_points` (`Hours * 10`) in a single statement.
+
+---
+
+## 💰 4. Atomic Payroll & Financial Accuracy
+**Goal**: 100% precision in organization-wide disbursements.
+
+### `generate_monthly_payroll(p_month, p_working_days)`
+- **Source**: [rpc_generate_monthly_payroll.sql](file:///c:/Users/vardh/OneDrive/Desktop/t-ops/talentops-ottobon/Talent%20Ops/rpc_generate_monthly_payroll.sql)
+- **Core Loop**:
 ```sql
-FOR v_emp IN SELECT ... FROM profiles LEFT JOIN employee_finance ...
+FOR v_emp IN SELECT id, basic_salary... FROM profiles LEFT JOIN employee_finance...
 LOOP
-    v_gross := v_emp.basic_salary + v_emp.hra + v_emp.allowances;
-    v_net := v_gross - v_lop_deduction - v_prof_tax;
-    INSERT INTO payroll (..., net_salary, status, ...)
-    VALUES (..., v_net, 'generated', ...);
+    v_daily_rate := (v_basic + v_hra + v_allowances) / 30;
+    v_lop_deduction := v_daily_rate * v_lop_days;
+    v_net_salary := v_gross - v_lop_deduction - v_prof_tax;
+    INSERT INTO payroll (...) VALUES (...);
 END LOOP;
 ```
 
 ---
 
-## 🤖 4. AI Risk & Productivity Module
-**Goal:** Context-aware task progress monitoring.
+## 🏥 5. Leave & Availability Management
+**Goal**: Enforce strict bucket limits and prevent double-booking.
 
-### `rpc_compute_task_risk_metrics(p_task_id)`
-- **Logic:** Calculates task progress by looking at both **granular checklist steps** AND **high-level lifecycle phases**. It fixes the status mismatch by looking for `'completed'` instead of `'done'`.
-```sql
--- Step Progress
-SELECT count(*), count(*) FILTER (WHERE status = 'completed') 
-INTO v_total_steps, v_steps_completed FROM task_steps;
-
--- Phase Progress (Fallback)
-IF v_total_steps = 0 THEN
-    v_progress_ratio := v_completed_phases / v_active_phases;
-END IF;
-```
-
-### `rpc_insert_task_risk_snapshot`
-- **Logic:** Saves LLM insights and automatically triggers **Cross-Role Notifications** (e.g., alerting a manager if AI detects 'High Risk').
+### `apply_leave(p_from, p_to, p_reason)`
+- **Logical Guard**: Uses the PostgreSQL `OVERLAPS` operator to check against existing pending/approved requests.
+- **Auto-Sync**: If approved via `approve_leave()`, it atomically updates the `attendance` status for those dates.
 
 ---
 
-## 📢 5. Announcements Module
-**Goal:** Automated broadcast system.
-
-### `create_announcement_event`
-- **Logic:** Inserts an announcement and uses a SQL trigger/loop to instantly bulk-insert notifications for every relevant team member (Org-wide or Team-specific).
+## 🔒 Security Protocol
+1. **Zero-Trust Identity**: `auth.uid()` is used within the function, never passed from React.
+2. **Multi-Tenancy**: `WHERE org_id = (SELECT org_id FROM profiles WHERE id = auth.uid())` is a mandatory filter for EVERY query.
+3. **Escalation**: Uses `SECURITY DEFINER` to bypass RLS for critical system updates (like points or payroll) while maintaining audit trails.

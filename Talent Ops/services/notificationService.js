@@ -7,26 +7,30 @@ import { supabase } from '../lib/supabaseClient';
  * @param {string} senderName - Name of the sender
  * @param {string} message - Notification message
  * @param {string} type - Type of notification (task_assigned, announcement, leave_request, etc.)
+ * @param {string} [orgId] - Optional ID of the organization the notification belongs to.
  * @returns {Promise<void>}
  */
-export const sendNotification = async (receiverId, senderId, senderName, message, type) => {
+export const sendNotification = async (receiverId, senderId, senderName, message, type, orgId = null) => {
     try {
+        const payload = {
+            receiver_id: receiverId,
+            sender_id: senderId,
+            sender_name: senderName,
+            message: message,
+            type: type,
+            is_read: false,
+            created_at: new Date().toISOString()
+        };
+
+        if (orgId) payload.org_id = orgId;
+
         const { error } = await supabase
             .from('notifications')
-            .insert({
-                receiver_id: receiverId,
-                sender_id: senderId,
-                sender_name: senderName,
-                message: message,
-                type: type,
-                is_read: false,
-                created_at: new Date().toISOString()
-            });
+            .insert(payload);
 
         if (error) throw error;
     } catch (error) {
         console.error('Error sending notification:', error);
-        // Don't throw - notifications failing shouldn't break the main flow
     }
 };
 
@@ -37,9 +41,10 @@ export const sendNotification = async (receiverId, senderId, senderName, message
  * @param {string} senderName - Name of the sender
  * @param {string} message - Notification message
  * @param {string} type - Type of notification
+ * @param {string} [orgId] - Optional ID of the organization the notifications belong to.
  * @returns {Promise<void>}
  */
-export const sendBulkNotifications = async (receiverIds, senderId, senderName, message, type) => {
+export const sendBulkNotifications = async (receiverIds, senderId, senderName, message, type, orgId = null) => {
     try {
         const notifications = receiverIds.map(receiverId => ({
             receiver_id: receiverId,
@@ -48,6 +53,7 @@ export const sendBulkNotifications = async (receiverIds, senderId, senderName, m
             message: message,
             type: type,
             is_read: false,
+            org_id: orgId,
             created_at: new Date().toISOString()
         }));
 
@@ -58,7 +64,6 @@ export const sendBulkNotifications = async (receiverIds, senderId, senderName, m
         if (error) throw error;
     } catch (error) {
         console.error('Error sending bulk notifications:', error);
-        // Don't throw - notifications failing shouldn't break the main flow
     }
 };
 

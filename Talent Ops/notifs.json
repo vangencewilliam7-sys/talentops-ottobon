@@ -1,0 +1,67 @@
+[
+  {
+    "id": "52423d33-23df-4994-b7f6-b90e25299d50",
+    "receiver_id": "aa54fc4d-9f0b-4a04-a124-2bd95abe7c23",
+    "sender_id": null,
+    "type": "ai_risk_alert",
+    "message": "AI ALERT: High risk for \"1)Development Skills -Non- popular LLMs, Content Generation 2)Soft Skills-Communication, Abstract thinking\"",
+    "data": null,
+    "is_read": true,
+    "created_at": null,
+    "receiver_name": "Gitika Senthil",
+    "sender_name": null,
+    "org_id": "dde0a075-5eb3-4b4b-8de3-0a6b1162951f"
+  },
+  {
+    "id": "8da63cb4-1dca-41e6-92e4-f3e0678a92a7",
+    "receiver_id": "aa54fc4d-9f0b-4a04-a124-2bd95abe7c23",
+    "sender_id": null,
+    "type": "ai_risk_alert",
+    "message": "AI ALERT: High risk for \"1)Development Skills -Databases and Infrastructure 2) Soft Skills -Learnability, Abstract Thinking\"",
+    "data": null,
+    "is_read": true,
+    "created_at": null,
+    "receiver_name": "Gitika Senthil",
+    "sender_name": null,
+    "org_id": "dde0a075-5eb3-4b4b-8de3-0a6b1162951f"
+  },
+  {
+    "id": "e3aafb47-771c-4b16-8c7d-20b1d7880d3f",
+    "receiver_id": "aa54fc4d-9f0b-4a04-a124-2bd95abe7c23",
+    "sender_id": null,
+    "type": "ai_risk_alert",
+    "message": "AI ALERT: High risk for \"1)Development Skills -Databases and Infrastructure 2) Soft Skills -Learnability, Abstract Thinking\"",
+    "data": null,
+    "is_read": true,
+    "created_at": null,
+    "receiver_name": "Gitika Senthil",
+    "sender_name": null,
+    "org_id": "dde0a075-5eb3-4b4b-8de3-0a6b1162951f"
+  },
+  {
+    "id": "de36446b-7d55-4a14-9271-e97660f75875",
+    "receiver_id": "aa54fc4d-9f0b-4a04-a124-2bd95abe7c23",
+    "sender_id": null,
+    "type": "ai_risk_alert",
+    "message": "AI ALERT: High risk for \"1)Development Skills -Frontend, Non-Popular LLMs 2) Soft Skills -Ambitious, First Principle, Second-Order Thinking.\"",
+    "data": null,
+    "is_read": true,
+    "created_at": null,
+    "receiver_name": "Gitika Senthil",
+    "sender_name": null,
+    "org_id": "dde0a075-5eb3-4b4b-8de3-0a6b1162951f"
+  },
+  {
+    "id": "9d32e928-d34e-4785-8bce-5584a7086ed2",
+    "receiver_id": "aa54fc4d-9f0b-4a04-a124-2bd95abe7c23",
+    "sender_id": null,
+    "type": "ai_risk_alert",
+    "message": "AI ALERT: High risk for \"1)Development Skills -Prompting, Non popular LLMs 2) Soft Skills -Second order thinking, Accountability\"",
+    "data": null,
+    "is_read": true,
+    "created_at": null,
+    "receiver_name": "Gitika Senthil",
+    "sender_name": null,
+    "org_id": "dde0a075-5eb3-4b4b-8de3-0a6b1162951f"
+  }
+]

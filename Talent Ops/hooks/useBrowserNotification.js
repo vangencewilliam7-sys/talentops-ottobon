@@ -73,12 +73,18 @@ export const useBrowserNotification = (userId, onNewNotification = null) => {
                         const body = newNotification.message || 'You have received a new notification';
 
                         try {
+                            // Play sound
+                            const audio = new Audio('/sound.mp3');
+                            audio.play().catch(e => console.log('Audio play failed', e));
+
                             // Create notification
                             const notification = new Notification(title, {
                                 body: body,
-                                icon: '/favicon.ico', // Assuming a favicon exists, otherwise browser default
-                                tag: newNotification.id, // prevent duplicates if needed
-                                requireInteraction: false // Changed to false to avoid annoying sticky notifications
+                                icon: null,
+                                tag: newNotification.id, // prevents duplicates across tabs/calls
+                                silent: true, // silences the native browser chime
+                                renotify: true, // play sound/alert even if replacing a notification
+                                requireInteraction: true
                             });
 
                             // Optional: Focus window on click

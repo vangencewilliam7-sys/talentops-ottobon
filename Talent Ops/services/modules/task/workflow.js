@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabaseClient';
 import { uploadMultipleFiles } from '../../storageService';
+import { sendNotification } from '../../notificationService';
 
 /**
  * Task Workflow
@@ -224,6 +225,18 @@ export const submitTaskProof = async ({
             // Non-fatal
         }
 
+        // ── 10. Send Notification to Assigner ──
+        if (task.assigned_by) {
+            const senderName = user.user_metadata?.full_name || user.email || 'Employee';
+            await sendNotification(
+                task.assigned_by,
+                user.id,
+                senderName,
+                `Proof submitted for task: ${task.title} (Phase: ${currentPhase})`,
+                'task_proof_submitted'
+            );
+        }
+
         return { updatedValidations, pointData };
 
     } catch (error) {
@@ -415,6 +428,20 @@ export const approveTaskPhase = async (task, phaseKey, orgId) => {
         await supabase.from('tasks').update({ status: 'completed' }).eq('id', task.id).eq('org_id', orgId);
     }
 
+    // ── Send Notification to Assignee ──
+    if (task.assigned_to) {
+        const { data: managerProfile } = await supabase.from('profiles').select('full_name').eq('id', task.assigned_by || '').single();
+        const managerName = managerProfile?.full_name || 'Manager';
+
+        await sendNotification(
+            task.assigned_to,
+            task.assigned_by || '',
+            managerName,
+            `Phase "${phaseKey}" approved for task: ${task.title}`,
+            'task_phase_approved'
+        );
+    }
+
     return { updatedValidations, newSubState, isCompleted: isLastPhaseApproved };
 };
 
@@ -439,6 +466,21 @@ export const rejectTaskPhase = async (task, phaseKey, orgId) => {
     };
 
     await supabase.from('tasks').update(updates).eq('id', task.id).eq('org_id', orgId);
+
+    // ── Send Notification to Assignee ──
+    if (task.assigned_to) {
+        const { data: managerProfile } = await supabase.from('profiles').select('full_name').eq('id', task.assigned_by || '').single();
+        const managerName = managerProfile?.full_name || 'Manager';
+
+        await sendNotification(
+            task.assigned_to,
+            task.assigned_by || '',
+            managerName,
+            `Phase "${phaseKey}" rejected for task: ${task.title}. Please review feedback.`,
+            'task_phase_rejected'
+        );
+    }
+
     return updatedValidations;
 };
 

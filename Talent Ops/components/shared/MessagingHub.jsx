@@ -329,7 +329,8 @@ const MessagingHub = () => {
 
             const newMessage = await sendMessageWithReply(
                 targetConversationId, content.trim(), currentUserId,
-                replyingTo?.id || null, replyingTo?.content || null, replyingTo?.sender_name || null
+                replyingTo?.id || null, replyingTo?.content || null, replyingTo?.sender_name || null,
+                currentUserOrgId
             );
 
             if (attachmentFiles.length > 0) {
@@ -340,19 +341,6 @@ const MessagingHub = () => {
                 }
             }
 
-            // Send notifications
-            try {
-                if (currentMembers.length > 0) {
-                    const currentProfile = orgUsers.find(u => u.id === currentUserId);
-                    const senderName = currentProfile?.full_name || 'Someone';
-                    const recipients = currentMembers.filter(m => (m.id || m.user_id) !== currentUserId).map(m => m.id || m.user_id);
-                    if (recipients.length > 0) {
-                        sendNotification(recipients, `New message in ${selectedConversation.name || 'chat'}`, `${senderName}: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`, '/messages', { conversationId: targetConversationId });
-                    }
-                }
-            } catch (notifError) {
-                console.error('Error sending notifications:', notifError);
-            }
 
             setReplyingTo(null);
             setMessages(prev => [...prev, newMessage]);
@@ -367,7 +355,7 @@ const MessagingHub = () => {
     const handleSendPoll = async (question, options, allowMultiple) => {
         try {
             setLoading(true);
-            const newMessage = await sendPoll(selectedConversation.id, currentUserId, question.trim(), options, allowMultiple);
+            const newMessage = await sendPoll(selectedConversation.id, currentUserId, question.trim(), options, allowMultiple, currentUserOrgId);
             setMessages(prev => [...prev, newMessage]);
             loadConversations();
         } catch (error) {

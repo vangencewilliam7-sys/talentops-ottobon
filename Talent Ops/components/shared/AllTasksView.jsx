@@ -5,7 +5,7 @@ import { supabaseRequest } from '../../lib/supabaseRequest';
 import { useProject } from '../employee/context/ProjectContext';
 import SkillBadgeIndicator from './SkillBadgeIndicator';
 import TaskSkillsSection from './TaskSkillsSection';
-import { calculateDueDateTime } from '../../lib/businessHoursUtils';
+import { calculateDueDateTime, calculateElapsedBusinessHours } from '../../lib/businessHoursUtils';
 import TaskNotesModal from './TaskNotesModal';
 import TaskDetailOverlay from '../employee/components/UI/TaskDetailOverlay';
 import { taskService } from '../../services/modules/task';
@@ -67,6 +67,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
     const [editTaskSteps, setEditTaskSteps] = useState([]);
     const [loadingSteps, setLoadingSteps] = useState(false);
     const [newStepInputs, setNewStepInputs] = useState({}); // { phaseKey: { title: '', hours: 2 } }
+    const [savingEdit, setSavingEdit] = useState(false);
 
     // Proof Submission State
     const [showProofModal, setShowProofModal] = useState(false);
@@ -281,10 +282,26 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
 
 
     const handleEditTask = async (task) => {
+        // Ensure dates are in YYYY-MM-DD for standard HTML5 inputs
+        const formatDate = (dateStr) => {
+            if (!dateStr) return '';
+            if (dateStr.includes('/')) {
+                const [d, m, y] = dateStr.split('/');
+                return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+            }
+            return dateStr;
+        };
+
         setEditingTask({
             ...task,
+            start_date: formatDate(task.start_date),
+            due_date: formatDate(task.due_date),
+            start_time: task.start_time || '09:00:00',
+            due_time: task.due_time || '18:00:00',
             skills: task.skills || [],
-            requiredPhases: task.phase_validations?.active_phases || []
+            requiredPhases: task.phase_validations?.active_phases || [],
+            assignType: 'individual', // Default to individual edit
+            selectedAssignees: [task.assigned_to] // Current person pre-selected
         });
         setShowEditModal(true);
         // Fetch Steps
@@ -328,39 +345,69 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
         if (!window.confirm('Delete this step?')) return;
         try {
             await taskService.deleteTaskStep(stepId);
-            setEditTaskSteps(editTaskSteps.filter(s => s.id !== stepId));
+            setEditTaskSteps(prev => prev.filter(s => s.id !== stepId));
             addToast?.('Step deleted', 'success');
         } catch (error) {
             addToast?.('Failed to delete step', 'error');
         }
     };
 
-    const handleSaveEdit = async () => {
-        if (!editingTask) return;
+    const handleUpdateStepInline = async (stepId, updates) => {
         try {
-            const allocatedHrs = parseFloat(editingTask.allocated_hours) || 0;
+            const updated = await taskService.updateTaskStep(stepId, updates);
+            setEditTaskSteps(prev => prev.map(s => s.id === stepId ? updated : s));
+        } catch (error) {
+            addToast?.('Failed to update step', 'error');
+        }
+    };
 
-            // Recalculate due date/time based on new allocated hours and start date
-            const startDateStr = `${editingTask.start_date}T${editingTask.start_time || '09:00:00'}`;
-            const { dueDate, dueTime } = calculateDueDateTime(new Date(startDateStr), allocatedHrs);
+    const handleEditDateChange = (field, value) => {
+        setEditingTask(prev => {
+            const next = { ...prev, [field]: value };
+            if (next.start_date && next.start_time && next.due_date && next.due_time) {
+                const start = new Date(`${next.start_date}T${next.start_time}`);
+                const end = new Date(`${next.due_date}T${next.due_time}`);
+                if (end > start) {
+                    const hours = calculateElapsedBusinessHours(start, end);
+                    next.allocated_hours = Math.round(hours * 100) / 100;
+                }
+            }
+            return next;
+        });
+    };
 
+    const handleEditHoursChange = (hours) => {
+        setEditingTask(prev => {
+            const next = { ...prev, allocated_hours: hours };
+            if (next.start_date && next.start_time && parseFloat(hours) > 0) {
+                const start = new Date(`${next.start_date}T${next.start_time}`);
+                const result = calculateDueDateTime(start, parseFloat(hours));
+                next.due_date = result.dueDate;
+                next.due_time = result.dueTime.slice(0, 5); // Format HH:MM
+            }
+            return next;
+        });
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingTask || savingEdit) return;
+        setSavingEdit(true);
+        try {
             const updates = {
                 title: editingTask.title,
                 description: editingTask.description,
-                allocated_hours: allocatedHrs,
-                assigned_to: editingTask.assigned_to || null,
+                allocated_hours: parseFloat(editingTask.allocated_hours) || 0,
+                assigned_to: editingTask.assignType === 'individual' ? editingTask.assigned_to : editingTask.assigned_to,
                 start_date: editingTask.start_date,
                 start_time: editingTask.start_time,
-                due_date: dueDate,
-                due_time: dueTime,
+                due_date: editingTask.due_date,
+                due_time: editingTask.due_time,
                 priority: editingTask.priority,
                 status: editingTask.status,
                 skills: editingTask.skills,
             };
 
-            // If requiredPhases is present (for managers), we update the validations structure
             if (editingTask.requiredPhases) {
-                // Clone existing validations or create new
                 const currentValidations = editingTask.phase_validations || {};
                 updates.phase_validations = {
                     ...currentValidations,
@@ -368,12 +415,61 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                 };
             }
 
+            // 1. Update the original task
             await handleUpdateTask(editingTask.id, updates);
+
+            // 2. Handle adding "more people" (Multi-Assignment during Edit)
+            let otherAssignees = [];
+            if (editingTask.assignType === 'multi') {
+                otherAssignees = editingTask.selectedAssignees.filter(id => id !== editingTask.assigned_to);
+            } else if (editingTask.assignType === 'team') {
+                otherAssignees = employees.map(e => e.id).filter(id => id !== editingTask.assigned_to);
+            }
+
+            if (otherAssignees.length > 0) {
+                const senderName = currentUser?.user_metadata?.full_name || currentUser?.email || 'Manager';
+                const taskStepsToAdd = {};
+                editTaskSteps.forEach(s => {
+                    if (!taskStepsToAdd[s.stage_id]) taskStepsToAdd[s.stage_id] = [];
+                    taskStepsToAdd[s.stage_id].push({ title: s.step_title, hours: s.estimated_hours });
+                });
+
+                const newTaskParams = {
+                    newTask: {
+                        title: editingTask.title,
+                        description: editingTask.description,
+                        assignType: 'multi',
+                        selectedAssignees: otherAssignees,
+                        startDate: editingTask.start_date,
+                        startTime: editingTask.start_time,
+                        allocatedHours: editingTask.allocated_hours,
+                        priority: editingTask.priority,
+                        skills: editingTask.skills || [],
+                        requiredPhases: editingTask.requiredPhases || []
+                    },
+                    user: currentUser,
+                    orgId,
+                    effectiveProjectId,
+                    senderName,
+                    taskStepsToAdd,
+                    employees: employees,
+                    preparedValidations: updates.phase_validations
+                };
+
+                await taskService.createTask(newTaskParams);
+                addToast?.(`Task updated and assigned to ${otherAssignees.length} more people`, 'success');
+            } else {
+                addToast?.('Task updated', 'success');
+            }
+
             setShowEditModal(false);
             setEditingTask(null);
-            addToast?.('Task updated', 'success');
+            fetchData();
         } catch (error) {
+            console.error('Error saving edits:', error);
             addToast?.('Failed to save changes', 'error');
+        } finally {
+            setSavingEdit(false);
         }
     };
 
@@ -664,7 +760,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                     50% { opacity: 0.7; }
                 }
             `}</style>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div className="no-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 {/* Premium Dark Header */}
                 <div style={{
                     background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
@@ -993,34 +1089,132 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                             min="0"
                                             step="any"
                                             value={editingTask.allocated_hours}
-                                            onChange={(e) => setEditingTask({ ...editingTask, allocated_hours: e.target.value })}
+                                            onChange={(e) => handleEditHoursChange(e.target.value)}
                                             placeholder="e.g. 8.0"
                                             style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.95rem' }}
                                         />
                                     </div>
                                     <div>
-                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Assigned To *</label>
-                                        <select
-                                            value={editingTask.assigned_to}
-                                            onChange={(e) => setEditingTask({ ...editingTask, assigned_to: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.95rem', backgroundColor: 'white' }}
-                                        >
-                                            <option value="">Select Employee</option>
-                                            {employees.map(emp => (
-                                                <option key={emp.id} value={emp.id}>
-                                                    {emp.full_name}
-                                                </option>
-                                            ))}
-                                        </select>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Assigned To</label>
+
+                                        {/* Assign Type Radio Group */}
+                                        <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', fontSize: '0.85rem' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#1e293b' }}>
+                                                <input
+                                                    type="radio"
+                                                    name="assignType"
+                                                    checked={editingTask.assignType === 'individual'}
+                                                    onChange={() => setEditingTask({ ...editingTask, assignType: 'individual' })}
+                                                    style={{ cursor: 'pointer' }}
+                                                />
+                                                Current
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#1e293b' }}>
+                                                <input
+                                                    type="radio"
+                                                    name="assignType"
+                                                    checked={editingTask.assignType === 'team'}
+                                                    onChange={() => setEditingTask({ ...editingTask, assignType: 'team' })}
+                                                    style={{ cursor: 'pointer' }}
+                                                />
+                                                Entire Team
+                                            </label>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', color: '#1e293b' }}>
+                                                <input
+                                                    type="radio"
+                                                    name="assignType"
+                                                    checked={editingTask.assignType === 'multi'}
+                                                    onChange={() => setEditingTask({ ...editingTask, assignType: 'multi' })}
+                                                    style={{ cursor: 'pointer' }}
+                                                />
+                                                Add People
+                                            </label>
+                                        </div>
+
+                                        {editingTask.assignType === 'individual' && (
+                                            <select
+                                                value={editingTask.assigned_to}
+                                                onChange={(e) => setEditingTask({ ...editingTask, assigned_to: e.target.value })}
+                                                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.95rem', backgroundColor: 'white' }}
+                                            >
+                                                {employees.map(emp => (
+                                                    <option key={emp.id} value={emp.id}>{emp.full_name}</option>
+                                                ))}
+                                            </select>
+                                        )}
+
+                                        {editingTask.assignType === 'team' && (
+                                            <div style={{ padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f1f5f9', color: '#475569', fontSize: '0.85rem' }}>
+                                                This will create a copy for all {employees?.length || 0} team members.
+                                            </div>
+                                        )}
+
+                                        {editingTask.assignType === 'multi' && (
+                                            <div style={{ maxHeight: '150px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '8px', backgroundColor: 'white' }}>
+                                                {employees.map(emp => (
+                                                    <label key={emp.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px', cursor: 'pointer', borderRadius: '6px', transition: 'background 0.1s' }}
+                                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={editingTask.selectedAssignees.includes(emp.id)}
+                                                            onChange={(e) => {
+                                                                const newSelected = e.target.checked
+                                                                    ? [...editingTask.selectedAssignees, emp.id]
+                                                                    : editingTask.selectedAssignees.filter(id => id !== emp.id);
+                                                                setEditingTask({ ...editingTask, selectedAssignees: newSelected });
+                                                            }}
+                                                            style={{ cursor: 'pointer' }}
+                                                            disabled={emp.id === editingTask.assigned_to && editingTask.assignType === 'multi'}
+                                                        />
+                                                        <span style={{ fontSize: '0.85rem', color: '#334155' }}>
+                                                            {emp.full_name} {emp.id === editingTask.assigned_to && '(Original)'}
+                                                        </span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div>
-                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Due Date</label>
-                                        <input
-                                            type="date"
-                                            value={editingTask.due_date}
-                                            onChange={(e) => setEditingTask({ ...editingTask, due_date: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.95rem' }}
-                                        />
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Start Date</label>
+                                            <input
+                                                type="date"
+                                                value={editingTask.start_date}
+                                                onChange={(e) => handleEditDateChange('start_date', e.target.value)}
+                                                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.95rem' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Start Time</label>
+                                            <input
+                                                type="time"
+                                                value={editingTask.start_time}
+                                                onChange={(e) => handleEditDateChange('start_time', e.target.value)}
+                                                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.95rem' }}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Due Date</label>
+                                            <input
+                                                type="date"
+                                                value={editingTask.due_date}
+                                                onChange={(e) => handleEditDateChange('due_date', e.target.value)}
+                                                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.95rem' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Due Time</label>
+                                            <input
+                                                type="time"
+                                                value={editingTask.due_time}
+                                                onChange={(e) => handleEditDateChange('due_time', e.target.value)}
+                                                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none', fontSize: '0.95rem' }}
+                                            />
+                                        </div>
                                     </div>
                                     <div>
                                         <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Priority</label>
@@ -1032,6 +1226,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                             <option value="low">Low</option>
                                             <option value="medium">Medium</option>
                                             <option value="high">High</option>
+                                            <option value="critical">Critical</option>
                                         </select>
                                     </div>
                                     <div>
@@ -1107,18 +1302,28 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                                             {phaseSteps.length > 0 ? (
                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
                                                                     {phaseSteps.map((step, idx) => (
-                                                                        <div key={step.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', padding: '8px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                                                                            <div>
-                                                                                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>{step.step_title}</span>
-                                                                                <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '8px' }}>({step.estimated_hours}h)</span>
+                                                                        <div key={step.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: 'white', padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                                                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                                <input
+                                                                                    type="text"
+                                                                                    value={step.step_title}
+                                                                                    onChange={(e) => handleUpdateStepInline(step.id, { step_title: e.target.value })}
+                                                                                    style={{ flex: 1, border: 'none', borderBottom: '1px dashed #e2e8f0', fontSize: '0.85rem', fontWeight: 600, outline: 'none' }}
+                                                                                />
+                                                                                <input
+                                                                                    type="number"
+                                                                                    value={step.estimated_hours}
+                                                                                    onChange={(e) => handleUpdateStepInline(step.id, { estimated_hours: parseFloat(e.target.value) || 0 })}
+                                                                                    style={{ width: '45px', border: 'none', borderBottom: '1px dashed #e2e8f0', fontSize: '0.8rem', textAlign: 'center', outline: 'none' }}
+                                                                                />
+                                                                                <button
+                                                                                    onClick={() => handleDeleteStep(step.id)}
+                                                                                    style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                                                                                    title="Delete Step"
+                                                                                >
+                                                                                    <Trash2 size={14} />
+                                                                                </button>
                                                                             </div>
-                                                                            <button
-                                                                                onClick={() => handleDeleteStep(step.id)}
-                                                                                style={{ border: 'none', background: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
-                                                                                title="Delete Step"
-                                                                            >
-                                                                                <Trash2 size={14} />
-                                                                            </button>
                                                                         </div>
                                                                     ))}
                                                                 </div>
@@ -1185,9 +1390,10 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                         </button>
                                         <button
                                             onClick={handleSaveEdit}
+                                            disabled={savingEdit}
                                             style={{ flex: 1, backgroundColor: '#0f172a', color: 'white', padding: '12px', borderRadius: '8px', fontWeight: 600, border: 'none', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                                         >
-                                            Save Changes
+                                            {savingEdit ? 'Saving...' : 'Save Changes'}
                                         </button>
                                     </div>
                                 </div>

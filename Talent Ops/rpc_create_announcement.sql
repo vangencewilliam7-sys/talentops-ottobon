@@ -102,6 +102,7 @@ BEGIN
         INSERT INTO public.notifications (
             org_id,
             sender_id,
+            sender_name,
             receiver_id,
             type,
             message,
@@ -111,6 +112,7 @@ BEGIN
         SELECT 
             v_org_id,
             v_user_id,
+            (SELECT full_name FROM public.profiles WHERE id = v_user_id),
             rcv_id,
             'announcement',
             'New ' || (CASE WHEN p_location = 'Broadcast' THEN 'Announcement: ' ELSE 'Event: ' END) || p_title,

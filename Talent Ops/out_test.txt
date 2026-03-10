@@ -1,0 +1,20 @@
+[dotenv@17.3.1] injecting env (6) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+Testing Edge Function directly...
+Using task: 1)Development Skills - Backend, Finetuning 2) Soft Skills -Curiosity, English (e23a66d3-bf11-46cc-9341-5e65955327d4)
+Invoking analyze-task-risk...
+Success! Time: 3075ms
+AI Response: {
+  "risk_level": "medium",
+  "confidence": 75,
+  "reasons": [
+    "Progress is only 20% with 50% of allocated hours elapsed.",
+    "Predicted delay of 1.5 hours indicates potential issues.",
+    "Task may require more time than initially estimated."
+  ],
+  "recommended_actions": [
+    "Reassess task requirements and adjust timelines accordingly.",
+    "Increase resource allocation or support to meet deadlines."
+  ]
+}
+Testing RPC directly...
+RPC Success! { success: true, snapshot_id: '9042d024-c4d0-491f-a620-fd944c2b152d' }

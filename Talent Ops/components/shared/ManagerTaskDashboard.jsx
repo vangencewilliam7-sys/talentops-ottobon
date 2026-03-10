@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, CheckCircle, XCircle, Clock, User, ChevronRight, Eye, History, X, Send, AlertTriangle, Inbox, Users, ArrowRight, BarChart3, Paperclip, FileText, ExternalLink, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import EmployeeRecognitionBoard from './EmployeeRecognitionBoard';
+import DocumentViewer from './DocumentViewer';
 import RiskBadge from './RiskBadge';
 import ActiveStatusDot from './ActiveStatusDot';
 import AIAssistantPopup from './AIAssistantPopup';
@@ -103,8 +104,9 @@ const ManagerTaskDashboard = ({ userRole = 'manager', userId, addToast }) => {
                 snapshot.risk_level === 'high' &&
                 isRelevant &&
                 !analyzedTaskIds.has(task.id) &&
-                task.lifecycle_state !== 'closed' &&
-                task.lifecycle_state !== 'deployment';
+                task.status !== 'completed' &&
+                task.status !== 'archived' &&
+                task.status !== 'cancelled';
         });
 
         if (highRiskTasks.length > 0) {
@@ -731,6 +733,7 @@ const ManagerTaskDashboard = ({ userRole = 'manager', userId, addToast }) => {
                                             isActive={task.is_active_now}
                                             isEditable={false}
                                             size={10}
+                                            taskStatus={task.status}
                                         />
                                         {task.title}
                                     </h3>
@@ -1055,6 +1058,7 @@ const ManagerTaskDashboard = ({ userRole = 'manager', userId, addToast }) => {
                                                     taskId={task.id}
                                                     isActive={task.is_active_now}
                                                     isEditable={false} // Managers just view it
+                                                    taskStatus={task.status}
                                                 />
                                                 <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, lineHeight: 1.4 }}>
                                                     {task.title}
@@ -1455,51 +1459,11 @@ const ManagerTaskDashboard = ({ userRole = 'manager', userId, addToast }) => {
             {/* Proof Preview Modal */}
             {
                 showProofPreview && proofPreviewUrl && (
-                    <div style={{
-                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                        backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1002,
-                        backdropFilter: 'blur(4px)'
-                    }}>
-                        <div style={{
-                            backgroundColor: 'var(--surface)', borderRadius: '20px',
-                            width: '90%', height: '90%', maxWidth: '1200px',
-                            display: 'flex', flexDirection: 'column', overflow: 'hidden',
-                            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
-                        }}>
-                            <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <FileText size={24} color="#16a34a" />
-                                    <div>
-                                        <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>Proof Document</h3>
-                                        <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>Submitted by employee</p>
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <a href={proofPreviewUrl} target="_blank" rel="noopener noreferrer"
-                                        style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: '#3b82f6', color: 'white', textDecoration: 'none', fontSize: '0.9rem', fontWeight: 500 }}>
-                                        Download
-                                    </a>
-                                    <button onClick={() => { setShowProofPreview(false); setProofPreviewUrl(''); }}
-                                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--background)', cursor: 'pointer' }}>
-                                        <X size={20} />
-                                    </button>
-                                </div>
-                            </div>
-                            <div style={{ flex: 1, overflow: 'hidden', backgroundColor: '#f3f4f6' }}>
-                                {proofPreviewUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                    <img src={proofPreviewUrl} alt="Proof" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                                ) : proofPreviewUrl.match(/\.pdf$/i) ? (
-                                    <iframe src={proofPreviewUrl} style={{ width: '100%', height: '100%', border: 'none' }} title="PDF Preview" />
-                                ) : (
-                                    <iframe
-                                        src={`https://docs.google.com/viewer?url=${encodeURIComponent(proofPreviewUrl)}&embedded=true`}
-                                        style={{ width: '100%', height: '100%', border: 'none' }}
-                                        title="Document Preview"
-                                    />
-                                )}
-                            </div>
-                        </div>
-                    </div>
+                    <DocumentViewer
+                        url={proofPreviewUrl}
+                        fileName="Proof Document"
+                        onClose={() => { setShowProofPreview(false); setProofPreviewUrl(''); }}
+                    />
                 )
             }
 

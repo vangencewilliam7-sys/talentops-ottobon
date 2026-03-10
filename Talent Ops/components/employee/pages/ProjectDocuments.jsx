@@ -3,6 +3,7 @@ import { FileText, Plus, Trash2, Edit3, Save, X, Code, FileQuestion, ListTodo, L
 import { supabase } from '../../../lib/supabaseClient';
 import { useProject } from '../context/ProjectContext';
 import { useToast } from '../context/ToastContext';
+import DocumentViewer from '../../shared/DocumentViewer';
 
 const ProjectDocuments = ({ userRole, addToast: parentAddToast = null }) => {
     const { currentProject, projectRole } = useProject();
@@ -584,138 +585,11 @@ const ProjectDocuments = ({ userRole, addToast: parentAddToast = null }) => {
             )}
             {/* Preview Modal */}
             {viewingDoc && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center', zIndex: 1100,
-                    padding: '20px'
-                }}>
-                    <div style={{
-                        backgroundColor: 'white', borderRadius: '6px',
-                        width: '100%', maxWidth: '900px', height: '85vh',
-                        display: 'flex', flexDirection: 'column',
-                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-                    }}>
-                        {/* Preview Header */}
-                        <div style={{
-                            padding: '16px 24px', borderBottom: '1px solid #e2e8f0',
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{
-                                    padding: '8px', borderRadius: '6px', backgroundColor: '#f1f5f9',
-                                    color: '#64748b'
-                                }}>
-                                    <FileText size={20} />
-                                </div>
-                                <div>
-                                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                                        {viewingDoc.title}
-                                    </h3>
-                                    <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>
-                                        Previewing document
-                                    </p>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <a
-                                    href={viewingDoc.file_url}
-                                    download // Attribute to force download if possible, otherwise just link
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: '8px',
-                                        padding: '8px 16px', borderRadius: '6px',
-                                        backgroundColor: '#0f172a', color: 'white',
-                                        textDecoration: 'none', fontSize: '0.9rem', fontWeight: 600
-                                    }}
-                                >
-                                    <Download size={16} /> Download
-                                </a>
-                                <button
-                                    onClick={() => setViewingDoc(null)}
-                                    style={{
-                                        padding: '8px', borderRadius: '6px',
-                                        border: '1px solid #e2e8f0', backgroundColor: 'white',
-                                        color: '#64748b', cursor: 'pointer', display: 'flex'
-                                    }}
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Preview Content */}
-                        <div style={{ flex: 1, overflow: 'hidden', backgroundColor: '#f8fafc', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '0' }}>
-                            {(() => {
-                                const ext = viewingDoc.file_url?.split('.').pop()?.split('?')[0]?.toLowerCase();
-                                if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) {
-                                    return (
-                                        <img
-                                            src={viewingDoc.file_url}
-                                            alt={viewingDoc.title}
-                                            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                                        />
-                                    );
-                                }
-                                // Native Browser Support (PDF, Text, HTML)
-                                else if (['pdf', 'txt', 'html', 'htm', 'md', 'json'].includes(ext)) {
-                                    return (
-                                        <iframe
-                                            src={viewingDoc.file_url}
-                                            style={{ width: '100%', height: '100%', border: 'none', backgroundColor: 'white' }}
-                                            title="Document Preview"
-                                        />
-                                    );
-                                }
-                                // Office Documents (Google Docs Viewer)
-                                else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'csv'].includes(ext)) {
-                                    const encodedUrl = encodeURIComponent(viewingDoc.file_url);
-                                    return (
-                                        <iframe
-                                            src={`https://docs.google.com/gview?url=${encodedUrl}&embedded=true`}
-                                            style={{ width: '100%', height: '100%', border: 'none' }}
-                                            title="Office Document Preview"
-                                        />
-                                    );
-                                } else {
-                                    return (
-                                        <div style={{ textAlign: 'center', padding: '40px' }}>
-                                            <div style={{
-                                                width: '80px', height: '80px', borderRadius: '50%',
-                                                backgroundColor: '#e2e8f0', color: '#64748b',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                margin: '0 auto 20px auto'
-                                            }}>
-                                                <FileText size={40} />
-                                            </div>
-                                            <h4 style={{ fontSize: '1.2rem', fontWeight: 600, color: '#1e293b', marginBottom: '8px' }}>
-                                                Preview not available
-                                            </h4>
-                                            <p style={{ color: '#64748b', marginBottom: '24px' }}>
-                                                This file type cannot be previewed directly.
-                                            </p>
-                                            <a
-                                                href={viewingDoc.file_url}
-                                                download
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                style={{
-                                                    display: 'inline-flex', alignItems: 'center', gap: '8px',
-                                                    padding: '10px 20px', borderRadius: '6px',
-                                                    backgroundColor: '#3b82f6', color: 'white',
-                                                    textDecoration: 'none', fontWeight: 600
-                                                }}
-                                            >
-                                                <Download size={18} /> Download File
-                                            </a>
-                                        </div>
-                                    );
-                                }
-                            })()}
-                        </div>
-                    </div>
-                </div>
+                <DocumentViewer
+                    url={viewingDoc.file_url}
+                    fileName={viewingDoc.title}
+                    onClose={() => setViewingDoc(null)}
+                />
             )}
         </div>
     );

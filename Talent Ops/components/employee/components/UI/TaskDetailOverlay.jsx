@@ -8,6 +8,8 @@ import {
 import { supabase } from '../../../../lib/supabaseClient';
 import { taskService } from '../../../../services/modules/task';
 import TaskNotesModal from '../../../shared/TaskNotesModal';
+import DocumentViewer from '../../../shared/DocumentViewer';
+import { Eye } from 'lucide-react';
 
 
 const TaskDetailOverlay = ({
@@ -51,6 +53,26 @@ const TaskDetailOverlay = ({
     const [editingStepTitle, setEditingStepTitle] = useState('');
     const [skipModalStep, setSkipModalStep] = useState(null);
     const [skipReason, setSkipReason] = useState('');
+
+    // Preview state
+    const [previewUrl, setPreviewUrl] = useState(null);
+    const [previewTitle, setPreviewTitle] = useState('Submitted Proof');
+    const [showPreview, setShowPreview] = useState(false);
+
+    // Task Status Indicators
+    const isTaskOverdue = (() => {
+        if (!task?.due_date) return false;
+        const curTime = new Date();
+        const datePart = task.due_date;
+        const timePart = task.due_time || '23:59:00';
+        return curTime > new Date(`${datePart}T${timePart}`);
+    })();
+
+    const isTaskLocked = (task?.is_locked || isTaskOverdue || task?.status === 'delayed') &&
+        task?.status !== 'completed' &&
+        task?.access_status !== 'approved';
+
+    const isAccessPending = task?.access_requested && task?.access_status === 'pending';
 
     useEffect(() => {
         if (isOpen && task?.id) {
@@ -122,6 +144,14 @@ const TaskDetailOverlay = ({
     };
 
     const handleAddStep = async () => {
+        if (isTaskLocked) {
+            addToast?.('Task is locked.', 'error');
+            return;
+        }
+        if (isAccessPending) {
+            addToast?.('Access request pending approval', 'error');
+            return;
+        }
         if (!newStepTitle.trim() || !task?.id) return;
         setAddingStep(true);
         try {
@@ -155,6 +185,14 @@ const TaskDetailOverlay = ({
     };
 
     const handleToggleStepComplete = async (step) => {
+        if (isTaskLocked) {
+            addToast?.('Task is locked.', 'error');
+            return;
+        }
+        if (isAccessPending) {
+            addToast?.('Access request pending approval', 'error');
+            return;
+        }
         if (step.status === 'skipped') return; // Cannot toggle skipped steps
         const newStatus = step.status === 'completed' ? 'pending' : 'completed';
         try {
@@ -283,6 +321,14 @@ const TaskDetailOverlay = ({
     };
 
     const handleSubmitProof = async () => {
+        if (isTaskLocked) {
+            addToast?.('Task is locked.', 'error');
+            return;
+        }
+        if (isAccessPending) {
+            addToast?.('Access request pending approval', 'error');
+            return;
+        }
         if (!proofText.trim() && proofFiles.length === 0) {
             addToast?.('Please provide proof text or upload files', 'error');
             return;
@@ -388,13 +434,32 @@ const TaskDetailOverlay = ({
                 delete updatedValidations[phaseKey];
             }
 
+            // Build the update payload
+            const updatePayload = {
+                phase_validations: updatedValidations,
+                updated_at: new Date().toISOString()
+            };
+
+            // Revert lifecycle_state if the deleted phase is behind or at the current phase
+            const PHASES_ORDER = ['requirement_refiner', 'design_guidance', 'build_guidance', 'acceptance_criteria', 'deployment'];
+            const deletedPhaseIndex = PHASES_ORDER.indexOf(phaseKey);
+            const currentPhaseIndex = PHASES_ORDER.indexOf(task.lifecycle_state);
+
+            if (deletedPhaseIndex !== -1) {
+                if (currentPhaseIndex > deletedPhaseIndex) {
+                    // Current phase is ahead of the deleted phase — revert back
+                    updatePayload.lifecycle_state = phaseKey;
+                    updatePayload.sub_state = 'in_progress';
+                } else if (currentPhaseIndex === deletedPhaseIndex) {
+                    // Same phase — just reset sub_state
+                    updatePayload.sub_state = 'in_progress';
+                }
+            }
+
             // Update task in database
             const { error } = await supabase
                 .from('tasks')
-                .update({
-                    phase_validations: updatedValidations,
-                    updated_at: new Date().toISOString()
-                })
+                .update(updatePayload)
                 .eq('id', task.id);
 
             if (error) throw error;
@@ -522,18 +587,21 @@ const TaskDetailOverlay = ({
     };
 
     return (
-        <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: '#f8fafc',
-            zIndex: 1000,
-            overflow: 'auto',
-            display: 'flex',
-            flexDirection: 'column'
-        }}>
+        <div
+            className="no-scrollbar"
+            style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: '#f8fafc',
+                zIndex: 1000,
+                overflow: 'auto',
+                display: 'flex',
+                flexDirection: 'column'
+            }}
+        >
             {/* Top Bar */}
             <div style={{
                 padding: '12px 24px',
@@ -647,64 +715,6 @@ const TaskDetailOverlay = ({
                         </div>
                     </div>
 
-                    {/* Task Metadata Bar */}
-                    <div style={{
-                        display: 'flex',
-                        gap: '24px',
-                        marginBottom: '32px',
-                        padding: '12px 16px',
-                        backgroundColor: '#f8fafc',
-                        borderRadius: '12px',
-                        border: '1px solid #f1f5f9',
-                        flexWrap: 'wrap'
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#475569' }}>
-                            <div style={{ backgroundColor: '#e0f2fe', padding: '6px', borderRadius: '8px', display: 'flex' }}>
-                                <Clock size={16} color="#0369a1" />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Start Time</span>
-                                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                                    {task.started_at ? new Date(task.started_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---'}
-                                    {task.started_at && <span style={{ fontSize: '0.75rem', fontWeight: 400, marginLeft: '4px', opacity: 0.8 }}>
-                                        {new Date(task.started_at).toLocaleDateString()}
-                                    </span>}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div style={{ width: '1px', backgroundColor: '#e2e8f0' }} />
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#475569' }}>
-                            <div style={{ backgroundColor: '#ffedd5', padding: '6px', borderRadius: '8px', display: 'flex' }}>
-                                <Calendar size={16} color="#9a3412" />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Due Deadline</span>
-                                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>
-                                    {task.due_time || '23:59'}
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 400, marginLeft: '4px', opacity: 0.8 }}>
-                                        {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No date'}
-                                    </span>
-                                </span>
-                            </div>
-                        </div>
-
-                        {task.allocated_hours > 0 && (
-                            <>
-                                <div style={{ width: '1px', backgroundColor: '#e2e8f0' }} />
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#475569' }}>
-                                    <div style={{ backgroundColor: '#f0fdf4', padding: '6px', borderRadius: '8px', display: 'flex' }}>
-                                        <Award size={16} color="#166534" />
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Allocation</span>
-                                        <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{task.allocated_hours} Hours</span>
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </div>
 
                     {/* Description */}
                     <div style={{ marginBottom: '32px' }}>
@@ -794,60 +804,46 @@ const TaskDetailOverlay = ({
                     )}
 
                     {/* Overdue/Locked Info */}
-                    {(() => {
-                        const curTime = new Date();
-                        let dueDateTime = null;
-                        if (task.due_date) {
-                            const datePart = task.due_date;
-                            const timePart = task.due_time ? task.due_time : '23:59:00';
-                            dueDateTime = new Date(`${datePart}T${timePart}`);
-                        }
-                        const isOverdue = dueDateTime && curTime > dueDateTime;
-                        const isLocked = (task.is_locked || isOverdue) && task.status !== 'completed' && task.access_status !== 'approved';
-
-                        if (!isLocked && !task.access_requested) return null;
-
-                        return (
-                            <div style={{
-                                padding: '16px',
-                                backgroundColor: isLocked ? '#fee2e2' : '#f0f9ff',
-                                borderRadius: '12px',
-                                border: `1px solid ${isLocked ? '#fecaca' : '#bae6fd'}`,
-                                marginBottom: '32px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between'
-                            }}>
-                                <div>
-                                    <p style={{ fontWeight: 700, color: isLocked ? '#991b1b' : '#0369a1', margin: 0 }}>
-                                        {isLocked ? 'Task Locked - Overdue' : 'Access Request Pending'}
-                                    </p>
-                                    <p style={{ fontSize: '0.85rem', color: isLocked ? '#7f1d1d' : '#075985', margin: '4px 0 0 0' }}>
-                                        {isLocked
-                                            ? (task.access_requested ? 'Access request is pending approval.' : 'This task is locked because the deadline has passed.')
-                                            : `Access requested for: ${task.access_reason || 'N/A'}`
-                                        }
-                                    </p>
-                                </div>
-                                {isLocked && !task.access_requested && (
-                                    <button
-                                        onClick={() => onShowAccessRequest?.(task)}
-                                        style={{ padding: '8px 16px', backgroundColor: '#991b1b', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
-                                    >
-                                        Request Access
-                                    </button>
-                                )}
-                                {task.access_requested && (userRole === 'manager' || userRole === 'team_lead') && task.access_status === 'pending' && (
-                                    <button
-                                        onClick={() => onShowAccessReview?.(task)}
-                                        style={{ padding: '8px 16px', backgroundColor: '#f97316', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
-                                    >
-                                        Review Request
-                                    </button>
-                                )}
+                    {(isTaskLocked || task.access_requested) && (
+                        <div style={{
+                            padding: '16px',
+                            backgroundColor: isTaskLocked ? '#fee2e2' : '#f0f9ff',
+                            borderRadius: '12px',
+                            border: `1px solid ${isTaskLocked ? '#fecaca' : '#bae6fd'}`,
+                            marginBottom: '32px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                        }}>
+                            <div>
+                                <p style={{ fontWeight: 700, color: isTaskLocked ? '#991b1b' : '#0369a1', margin: 0 }}>
+                                    {isTaskLocked ? 'Task Locked - Overdue' : 'Access Request Pending'}
+                                </p>
+                                <p style={{ fontSize: '0.85rem', color: isTaskLocked ? '#7f1d1d' : '#075985', margin: '4px 0 0 0' }}>
+                                    {isTaskLocked
+                                        ? (task.access_requested ? 'Access request is pending approval.' : 'This task is locked because the deadline has passed.')
+                                        : `Access requested for: ${task.access_reason || 'N/A'}`
+                                    }
+                                </p>
                             </div>
-                        );
-                    })()}
+                            {isTaskLocked && !task.access_requested && (
+                                <button
+                                    onClick={() => onShowAccessRequest?.(task)}
+                                    style={{ padding: '8px 16px', backgroundColor: '#991b1b', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                                >
+                                    Request Access
+                                </button>
+                            )}
+                            {task.access_requested && (userRole === 'manager' || userRole === 'team_lead') && task.access_status === 'pending' && (
+                                <button
+                                    onClick={() => onShowAccessReview?.(task)}
+                                    style={{ padding: '8px 16px', backgroundColor: '#f97316', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                                >
+                                    Review Request
+                                </button>
+                            )}
+                        </div>
+                    )}
 
 
 
@@ -947,7 +943,7 @@ const TaskDetailOverlay = ({
                                                     }}>
                                                         {/* Status Toggle */}
                                                         <div
-                                                            onClick={() => isCurrentPhase && step.status !== 'skipped' && handleToggleStepComplete(step)}
+                                                            onClick={() => !isTaskLocked && isCurrentPhase && step.status !== 'skipped' && handleToggleStepComplete(step)}
                                                             style={{
                                                                 width: '20px',
                                                                 height: '20px',
@@ -957,8 +953,8 @@ const TaskDetailOverlay = ({
                                                                 alignItems: 'center',
                                                                 justifyContent: 'center',
                                                                 flexShrink: 0,
-                                                                cursor: (isCurrentPhase && step.status !== 'skipped') ? 'pointer' : 'default',
-                                                                opacity: isCurrentPhase ? 1 : 0.6
+                                                                cursor: (!isTaskLocked && isCurrentPhase && step.status !== 'skipped') ? 'pointer' : 'default',
+                                                                opacity: (!isTaskLocked && isCurrentPhase) ? 1 : 0.6
                                                             }}
                                                         >
                                                             {step.status === 'completed' && <Check size={12} color="white" />}
@@ -992,7 +988,7 @@ const TaskDetailOverlay = ({
                                                             )}
                                                         </div>
 
-                                                        {isCurrentPhase && step.status === 'pending' && canEditStep(step) && editingStepId !== step.id && (
+                                                        {isCurrentPhase && step.status === 'pending' && canEditStep(step) && editingStepId !== step.id && !isTaskLocked && !isAccessPending && (
                                                             <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
                                                                 <button
                                                                     onClick={() => { setEditingStepId(step.id); setEditingStepTitle(step.step_title); }}
@@ -1010,7 +1006,7 @@ const TaskDetailOverlay = ({
                                                 <p style={{ color: '#94a3b8', fontSize: '0.8rem', fontStyle: 'italic', margin: 0 }}>No steps for this phase.</p>
                                             )}
 
-                                            {isCurrentPhase && (
+                                            {isCurrentPhase && !isTaskLocked && !isAccessPending && (
                                                 <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
                                                     <input
                                                         type="text"
@@ -1245,26 +1241,36 @@ const TaskDetailOverlay = ({
                                                     </span>
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                    <a
-                                                        href={url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
+                                                    <button
+                                                        onClick={() => {
+                                                            setPreviewUrl(url);
+                                                            setPreviewTitle(`${p.label} Proof`);
+                                                            setShowPreview(true);
+                                                        }}
                                                         style={{
                                                             fontSize: '0.85rem',
                                                             color: '#2563eb',
                                                             fontWeight: 600,
-                                                            textDecoration: 'none'
+                                                            textDecoration: 'none',
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px'
                                                         }}
                                                     >
-                                                        View File
-                                                    </a>
-                                                    <Trash2
-                                                        size={14}
-                                                        color="#ef4444"
-                                                        style={{ cursor: 'pointer', opacity: 0.7 }}
-                                                        title="Delete File"
-                                                        onClick={() => handleDeleteProof(p.key, url)}
-                                                    />
+                                                        View File <Eye size={12} />
+                                                    </button>
+                                                    {!isTaskLocked && !isAccessPending && (
+                                                        <Trash2
+                                                            size={14}
+                                                            color="#ef4444"
+                                                            style={{ cursor: 'pointer', opacity: 0.7 }}
+                                                            title="Delete File"
+                                                            onClick={() => handleDeleteProof(p.key, url)}
+                                                        />
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -1371,191 +1377,217 @@ const TaskDetailOverlay = ({
                                 Upload files or link your code repository.
                             </p>
 
-                            {/* File Upload Area */}
-                            <div
-                                style={{
-                                    border: '2px dashed #e2e8f0',
+                            {/* Error out if access is pending or task is locked */}
+                            {/* Block if access is pending OR task is locked/overdue */}
+                            {isAccessPending || isTaskLocked ? (
+                                <div style={{
+                                    padding: '16px',
+                                    backgroundColor: isAccessPending ? '#f0f9ff' : '#fee2e2',
                                     borderRadius: '12px',
-                                    padding: '24px',
+                                    color: isAccessPending ? '#0369a1' : '#991b1b',
                                     textAlign: 'center',
                                     marginBottom: '12px',
-                                    backgroundColor: '#fafafa',
-                                    cursor: 'pointer',
-                                    transition: 'border-color 0.2s'
-                                }}
-                                onClick={() => document.getElementById('proofFileInput').click()}
-                                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
-                                onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
-                            >
-                                <input
-                                    id="proofFileInput"
-                                    type="file"
-                                    multiple
-                                    style={{ display: 'none' }}
-                                    onChange={handleFileSelect}
-                                />
-                                <Upload size={24} color="#94a3b8" style={{ marginBottom: '8px' }} />
-                                <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>
-                                    Drag and drop files here or <span style={{ color: '#3b82f6', fontWeight: 500 }}>Browse Files</span>
-                                </p>
-                                <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: '8px 0 0 0' }}>
-                                    You can select multiple files
-                                </p>
-                            </div>
-
-                            {/* Selected Files List */}
-                            {proofFiles.length > 0 && (
-                                <div style={{ marginBottom: '12px' }}>
-                                    <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
-                                        {proofFiles.length} file(s) selected:
-                                    </p>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
-                                        {proofFiles.map((file, index) => (
-                                            <div key={index} style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                padding: '8px 12px',
-                                                backgroundColor: '#f0f9ff',
-                                                borderRadius: '6px',
-                                                border: '1px solid #bfdbfe'
-                                            }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                                                    <FileText size={14} color="#3b82f6" />
-                                                    <span style={{ fontSize: '0.8rem', color: '#1e40af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        {file.name}
-                                                    </span>
-                                                    <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                                                        ({(file.size / 1024).toFixed(1)} KB)
-                                                    </span>
-                                                </div>
-                                                <button
-                                                    onClick={(e) => { e.stopPropagation(); removeFile(index); }}
-                                                    style={{
-                                                        background: 'none',
-                                                        border: 'none',
-                                                        cursor: 'pointer',
-                                                        padding: '4px',
-                                                        color: '#ef4444',
-                                                        display: 'flex',
-                                                        alignItems: 'center'
-                                                    }}
-                                                >
-                                                    <X size={14} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Upload Progress */}
-                            {uploading && (
-                                <div style={{ marginBottom: '12px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Uploading...</span>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#3b82f6' }}>{uploadProgress}%</span>
-                                    </div>
-                                    <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                                        <div style={{
-                                            width: `${uploadProgress}%`,
-                                            height: '100%',
-                                            backgroundColor: '#3b82f6',
-                                            borderRadius: '3px',
-                                            transition: 'width 0.3s ease'
-                                        }} />
-                                    </div>
-                                </div>
-                            )}
-
-                            <textarea
-                                value={proofText}
-                                onChange={(e) => setProofText(e.target.value)}
-                                placeholder="Add comments or notes about your submission..."
-                                style={{
-                                    width: '100%',
-                                    padding: '12px',
-                                    borderRadius: '8px',
-                                    border: '1px solid #e2e8f0',
-                                    fontSize: '0.85rem',
-                                    resize: 'none',
-                                    minHeight: '80px',
-                                    marginBottom: '12px'
-                                }}
-                            />
-
-                            {/* Pending Steps Warning */}
-                            {hasPendingSteps && (
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    padding: '10px 12px',
-                                    backgroundColor: '#fef3c7',
-                                    borderRadius: '8px',
-                                    marginBottom: '12px',
-                                    border: '1px solid #fcd34d'
+                                    border: `1px solid ${isAccessPending ? '#bae6fd' : '#fecaca'}`
                                 }}>
-                                    <AlertTriangle size={16} color="#f59e0b" />
-                                    <span style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: 500 }}>
-                                        Complete all execution steps before submitting
-                                    </span>
+                                    {isTaskLocked ? <Clock size={24} style={{ margin: '0 auto 8px auto' }} /> : <AlertTriangle size={24} style={{ margin: '0 auto 8px auto' }} />}
+                                    <p style={{ fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>
+                                        {isTaskLocked ? 'Submissions Locked' : 'Access Request Pending'}
+                                    </p>
+                                    <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>
+                                        {isTaskLocked
+                                            ? 'The deadline for this task has passed. Submit an access request to continue.'
+                                            : 'You cannot submit work until your access request is approved.'}
+                                    </p>
                                 </div>
+                            ) : (
+                                <>
+                                    {/* File Upload Area */}
+                                    <div
+                                        style={{
+                                            border: '2px dashed #e2e8f0',
+                                            borderRadius: '12px',
+                                            padding: '24px',
+                                            textAlign: 'center',
+                                            marginBottom: '12px',
+                                            backgroundColor: '#fafafa',
+                                            cursor: 'pointer',
+                                            transition: 'border-color 0.2s'
+                                        }}
+                                        onClick={() => document.getElementById('proofFileInput').click()}
+                                        onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
+                                        onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+                                    >
+                                        <input
+                                            id="proofFileInput"
+                                            type="file"
+                                            multiple
+                                            style={{ display: 'none' }}
+                                            onChange={handleFileSelect}
+                                        />
+                                        <Upload size={24} color="#94a3b8" style={{ marginBottom: '8px' }} />
+                                        <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>
+                                            Drag and drop files here or <span style={{ color: '#3b82f6', fontWeight: 500 }}>Browse Files</span>
+                                        </p>
+                                        <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: '8px 0 0 0' }}>
+                                            You can select multiple files
+                                        </p>
+                                    </div>
+
+                                    {/* Selected Files List */}
+                                    {proofFiles.length > 0 && (
+                                        <div style={{ marginBottom: '12px' }}>
+                                            <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
+                                                {proofFiles.length} file(s) selected:
+                                            </p>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
+                                                {proofFiles.map((file, index) => (
+                                                    <div key={index} style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        padding: '8px 12px',
+                                                        backgroundColor: '#f0f9ff',
+                                                        borderRadius: '6px',
+                                                        border: '1px solid #bfdbfe'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                                            <FileText size={14} color="#3b82f6" />
+                                                            <span style={{ fontSize: '0.8rem', color: '#1e40af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                {file.name}
+                                                            </span>
+                                                            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                                                ({(file.size / 1024).toFixed(1)} KB)
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); removeFile(index); }}
+                                                            style={{
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                cursor: 'pointer',
+                                                                padding: '4px',
+                                                                color: '#ef4444',
+                                                                display: 'flex',
+                                                                alignItems: 'center'
+                                                            }}
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Upload Progress */}
+                                    {uploading && (
+                                        <div style={{ marginBottom: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Uploading...</span>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#3b82f6' }}>{uploadProgress}%</span>
+                                            </div>
+                                            <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                                                <div style={{
+                                                    width: `${uploadProgress}%`,
+                                                    height: '100%',
+                                                    backgroundColor: '#3b82f6',
+                                                    borderRadius: '3px',
+                                                    transition: 'width 0.3s ease'
+                                                }} />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <textarea
+                                        value={proofText}
+                                        onChange={(e) => setProofText(e.target.value)}
+                                        placeholder="Add comments or notes about your submission..."
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            borderRadius: '8px',
+                                            border: '1px solid #e2e8f0',
+                                            fontSize: '0.85rem',
+                                            resize: 'none',
+                                            minHeight: '80px',
+                                            marginBottom: '12px'
+                                        }}
+                                    />
+
+                                    {/* Pending Steps Warning */}
+                                    {hasPendingSteps && (
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            padding: '10px 12px',
+                                            backgroundColor: '#fef3c7',
+                                            borderRadius: '8px',
+                                            marginBottom: '12px',
+                                            border: '1px solid #fcd34d'
+                                        }}>
+                                            <AlertTriangle size={16} color="#f59e0b" />
+                                            <span style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: 500 }}>
+                                                Complete all execution steps before submitting
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handleSubmitProof}
+                                        disabled={uploading || hasPendingSteps || (!proofText.trim() && proofFiles.length === 0)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '12px',
+                                            borderRadius: '8px',
+                                            border: 'none',
+                                            background: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#e5e7eb',
+                                            color: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'white' : '#9ca3af',
+                                            fontWeight: 600,
+                                            fontSize: '0.9rem',
+                                            cursor: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'pointer' : 'not-allowed',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '8px'
+                                        }}
+                                    >
+                                        {uploading ? 'Submitting...' : hasPendingSteps ? '🔒 Complete Steps First' : 'Submit for Review'}
+                                    </button>
+
+                                    <button
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            borderRadius: '8px',
+                                            border: '1px solid #e2e8f0',
+                                            backgroundColor: 'white',
+                                            color: '#334155',
+                                            fontWeight: 500,
+                                            fontSize: '0.85rem',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: '8px',
+                                            marginTop: '8px'
+                                        }}
+                                        onClick={() => {
+                                            const url = window.prompt('Enter your repository or documentation URL:');
+                                            if (url) {
+                                                if (!url.startsWith('http')) {
+                                                    addToast?.('Please enter a valid URL starting with http:// or https://', 'error');
+                                                    return;
+                                                }
+                                                setProofText(prev => prev ? `${prev}\nRepository: ${url}` : `Repository: ${url}`);
+                                                addToast?.('Link added to description!', 'success');
+                                            }
+                                        }}
+                                    >
+                                        <LinkIcon size={16} /> Connect Repository
+                                    </button>
+                                </>
                             )}
-
-                            <button
-                                onClick={handleSubmitProof}
-                                disabled={uploading || hasPendingSteps || (!proofText.trim() && proofFiles.length === 0)}
-                                style={{
-                                    width: '100%',
-                                    padding: '12px',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#e5e7eb',
-                                    color: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'white' : '#9ca3af',
-                                    fontWeight: 600,
-                                    fontSize: '0.9rem',
-                                    cursor: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'pointer' : 'not-allowed',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '8px'
-                                }}
-                            >
-                                {uploading ? 'Submitting...' : hasPendingSteps ? '🔒 Complete Steps First' : 'Submit for Review'}
-                            </button>
-
-                            <button
-                                style={{
-                                    width: '100%',
-                                    padding: '10px',
-                                    borderRadius: '8px',
-                                    border: '1px solid #e2e8f0',
-                                    backgroundColor: 'white',
-                                    color: '#334155',
-                                    fontWeight: 500,
-                                    fontSize: '0.85rem',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '8px',
-                                    marginTop: '8px'
-                                }}
-                                onClick={() => {
-                                    const url = window.prompt('Enter your repository or documentation URL:');
-                                    if (url) {
-                                        if (!url.startsWith('http')) {
-                                            addToast?.('Please enter a valid URL starting with http:// or https://', 'error');
-                                            return;
-                                        }
-                                        setProofText(prev => prev ? `${prev}\nRepository: ${url}` : `Repository: ${url}`);
-                                        addToast?.('Link added to description!', 'success');
-                                    }
-                                }}
-                            >
-                                <LinkIcon size={16} /> Connect Repository
-                            </button>
                         </div>
                     )}
 
@@ -1864,6 +1896,7 @@ const TaskDetailOverlay = ({
                     </div>
                 )
             }
+
             {/* Task Notes Modal */}
             <TaskNotesModal
                 isOpen={showNotesModal}
@@ -1878,6 +1911,17 @@ const TaskDetailOverlay = ({
                     task?.assigned_to === userId
                 }
             />
+
+            {/* Proof Preview Overlay */}
+            {
+                showPreview && previewUrl && (
+                    <DocumentViewer
+                        url={previewUrl}
+                        fileName={previewTitle}
+                        onClose={() => { setShowPreview(false); setPreviewUrl(null); }}
+                    />
+                )
+            }
         </div >
     );
 };

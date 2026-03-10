@@ -13,6 +13,7 @@ const LIFECYCLE_PHASES = [
 
 const getPriorityStyle = (priority) => {
     const styles = {
+        critical: { bg: '#fee2e2', text: '#ef4444', label: 'CRITICAL' },
         high: { bg: '#fee2e2', text: '#991b1b', label: 'HIGH' },
         medium: { bg: '#fef3c7', text: '#92400e', label: 'MEDIUM' },
         low: { bg: '#dbeafe', text: '#1e40af', label: 'LOW' }
@@ -23,7 +24,7 @@ const getPriorityStyle = (priority) => {
 const getStatusStyle = (status) => {
     const styles = {
         pending: { bg: '#fef3c7', text: '#92400e' },
-        'in progress': { bg: '#dbeafe', text: '#1e40af' },
+        'in_progress': { bg: '#dbeafe', text: '#1e40af' },
         completed: { bg: '#d1fae5', text: '#065f46' },
         'on hold': { bg: '#fee2e2', text: '#991b1b' }
     };
@@ -57,17 +58,18 @@ const LifecycleProgress = ({ currentPhase, subState, validations, taskStatus }) 
                 if (taskStatus?.toLowerCase() === 'completed') {
                     color = '#10b981';
                 } else if (idx < currentIndex) {
-                    if (status === 'pending') { color = '#f59e0b'; }
-                    else if (status === 'rejected') color = '#fee2e2';
-                    else color = '#10b981';
+                    if (status === 'approved') color = '#10b981';
+                    else if (status === 'rejected') color = '#ef4444';
+                    else if (hasProof) color = '#f59e0b';
                 } else if (idx === currentIndex) {
                     if (status === 'approved') color = '#10b981';
-                    else if (status === 'pending' || subState === 'pending_validation') { color = '#f59e0b'; }
+                    else if (status === 'rejected') color = '#ef4444';
+                    else if (hasProof) color = '#f59e0b';
                     else color = '#3b82f6';
                 } else if (hasProof) {
-                    if (status === 'pending') { color = '#f59e0b'; }
-                    else if (status === 'rejected') color = '#fee2e2';
-                    else color = '#10b981';
+                    if (status === 'approved') color = '#10b981';
+                    else if (status === 'rejected') color = '#ef4444';
+                    else color = '#f59e0b';
                 }
 
                 return (
@@ -81,7 +83,7 @@ const LifecycleProgress = ({ currentPhase, subState, validations, taskStatus }) 
                             {color === '#10b981' ? '✓' : phase.short.charAt(0)}
                         </div>
                         {idx < filteredPhases.length - 1 && (
-                            <div style={{ width: '12px', height: '2px', backgroundColor: idx < currentIndex ? '#10b981' : '#e5e7eb' }} />
+                            <div style={{ width: '12px', height: '2px', backgroundColor: (color === '#10b981' || color === '#f59e0b' || color === '#ef4444') ? color : '#e5e7eb' }} />
                         )}
                     </React.Fragment>
                 );
@@ -174,8 +176,9 @@ const TaskTable = ({
                                             <ActiveStatusDot
                                                 isActive={task.is_active_now}
                                                 taskId={task.id}
-                                                isEditable={false}
+                                                isEditable={task.assigned_to === userId}
                                                 size={10}
+                                                taskStatus={task.status}
                                             />
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                 <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.95rem' }}>{task.title}</span>
@@ -283,6 +286,7 @@ const TaskTable = ({
                                                     minWidth: '80px'
                                                 }}
                                             >
+                                                <option value="critical">CRITICAL</option>
                                                 <option value="high">HIGH</option>
                                                 <option value="medium">MEDIUM</option>
                                                 <option value="low">LOW</option>

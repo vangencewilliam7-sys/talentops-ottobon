@@ -294,29 +294,57 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
         return matchesStatus && matchesSearch && matchesDate;
     });
 
-    const LifecycleProgress = ({ currentPhase, subState, taskStatus }) => {
-        const currentIndex = getPhaseIndex(currentPhase);
+    const LifecycleProgress = ({ currentPhase, subState, taskStatus, validations }) => {
+        let parsedValidations = validations;
+        if (typeof validations === 'string') {
+            try { parsedValidations = JSON.parse(validations); } catch (e) { /* ignore */ }
+        }
+
+        const activePhases = parsedValidations?.active_phases || LIFECYCLE_PHASES.map(p => p.key);
+        const filteredPhases = LIFECYCLE_PHASES.filter(p => activePhases.includes(p.key) && p.key !== 'closed');
+        const currentIndex = filteredPhases.findIndex(p => p.key === (currentPhase || filteredPhases[0]?.key));
+
         return (
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                {LIFECYCLE_PHASES.slice(0, -1).map((phase, idx) => {
+                {filteredPhases.map((phase, idx) => {
+                    const validation = parsedValidations?.[phase.key];
+                    const status = validation?.status;
+                    const hasProof = validation?.proof_url || validation?.proof_text;
                     let color = '#e5e7eb'; // Grey default
                     let textColor = '#9ca3af';
 
                     if (taskStatus === 'completed') {
-                        color = '#10b981';
+                        color = '#10b981'; // All green when task is completed
                         textColor = 'white';
                     } else if (idx < currentIndex) {
-                        color = '#10b981'; // Green = past approved phases
-                        textColor = 'white';
-                    } else if (idx === currentIndex) {
-                        if (subState === 'pending_validation') {
-                            color = '#f59e0b'; // Yellow = proof submitted, awaiting review
-                        } else {
-                            color = '#3b82f6'; // Blue = current active phase
+                        // Past Phase — check proof status
+                        if (status === 'approved') {
+                            color = '#10b981'; textColor = 'white'; // Green = Approved
+                        } else if (status === 'rejected') {
+                            color = '#ef4444'; textColor = 'white'; // Red = Rejected
+                        } else if (hasProof) {
+                            color = '#f59e0b'; textColor = 'white'; // Yellow = Has proof, awaiting review
                         }
+                        // else stays grey (no proof submitted)
+                    } else if (idx === currentIndex) {
+                        // Current Phase
+                        if (status === 'approved') {
+                            color = '#10b981'; textColor = 'white';
+                        } else if (status === 'rejected') {
+                            color = '#ef4444'; textColor = 'white';
+                        } else if (hasProof) {
+                            color = '#f59e0b'; textColor = 'white'; // Yellow = proof submitted
+                        } else {
+                            color = '#3b82f6'; textColor = 'white'; // Blue = current active phase
+                        }
+                    } else if (hasProof) {
+                        // Future phase with proof (e.g. reverted state)
+                        if (status === 'approved') color = '#10b981';
+                        else if (status === 'rejected') color = '#ef4444';
+                        else color = '#f59e0b';
                         textColor = 'white';
                     }
-                    // Future phases stay grey
+                    // Future phases with no proof stay grey
 
                     return (
                         <React.Fragment key={phase.key}>
@@ -326,11 +354,11 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                                 fontSize: '0.65rem', fontWeight: 600,
                                 backgroundColor: color,
                                 color: textColor
-                            }} title={phase.label}>
-                                {idx < currentIndex ? '✓' : phase.short.charAt(0)}
+                            }} title={`${phase.label} ${status ? `(${status})` : ''}`}>
+                                {color === '#10b981' ? '✓' : phase.short.charAt(0)}
                             </div>
-                            {idx < LIFECYCLE_PHASES.length - 2 && (
-                                <div style={{ width: '16px', height: '3px', backgroundColor: idx < currentIndex ? '#10b981' : '#e5e7eb' }} />
+                            {idx < filteredPhases.length - 1 && (
+                                <div style={{ width: '16px', height: '3px', backgroundColor: (color === '#10b981' || color === '#f59e0b' || color === '#ef4444') ? color : '#e5e7eb' }} />
                             )}
                         </React.Fragment>
                     );
@@ -527,7 +555,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                                                 </span>
                                             )}
                                         </td>
-                                        <td style={{ padding: '16px' }}><LifecycleProgress currentPhase={task.lifecycle_state} subState={task.sub_state} taskStatus={task.status} /></td>
+                                        <td style={{ padding: '16px' }}><LifecycleProgress currentPhase={task.lifecycle_state} subState={task.sub_state} taskStatus={task.status} validations={task.phase_validations} /></td>
                                         <td style={{ padding: '16px' }}>
                                             <span style={{ padding: '6px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600, backgroundColor: subStateColor.bg, color: subStateColor.text }}>
                                                 {task.sub_state?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -762,7 +790,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
 
                         <div style={{ marginBottom: '24px' }}>
                             <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '12px' }}>LIFECYCLE PROGRESS</h4>
-                            <LifecycleProgress currentPhase={selectedTask.lifecycle_state} subState={selectedTask.sub_state} />
+                            <LifecycleProgress currentPhase={selectedTask.lifecycle_state} subState={selectedTask.sub_state} validations={selectedTask.phase_validations} />
                         </div>
                         <div style={{ marginBottom: '24px' }}>
                             <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}><History size={16} /> STATE HISTORY</h4>

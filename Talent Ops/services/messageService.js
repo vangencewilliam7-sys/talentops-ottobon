@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { sendNotification } from './notificationService';
 
 /**
  * Message Service
@@ -228,7 +229,7 @@ export const getConversationMessages = async (conversationId) => {
  * @param {Array} files - Optional array of files to attach
  * @returns {Promise<Object>} Created message
  */
-export const sendMessage = async (conversationId, userId, content, files = []) => {
+export const sendMessage = async (conversationId, userId, content, files = [], orgId = null) => {
     try {
         // Insert the message
         const { data: message, error: messageError } = await supabase
@@ -239,6 +240,7 @@ export const sendMessage = async (conversationId, userId, content, files = []) =
                 sender_type: 'human',
                 message_type: 'chat',
                 content: content,
+                org_id: orgId,
                 created_at: new Date().toISOString()
             })
             .select()
@@ -257,6 +259,37 @@ export const sendMessage = async (conversationId, userId, content, files = []) =
         // Use '[Attachment]' if no text but files were sent
         const indexMessage = content || (files && files.length > 0 ? '📎 Attachment' : '');
         await updateConversationIndex(conversationId, indexMessage);
+
+        // ── 1. Fetch Sender Name and Other Members for Notifications ──
+        try {
+            const { data: convData } = await supabase.from('conversations').select('org_id').eq('id', conversationId).single();
+            const { data: senderProfile } = await supabase.from('profiles').select('full_name').eq('id', userId).single();
+            const senderName = senderProfile?.full_name || 'Someone';
+
+            const { data: members } = await supabase
+                .from('conversation_members')
+                .select('user_id')
+                .eq('conversation_id', conversationId)
+                .neq('user_id', userId);
+
+            if (members && members.length > 0) {
+                // Send notifications to each member
+                const notificationPromises = members.map(member =>
+                    sendNotification(
+                        member.user_id,
+                        userId,
+                        senderName,
+                        content || 'Sent an attachment',
+                        'message',
+                        convData?.org_id
+                    )
+                );
+                // Fire and forget or await depending on preference (awaiting for reliability here)
+                await Promise.all(notificationPromises);
+            }
+        } catch (notifyError) {
+            console.warn('Non-fatal: Failed to send message notifications', notifyError);
+        }
 
         return message;
     } catch (error) {
@@ -1069,7 +1102,7 @@ export const leaveConversation = async (conversationId, userId) => {
  * @param {string} replyToId - Optional: ID of message being replied to
  * @returns {Promise<Object>} Created message
  */
-export const sendMessageWithReply = async (conversationId, content, senderId, replyToId = null, repliedContent = null, repliedSender = null) => {
+export const sendMessageWithReply = async (conversationId, content, senderId, replyToId = null, repliedContent = null, repliedSender = null, orgId = null) => {
     try {
         const { data, error } = await supabase
             .from('messages')
@@ -1079,7 +1112,8 @@ export const sendMessageWithReply = async (conversationId, content, senderId, re
                 sender_user_id: senderId,
                 reply_to: replyToId,
                 replied_message_content: repliedContent,
-                replied_message_sender_name: repliedSender
+                replied_message_sender_name: repliedSender,
+                org_id: orgId
             }])
             .select()
             .single();
@@ -1357,7 +1391,7 @@ export const getReactionSummary = async (messageId) => {
  * @param {boolean} allowMultiple - Whether multiple answers are allowed
  * @returns {Promise<Object>} Created message
  */
-export const sendPoll = async (conversationId, senderId, question, options, allowMultiple = false) => {
+export const sendPoll = async (conversationId, senderId, question, options, allowMultiple = false, orgId = null) => {
     try {
         const { data, error } = await supabase
             .from('messages')
@@ -1370,6 +1404,7 @@ export const sendPoll = async (conversationId, senderId, question, options, allo
                 poll_question: question,
                 poll_options: options,
                 allow_multiple_answers: allowMultiple,
+                org_id: orgId,
                 created_at: new Date().toISOString()
             }])
             .select()

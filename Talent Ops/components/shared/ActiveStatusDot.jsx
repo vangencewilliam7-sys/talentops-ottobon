@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
-const ActiveStatusDot = ({ taskId, isActive: propIsActive, isEditable = true, size = 12, onToggle }) => {
+const ActiveStatusDot = ({ taskId, isActive: propIsActive, isEditable = true, size = 12, onToggle, taskStatus }) => {
     const [isActive, setIsActive] = useState(propIsActive || false);
     const [loading, setLoading] = useState(false);
 
