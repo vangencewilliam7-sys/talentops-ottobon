@@ -1,52 +1,77 @@
 import React, { useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { ArrowRight } from 'lucide-react'
 import { useScrollReveal } from '../hooks/useScrollReveal'
-import { WavyBackground } from '../../components/ui/wavy-background'
+import { Navigation } from '../components/Navigation'
+import { GlowButton } from '../components/GlowButton'
+import { WavyBackground } from '@/components/ui/wavy-background'
 
 export function HeroSection() {
     const sectionRef = useRef<HTMLElement>(null)
+    const navigate = useNavigate()
     useScrollReveal(sectionRef)
 
     return (
         <section
             ref={sectionRef}
             id="hero"
-            className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#f7f7f9]"
+            className="relative min-h-[95vh] md:min-h-[100vh] flex flex-col items-center overflow-hidden"
+            style={{
+                background: 'linear-gradient(135deg, #000000 0%, #121212 50%, #FFFFFF 100%)'
+            }}
         >
-            <WavyBackground
-                containerClassName="h-full min-h-screen absolute inset-0 z-0"
-                className="w-full flex items-center justify-center"
-                colors={["#ffe2de", "#dadada", "#a5c9ff"]}
-                backgroundFill="#f7f7f9"
-                waveOpacity={0.8}
-                blur={8}
-                speed="fast"
-            >
-                <div className="container mx-auto relative z-10 w-full max-w-5xl text-center px-6">
-                    <div className="flex flex-col items-center gap-12 md:gap-16">
+            <Navigation />
+            {/* Glassmorphism Overlay */}
+            <div
+                className="absolute inset-0 pointer-events-none z-0"
+                style={{
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%)',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
+                }}
+            />
+            <div className="w-full flex-1 flex flex-col items-center justify-center relative z-10 transition-colors duration-500">
+                <WavyBackground
+                    className="w-full max-w-5xl px-6 pt-24 pb-12 md:pt-32 md:pb-16"
+                    containerClassName="absolute inset-0 h-full w-full"
+                    colors={["#38bdf8", "#818cf8", "#c084fc", "#e879f9", "#22d3ee"]}
+                    waveOpacity={0.5}
+                    blur={10}
+                    speed="fast"
+                >
+                    <div className="flex flex-col items-center gap-6 md:gap-8 text-center">
                         <div className="flex flex-col items-center">
-                            <h1 className="reveal-fade font-redhat font-bold text-[#1f2937] text-[clamp(2.5rem,8vw,6rem)] leading-[1.2] text-center">
-                                The <span className="font-satisfy text-[1.4em] bg-gradient-to-r from-[#3b82f6] to-[#60a5fa] bg-clip-text text-transparent px-2 py-4 leading-none inline-block align-middle">Intelligence Layer</span><br />
-                                of Your Workforce
-                            </h1>
+                            <motion.h1
+                                initial={{ opacity: 0, y: 30 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                                className="font-display font-medium text-white text-[clamp(2.5rem,7vw,5rem)] leading-[1.1] flex flex-col items-center"
+                            >
+                                <span className="block">A Workforce</span>
+                                <span className="block">Intelligence Platform</span>
+                                <span className="text-[0.9em] block">for Scaling Organizations</span>
+                            </motion.h1>
 
-                            <p className="reveal-fade text-lg md:text-xl text-[#6b7280] font-redhat font-normal mt-10 max-w-2xl mx-auto leading-relaxed">
-                                Connect talent data, performance metrics, and planning insights into a single, strategic command center.
-                            </p>
+                            <motion.p
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                                className="text-lg md:text-xl text-white/90 font-display font-normal mt-6 max-w-2xl mx-auto leading-relaxed"
+                            >
+                                Gain real-time visibility into hiring needs, team capacity, performance, and retention so leaders can make confident workforce decisions as the organization scales.
+                            </motion.p>
                         </div>
 
                         <div className="reveal-fade flex justify-center">
-                            <a
-                                href="#cta"
-                                className="bg-[#3b82f6] text-white px-10 py-4 rounded-full font-redhat font-bold text-lg tracking-wide hover:bg-[#2563eb] transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 flex items-center gap-3 group"
-                            >
-                                Get Started
-                                <ArrowRight className="w-6 h-6 transition-transform group-hover:translate-x-1" />
-                            </a>
+                            <GlowButton
+                                onClick={() => navigate('/request-demo', { state: { from: 'hero' } })}
+                                label="Request a Demo"
+                            />
                         </div>
                     </div>
-                </div>
-            </WavyBackground>
+                </WavyBackground>
+            </div>
         </section>
     )
 }

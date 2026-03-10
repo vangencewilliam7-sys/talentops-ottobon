@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     MessageCircle, Users, Search, X, Trash2, Settings,
     UserPlus, Edit2, Shield, UserMinus, Reply, Smile,
-    BarChart2, CheckCircle2, Info
+    BarChart2, CheckCircle2, Info, ChevronUp, ChevronDown
 } from 'lucide-react';
 import MessageRenderer from './renderers/MessageRenderer';
 import ReactionDetailsModal from './ReactionDetailsModal';
@@ -29,6 +29,23 @@ const formatDividerDate = (dateString) => {
     });
 };
 
+// ── Helper: highlight matching text ──
+const HighlightText = ({ text, query }) => {
+    if (!query || !text) return <>{text}</>;
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    return (
+        <>
+            {parts.map((part, i) =>
+                regex.test(part) ? (
+                    <mark key={i} style={{ background: '#fbbf24', color: '#1f2937', borderRadius: '2px', padding: '0 1px' }}>{part}</mark>
+                ) : (
+                    <span key={i}>{part}</span>
+                )
+            )}
+        </>
+    );
+};
 
 
 
@@ -74,6 +91,8 @@ const ChatWindow = ({
     const [viewingReactionsFor, setViewingReactionsFor] = useState(null);
     const [showSearch, setShowSearch] = useState(false);
     const [messageSearchQuery, setMessageSearchQuery] = useState('');
+    const [searchResultIndex, setSearchResultIndex] = useState(0);
+    const [highlightedMessageId, setHighlightedMessageId] = useState(null);
     const [showGroupSettings, setShowGroupSettings] = useState(false);
     const [showMembersModal, setShowMembersModal] = useState(false);
     const [showAddMemberModal, setShowAddMemberModal] = useState(false);
@@ -82,10 +101,26 @@ const ChatWindow = ({
     const [showVoteDetails, setShowVoteDetails] = useState(null);
 
     const messagesEndRef = useRef(null);
+    const messageRefs = useRef({});
+    const messagesContainerRef = useRef(null);
+    const searchInputRef = useRef(null);
+    const prevConversationId = useRef(null);
 
-    // Auto-scroll to bottom
+    // Auto-scroll to bottom (latest messages)
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        const isNewConversation = selectedConversation?.id !== prevConversationId.current;
+        if (isNewConversation) {
+            prevConversationId.current = selectedConversation?.id;
+            // Instant scroll when opening a new conversation
+            setTimeout(() => {
+                if (messagesContainerRef.current) {
+                    messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+                }
+            }, 50);
+        } else {
+            // Smooth scroll for new messages in current conversation
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        }
     }, [messages, selectedConversation]);
 
     // Helper
@@ -112,6 +147,68 @@ const ChatWindow = ({
         await onRenameGroup(newGroupName);
         setShowRenameModal(false);
         setNewGroupName('');
+    };
+
+    // ── Search logic ──
+    const searchResultIds = messageSearchQuery
+        ? messages
+            .filter(msg => {
+                const query = messageSearchQuery.toLowerCase();
+                const content = (msg.content || '').toLowerCase();
+                const pollQuestion = (msg.poll_question || '').toLowerCase();
+                const pollOptions = (msg.poll_options || []).join(' ').toLowerCase();
+                const senderName = getSenderName(msg.sender_user_id).toLowerCase();
+                return content.includes(query) || pollQuestion.includes(query) || pollOptions.includes(query) || senderName.includes(query);
+            })
+            .map(msg => msg.id)
+        : [];
+
+    // Update highlighted message when search or index changes
+    useEffect(() => {
+        if (searchResultIds.length > 0 && searchResultIndex >= 0) {
+            const targetId = searchResultIds[searchResultIndex];
+            setHighlightedMessageId(targetId);
+            // Scroll into view
+            setTimeout(() => {
+                const el = messageRefs.current[targetId];
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+        } else {
+            setHighlightedMessageId(null);
+        }
+    }, [searchResultIndex, messageSearchQuery, searchResultIds.length]);
+
+    // Reset index when query changes
+    useEffect(() => {
+        setSearchResultIndex(0);
+    }, [messageSearchQuery]);
+
+    const goToNextResult = useCallback(() => {
+        if (searchResultIds.length === 0) return;
+        setSearchResultIndex(prev => (prev + 1) % searchResultIds.length);
+    }, [searchResultIds.length]);
+
+    const goToPrevResult = useCallback(() => {
+        if (searchResultIds.length === 0) return;
+        setSearchResultIndex(prev => (prev - 1 + searchResultIds.length) % searchResultIds.length);
+    }, [searchResultIds.length]);
+
+    const handleSearchKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (e.shiftKey) {
+                goToPrevResult();
+            } else {
+                goToNextResult();
+            }
+        }
+        if (e.key === 'Escape') {
+            setShowSearch(false);
+            setMessageSearchQuery('');
+            setHighlightedMessageId(null);
+        }
     };
 
     if (!selectedConversation) {
@@ -143,7 +240,7 @@ const ChatWindow = ({
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <button
-                            onClick={() => { setShowSearch(!showSearch); if (showSearch) setMessageSearchQuery(''); }}
+                            onClick={() => { setShowSearch(!showSearch); if (showSearch) { setMessageSearchQuery(''); setHighlightedMessageId(null); } }}
                             style={{
                                 display: 'flex',
                                 alignItems: 'center',
@@ -209,23 +306,41 @@ const ChatWindow = ({
                     <div style={{ padding: '12px 20px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
                             <Search size={16} style={{ position: 'absolute', left: '12px', color: '#94a3b8' }} />
-                            <input type="text" placeholder="Search in this conversation..." value={messageSearchQuery}
+                            <input type="text" placeholder="Search messages, names..." value={messageSearchQuery}
+                                ref={searchInputRef}
                                 onChange={(e) => setMessageSearchQuery(e.target.value)}
+                                onKeyDown={handleSearchKeyDown}
                                 style={{ width: '100%', padding: '10px 12px 10px 40px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', background: '#ffffff', transition: 'border-color 0.2s' }}
                                 autoFocus />
                             {messageSearchQuery && (
-                                <button onClick={() => setMessageSearchQuery('')}
+                                <button onClick={() => { setMessageSearchQuery(''); setHighlightedMessageId(null); }}
                                     style={{ position: 'absolute', right: '8px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
                                     <X size={16} />
                                 </button>
                             )}
                         </div>
-                        <div style={{ fontSize: '13px', color: '#6b7280' }}>
-                            {messages.filter(m =>
-                                m.content?.toLowerCase().includes(messageSearchQuery.toLowerCase()) ||
-                                m.poll_question?.toLowerCase().includes(messageSearchQuery.toLowerCase())
-                            ).length} results
-                        </div>
+                        {messageSearchQuery && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                                <span style={{ fontSize: '13px', color: searchResultIds.length > 0 ? '#374151' : '#ef4444', fontWeight: 500 }}>
+                                    {searchResultIds.length > 0 ? `${searchResultIndex + 1} of ${searchResultIds.length}` : 'No results'}
+                                </span>
+                                <button onClick={goToPrevResult} disabled={searchResultIds.length === 0}
+                                    title="Previous (Shift+Enter)"
+                                    style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: '4px', cursor: searchResultIds.length > 0 ? 'pointer' : 'not-allowed', padding: '4px', display: 'flex', color: searchResultIds.length > 0 ? '#374151' : '#d1d5db', transition: 'all 0.15s' }}>
+                                    <ChevronUp size={16} />
+                                </button>
+                                <button onClick={goToNextResult} disabled={searchResultIds.length === 0}
+                                    title="Next (Enter)"
+                                    style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: '4px', cursor: searchResultIds.length > 0 ? 'pointer' : 'not-allowed', padding: '4px', display: 'flex', color: searchResultIds.length > 0 ? '#374151' : '#d1d5db', transition: 'all 0.15s' }}>
+                                    <ChevronDown size={16} />
+                                </button>
+                            </div>
+                        )}
+                        {!messageSearchQuery && (
+                            <div style={{ fontSize: '12px', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                                Press Enter to navigate
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -248,7 +363,7 @@ const ChatWindow = ({
                 )}
 
                 {/* ════════ Messages Container ════════ */}
-                <div className="messages-container">
+                <div className="messages-container" ref={messagesContainerRef}>
                     {selectedConversation.temp ? (
                         <div className="empty-messages" style={{ textAlign: 'center', padding: '2rem' }}>
                             <MessageCircle size={48} style={{ marginBottom: '1rem', opacity: 0.5, color: '#6366f1' }} />
@@ -265,33 +380,13 @@ const ChatWindow = ({
                         </div>
                     ) : (
                         (() => {
-                            const filtered = messages.filter(msg => {
-                                if (!messageSearchQuery) return true;
-                                const query = messageSearchQuery.toLowerCase();
-                                const content = (msg.content || '').toLowerCase();
-                                const pollQuestion = (msg.poll_question || '').toLowerCase();
-                                const pollOptions = (msg.poll_options || []).join(' ').toLowerCase();
-                                return content.includes(query) || pollQuestion.includes(query) || pollOptions.includes(query);
-                            });
-
-                            if (filtered.length === 0 && messageSearchQuery) {
-                                return (
-                                    <div style={{ textAlign: 'center', padding: '3rem 2rem', color: '#6b7280' }}>
-                                        <Search size={48} style={{ marginBottom: '1rem', opacity: 0.2 }} />
-                                        <p style={{ fontSize: '15px' }}>No messages found matching "<strong>{messageSearchQuery}</strong>"</p>
-                                        <button onClick={() => setMessageSearchQuery('')}
-                                            style={{ marginTop: '1rem', background: 'none', border: '1px solid #d1d5db', padding: '6px 16px', borderRadius: '20px', cursor: 'pointer', fontSize: '13px' }}>
-                                            Clear Search
-                                        </button>
-                                    </div>
-                                );
-                            }
-
-                            return filtered.map((msg, index, filteredArray) => {
-                                const prevMsg = filteredArray[index - 1];
+                            return messages.map((msg, index) => {
+                                const prevMsg = messages[index - 1];
                                 const prevDate = prevMsg ? new Date(prevMsg.created_at).toDateString() : null;
                                 const currDate = new Date(msg.created_at).toDateString();
                                 const isNewDay = currDate !== prevDate;
+                                const isSearchMatch = messageSearchQuery && searchResultIds.includes(msg.id);
+                                const isCurrentResult = highlightedMessageId === msg.id;
 
                                 return (
                                     <React.Fragment key={msg.id}>
@@ -304,8 +399,27 @@ const ChatWindow = ({
                                             </div>
                                         )}
                                         <div
+                                            ref={el => { if (el) messageRefs.current[msg.id] = el; }}
                                             className={`message ${msg.sender_user_id === currentUserId ? 'sent' : 'received'}`}
-                                            style={{ position: 'relative', marginBottom: '8px' }}
+                                            style={{
+                                                position: 'relative',
+                                                marginBottom: '8px',
+                                                ...(isCurrentResult ? {
+                                                    background: 'rgba(251, 191, 36, 0.2)',
+                                                    borderLeft: '3px solid #f59e0b',
+                                                    borderRadius: '8px',
+                                                    padding: '4px',
+                                                    transition: 'all 0.3s ease'
+                                                } : isSearchMatch ? {
+                                                    background: 'rgba(251, 191, 36, 0.08)',
+                                                    borderRadius: '8px',
+                                                    padding: '4px',
+                                                    transition: 'all 0.3s ease'
+                                                } : messageSearchQuery ? {
+                                                    opacity: 0.4,
+                                                    transition: 'all 0.3s ease'
+                                                } : {})
+                                            }}
                                             onMouseEnter={() => setHoveredMessageId(msg.id)}
                                             onMouseLeave={() => setHoveredMessageId(null)}
                                         >
@@ -330,69 +444,71 @@ const ChatWindow = ({
                                                     </div>
                                                 )}
 
-                                                {/* Message Actions Hover */}
+                                                {/* Message Actions Hover + Reaction Picker */}
                                                 {hoveredMessageId === msg.id && !msg.is_deleted && (
-                                                    <div style={{ position: 'absolute', top: '-32px', right: msg.sender_user_id === currentUserId ? '4px' : 'auto', left: msg.sender_user_id !== currentUserId ? '4px' : 'auto', background: 'white', borderRadius: '24px', padding: '4px 8px', boxShadow: '0 4px 12px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: '2px', zIndex: 100, border: '1px solid #e5e7eb' }}>
-                                                        <button
-                                                            onClick={() => setReplyingTo({ id: msg.id, content: msg.content, sender_name: msg.sender_user_id === currentUserId ? 'You' : (getSenderName(msg.sender_user_id) || 'User') })}
-                                                            title="Reply"
-                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: '#64748b', display: 'flex', borderRadius: '50%', transition: 'all 0.2s' }}
-                                                            onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#3b82f6'; }}
-                                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#64748b'; }}
-                                                        >
-                                                            <Reply size={16} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => setShowReactionPicker(showReactionPicker === msg.id ? null : msg.id)}
-                                                            title="React"
-                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: '#64748b', display: 'flex', borderRadius: '50%', transition: 'all 0.2s' }}
-                                                            onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#eab308'; }}
-                                                            onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#64748b'; }}
-                                                        >
-                                                            <Smile size={16} />
-                                                        </button>
-                                                        {messageReactions[msg.id] && Object.keys(messageReactions[msg.id]).length > 0 && (
-                                                            <button onClick={() => setViewingReactionsFor(msg.id)} title="View Reactions"
+                                                    <div style={{ position: 'absolute', top: '-32px', right: msg.sender_user_id === currentUserId ? '4px' : 'auto', left: msg.sender_user_id !== currentUserId ? '4px' : 'auto', zIndex: 100 }}>
+                                                        {/* Reaction Picker Popup - above the action bar */}
+                                                        {showReactionPicker === msg.id && (
+                                                            <div style={{ position: 'absolute', bottom: '100%', right: msg.sender_user_id === currentUserId ? '0' : 'auto', left: msg.sender_user_id !== currentUserId ? '0' : 'auto', background: 'white', border: '1px solid #e5e7eb', borderRadius: '24px', padding: '6px 10px', display: 'flex', gap: '2px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', zIndex: 101, marginBottom: '6px', whiteSpace: 'nowrap' }}>
+                                                                {['👍', '❤️', '😂', '😮', '😢', '🎉', '🔥', '👏'].map(emoji => (
+                                                                    <button key={emoji}
+                                                                        onClick={(e) => { e.stopPropagation(); handleReaction(msg.id, emoji); }}
+                                                                        style={{ padding: '6px', background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', borderRadius: '50%', transition: 'all 0.15s', lineHeight: 1 }}
+                                                                        onMouseEnter={(e) => { e.target.style.transform = 'scale(1.3)'; e.target.style.background = '#f1f5f9'; }}
+                                                                        onMouseLeave={(e) => { e.target.style.transform = 'scale(1)'; e.target.style.background = 'none'; }}>
+                                                                        {emoji}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        {/* Action buttons bar */}
+                                                        <div style={{ background: 'white', borderRadius: '24px', padding: '4px 8px', boxShadow: '0 4px 12px rgba(0,0,0,0.12)', display: 'flex', alignItems: 'center', gap: '2px', border: '1px solid #e5e7eb' }}>
+                                                            <button
+                                                                onClick={() => setReplyingTo({ id: msg.id, content: msg.content, sender_name: msg.sender_user_id === currentUserId ? 'You' : (getSenderName(msg.sender_user_id) || 'User') })}
+                                                                title="Reply"
                                                                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: '#64748b', display: 'flex', borderRadius: '50%', transition: 'all 0.2s' }}
                                                                 onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#3b82f6'; }}
-                                                                onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#64748b'; }}>
-                                                                <Info size={16} />
+                                                                onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#64748b'; }}
+                                                            >
+                                                                <Reply size={16} />
                                                             </button>
-                                                        )}
-
-                                                        {/* Delete Actions */}
-                                                        {msg.sender_user_id === currentUserId && (new Date() - new Date(msg.created_at)) < 5 * 60 * 1000 && (
-                                                            <>
-                                                                <div style={{ width: '1px', height: '18px', background: '#e2e8f0', margin: '0 6px' }} />
-                                                                <button onClick={() => onDeleteForMe(msg.id)} title="Delete for me"
-                                                                    style={{ background: 'none', border: 'none', padding: '4px 8px', cursor: 'pointer', color: '#64748b', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', borderRadius: '12px', transition: 'all 0.2s' }}
-                                                                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#1e293b'; }}
+                                                            <button
+                                                                onClick={() => setShowReactionPicker(showReactionPicker === msg.id ? null : msg.id)}
+                                                                title="React"
+                                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: '#64748b', display: 'flex', borderRadius: '50%', transition: 'all 0.2s' }}
+                                                                onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#eab308'; }}
+                                                                onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#64748b'; }}
+                                                            >
+                                                                <Smile size={16} />
+                                                            </button>
+                                                            {messageReactions[msg.id] && Object.keys(messageReactions[msg.id]).length > 0 && (
+                                                                <button onClick={() => setViewingReactionsFor(msg.id)} title="View Reactions"
+                                                                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px', color: '#64748b', display: 'flex', borderRadius: '50%', transition: 'all 0.2s' }}
+                                                                    onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#3b82f6'; }}
                                                                     onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#64748b'; }}>
-                                                                    <Trash2 size={13} /> Me
+                                                                    <Info size={16} />
                                                                 </button>
-                                                                <button onClick={() => onDeleteForEveryone(msg.id)} title="Delete for everyone"
-                                                                    style={{ background: 'none', border: 'none', padding: '4px 8px', cursor: 'pointer', color: '#ef4444', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', borderRadius: '12px', transition: 'all 0.2s' }}
-                                                                    onMouseEnter={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#b91c1c'; }}
-                                                                    onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#ef4444'; }}>
-                                                                    <Trash2 size={13} /> All
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                            )}
 
-                                                {/* Reaction Picker Popup */}
-                                                {showReactionPicker === msg.id && (
-                                                    <div style={{ position: 'absolute', bottom: '100%', right: msg.sender_user_id === currentUserId ? '0' : 'auto', left: msg.sender_user_id !== currentUserId ? '0' : 'auto', background: 'white', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '8px', display: 'flex', gap: '4px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', zIndex: 100, marginBottom: '8px' }}>
-                                                        {['👍', '❤️', '😂', '😮', '😢', '🎉', '🔥', '👏'].map(emoji => (
-                                                            <button key={emoji}
-                                                                onClick={(e) => { e.stopPropagation(); handleReaction(msg.id, emoji); }}
-                                                                style={{ padding: '8px', background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', borderRadius: '8px', transition: 'transform 0.1s' }}
-                                                                onMouseEnter={(e) => e.target.style.transform = 'scale(1.2)'}
-                                                                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}>
-                                                                {emoji}
-                                                            </button>
-                                                        ))}
+                                                            {/* Delete Actions */}
+                                                            {msg.sender_user_id === currentUserId && (new Date() - new Date(msg.created_at)) < 5 * 60 * 1000 && (
+                                                                <>
+                                                                    <div style={{ width: '1px', height: '18px', background: '#e2e8f0', margin: '0 6px' }} />
+                                                                    <button onClick={() => onDeleteForMe(msg.id)} title="Delete for me"
+                                                                        style={{ background: 'none', border: 'none', padding: '4px 8px', cursor: 'pointer', color: '#64748b', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', borderRadius: '12px', transition: 'all 0.2s' }}
+                                                                        onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#1e293b'; }}
+                                                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#64748b'; }}>
+                                                                        <Trash2 size={13} /> Me
+                                                                    </button>
+                                                                    <button onClick={() => onDeleteForEveryone(msg.id)} title="Delete for everyone"
+                                                                        style={{ background: 'none', border: 'none', padding: '4px 8px', cursor: 'pointer', color: '#ef4444', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', borderRadius: '12px', transition: 'all 0.2s' }}
+                                                                        onMouseEnter={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.color = '#b91c1c'; }}
+                                                                        onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#ef4444'; }}>
+                                                                        <Trash2 size={13} /> All
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 )}
 
@@ -442,6 +558,14 @@ const ChatWindow = ({
 
                                                 <div className="message-time">
                                                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {msg.sender_user_id === currentUserId && (
+                                                        <span style={{ marginLeft: '4px', display: 'inline-flex', verticalAlign: 'middle' }}>
+                                                            <svg width="16" height="11" viewBox="0 0 16 11" fill="none" style={{ color: '#3b82f6' }}>
+                                                                <path d="M11.071 0.929L4.5 7.5L1.929 4.929" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                                <path d="M14.071 0.929L7.5 7.5L6.5 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                            </svg>
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

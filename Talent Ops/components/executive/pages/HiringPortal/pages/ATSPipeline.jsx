@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useATSData } from '../../../context/ATSDataContext';
 import { useUser } from '../../../context/UserContext';
@@ -23,6 +23,28 @@ const ATSPipeline = () => {
     const { addToast } = useToast();
     const [jobFilter, setJobFilter] = useState('all');
     const [selectedCandidateId, setSelectedCandidateId] = useState(null);
+    const scrollContainerRef = useRef(null);
+
+    // Enable horizontal scrolling with vertical mouse wheel
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        const handleWheel = (e) => {
+            // Check if vertical scrolling is happening and no horizontal scrolling
+            if (e.deltaY !== 0 && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                e.preventDefault();
+                container.scrollLeft += e.deltaY;
+            }
+        };
+
+        // passive: false is required to allow e.preventDefault()
+        container.addEventListener('wheel', handleWheel, { passive: false });
+
+        return () => {
+            container.removeEventListener('wheel', handleWheel);
+        };
+    }, []);
 
     const canManageCandidates = ['admin', 'recruiter', 'User'].includes(userRole) || true;
 
@@ -77,7 +99,7 @@ const ATSPipeline = () => {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-x-auto">
+            <div className="flex-1 overflow-x-auto no-scrollbar" ref={scrollContainerRef}>
                 <DragDropContext onDragEnd={handleDragEnd}>
                     <div className="flex gap-4 pb-4 h-full min-w-max">
                         {PIPELINE_STAGES.map(stage => {
@@ -210,24 +232,6 @@ const ATSPipeline = () => {
                 .custom-scrollbar::-webkit-scrollbar-thumb {
                     background: var(--border-primary);
                     border-radius: 3px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: var(--text-secondary);
-                }
-                
-                /* Apply to the horizontal container as well */
-                .overflow-x-auto::-webkit-scrollbar {
-                    height: 8px;
-                }
-                .overflow-x-auto::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                .overflow-x-auto::-webkit-scrollbar-thumb {
-                    background: var(--border-primary);
-                    border-radius: 4px;
-                }
-                .overflow-x-auto::-webkit-scrollbar-thumb:hover {
-                    background: var(--text-secondary);
                 }
             `}</style>
         </div>

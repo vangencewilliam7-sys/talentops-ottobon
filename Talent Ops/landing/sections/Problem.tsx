@@ -5,33 +5,33 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 const painPoints = [
   {
     icon: AlertCircle,
-    title: 'No Clear Ownership',
-    description: 'When roles are blurry, tasks fall through the cracks and progress slows down.'
+    title: "Unclear Roles and Ownership",
+    description: "People don’t know who is accountable for what. Work overlaps in some areas and falls through gaps in others, slowing decisions and execution."
   },
   {
     icon: Users,
-    title: 'Disjointed Processes',
-    description: 'Hiring, onboarding, and performance reviews feel separate instead of one smooth system.'
+    title: "Hiring Without Accurate Capacity Insight",
+    description: "Recruitment decisions are driven by urgency instead of data. Some teams become overstaffed while critical skill gaps remain unfilled."
   },
   {
     icon: BarChart3,
-    title: 'Lack of Real Insight',
-    description: 'Managing on instinct instead of data makes it hard to see where the team is struggling.'
+    title: "Late Detection of Performance Issues",
+    description: "Problems surface only after targets are missed or clients complain, making recovery costly and disruptive."
   },
   {
     icon: TrendingDown,
-    title: 'Losing Great People',
-    description: 'Talent often leaves because of small, fixable issues that were never noticed.'
+    title: "Unexpected Attrition of Key Employees",
+    description: "High-impact employees leave without warning due to burnout, disengagement, or external offers, taking critical knowledge with them."
   },
   {
     icon: Workflow,
-    title: 'Growing Inefficiency',
-    description: 'As you scale, small problems compound and make daily operations more difficult.'
+    title: "Limited Visibility for Managers and Leaders",
+    description: "Leaders lack real-time insight into workload, progress, and risks, forcing decisions based on incomplete or outdated information."
   },
   {
     icon: Target,
-    title: 'Misaligned Goals',
-    description: 'Teams move in different directions without a unified strategy, slowing execution and impact.'
+    title: "Disconnected HR, Operations, and Finance Systems",
+    description: "Workforce data is scattered across tools that don’t integrate, causing misalignment between staffing, budgets, and execution plans."
   }
 ];
 
@@ -45,7 +45,7 @@ function PainPointCard({ point, index }: { point: typeof painPoints[0]; index: n
       viewport={{ once: true, amount: 0.4 }}
       transition={{ duration: 0.5, delay: index * 0.1, ease: [0.22, 1, 0.36, 1] }}
       whileHover={{ y: -5, boxShadow: "0 15px 30px rgba(18, 18, 18, 0.08)" }}
-      className="p-8 border border-[#dadada] rounded-xl transition-all bg-white cursor-pointer"
+      className="p-8 border border-[#dadada] rounded-xl transition-all bg-white cursor-pointer gpu-accel"
     >
       <motion.div
         whileHover={{ scale: 1.1 }}
@@ -66,19 +66,17 @@ function PainPointCard({ point, index }: { point: typeof painPoints[0]; index: n
 
 export default function Problem() {
   return (
-    <section id="problem" className="py-32 px-6 lg:px-12 bg-white">
+    <section id="problem" className="py-20 px-6 lg:px-12 bg-white">
       <div className="max-w-7xl mx-auto">
-        <motion.div
+        <motion.h2
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, amount: 0.2 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-20"
+          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          className="text-[32px] md:text-[38px] lg:text-[42px] mb-12 text-[#1f2937] font-heading font-semibold tracking-tight leading-[1.15] text-center"
         >
-          <h2 className="text-[42px] md:text-[48px] lg:text-[52px] mb-6 text-[#1f2937] font-heading font-semibold tracking-tight leading-[1.15]">
-            Why Scaling Often Feels Difficult
-          </h2>
-        </motion.div>
+          Why Workforce Management Gets Harder at Scale
+        </motion.h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {painPoints.map((point, index) => (

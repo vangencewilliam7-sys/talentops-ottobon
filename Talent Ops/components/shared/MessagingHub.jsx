@@ -34,7 +34,7 @@ import {
     deleteMessageForMe,
     getConversationMemberIds
 } from '../../services/messageService';
-import { sendNotification } from '../../services/notificationService';
+import { sendNotification, sendBulkNotifications } from '../../services/notificationService';
 import { useMessages } from './context/MessageContext';
 import './MessagingHub.css';
 
@@ -105,8 +105,6 @@ const MessagingHub = () => {
 
         fetchCurrentUser();
 
-        fetchCurrentUser();
-
         const subscription = subscribeToAuthChanges((event, session) => {
             if (event === 'SIGNED_IN' && session?.user) fetchCurrentUser();
             else if (event === 'SIGNED_OUT') {
@@ -145,11 +143,24 @@ const MessagingHub = () => {
     }, [orgUsers]);
 
     // Subscribe to real-time updates for selected conversation
+    const currentUserIdRef = useRef(currentUserId);
+    currentUserIdRef.current = currentUserId;
+    const selectedConvIdRef = useRef(null);
+
     useEffect(() => {
         let subscription = null;
-        if (selectedConversation) {
-            subscription = subscribeToConversation(selectedConversation.id, {
+        const convId = selectedConversation?.id;
+
+        // Only re-subscribe if the conversation ID actually changed
+        if (convId && convId !== selectedConvIdRef.current) {
+            selectedConvIdRef.current = convId;
+        }
+
+        if (convId) {
+            subscription = subscribeToConversation(convId, {
                 onMessage: async (newMessage) => {
+                    // Skip messages sent by current user — already added by handleSendMessage
+                    if (newMessage.sender_user_id === currentUserIdRef.current) return;
                     try {
                         const fullMsg = await hydrateMessage(newMessage.id);
                         if (fullMsg) {
@@ -159,7 +170,7 @@ const MessagingHub = () => {
                             });
                             setConversations(prevConvs => {
                                 const updated = prevConvs.map(c => {
-                                    if (c.id === selectedConversation.id) {
+                                    if (c.id === convId) {
                                         return { ...c, conversation_indexes: [{ last_message: fullMsg.content || '📎 Attachment', last_message_at: fullMsg.created_at }] };
                                     }
                                     return c;
@@ -173,7 +184,7 @@ const MessagingHub = () => {
                                     return new Date(tB).getTime() - new Date(tA).getTime();
                                 });
                             });
-                            markAsRead(selectedConversation.id);
+                            markAsRead(convId);
                         }
                     } catch (err) {
                         console.error('Error handling realtime message:', err);
@@ -182,7 +193,7 @@ const MessagingHub = () => {
                 onReaction: async (payload) => {
                     const msgId = payload?.message_id;
                     const userId = payload?.user_id;
-                    if (userId === currentUserId && isReacting.current) return;
+                    if (userId === currentUserIdRef.current && isReacting.current) return;
                     if (msgId) {
                         try {
                             const summary = await getReactionSummary(msgId);
@@ -197,23 +208,38 @@ const MessagingHub = () => {
                 }
             });
         }
-        return () => { if (subscription) unsubscribeFromConversation(subscription); };
-    }, [selectedConversation, currentUserId]);
+        return () => {
+            if (subscription) unsubscribeFromConversation(subscription);
+            selectedConvIdRef.current = null;
+        };
+    }, [selectedConversation?.id]);
 
     // ══════════════════════════════════════════════
     //  CORE DATA FUNCTIONS
     // ══════════════════════════════════════════════
 
+    const loadIdRef = useRef(0);
     const loadConversations = async () => {
         if (!currentUserId) return;
+        const thisLoadId = ++loadIdRef.current;
         if (conversationCache[activeCategory]) {
-            setConversations(conversationCache[activeCategory]);
+            // Sort cached data too, to ensure correct order
+            const cached = [...conversationCache[activeCategory]].sort((a, b) => {
+                const tA = a.conversation_indexes?.[0]?.last_message_at;
+                const tB = b.conversation_indexes?.[0]?.last_message_at;
+                if (!tA && !tB) return 0;
+                if (!tA) return 1;
+                if (!tB) return -1;
+                return new Date(tB).getTime() - new Date(tA).getTime();
+            });
+            setConversations(cached);
             setLoading(false);
             return;
         }
         setLoading(true);
         try {
             const convs = await getConversationsByCategory(currentUserId, activeCategory, currentUserOrgId);
+            if (thisLoadId !== loadIdRef.current) return; // Stale call, discard
             let finalConvs = convs;
             if (activeCategory === 'myself') {
                 const convsWithNames = await Promise.all(convs.map(async (conv) => {
@@ -233,6 +259,16 @@ const MessagingHub = () => {
                 }));
                 finalConvs = convsWithNames;
             }
+            if (thisLoadId !== loadIdRef.current) return; // Stale call, discard
+            // Sort by most recent message first
+            finalConvs.sort((a, b) => {
+                const tA = a.conversation_indexes?.[0]?.last_message_at;
+                const tB = b.conversation_indexes?.[0]?.last_message_at;
+                if (!tA && !tB) return 0;
+                if (!tA) return 1;
+                if (!tB) return -1;
+                return new Date(tB).getTime() - new Date(tA).getTime();
+            });
             setConversations(finalConvs);
             setConversationCache(prev => ({ ...prev, [activeCategory]: finalConvs }));
         } catch (error) {
@@ -265,6 +301,19 @@ const MessagingHub = () => {
                 }
             });
             setMessageReactions(reactionsMap);
+
+            // Fetch conversation members for notifications
+            try {
+                if (conversation.type === 'everyone') {
+                    setCurrentMembers(orgUsers.map(u => ({ ...u, is_admin: false })));
+                } else {
+                    const members = await getConversationMembers(conversation.id);
+                    setCurrentMembers(members);
+                }
+            } catch (memErr) {
+                console.error('Error fetching members:', memErr);
+            }
+
             if (conversation.type === 'team' && currentUserId) {
                 setIsCurrentUserAdmin(await isConversationAdmin(conversation.id, currentUserId));
             } else {
@@ -327,7 +376,7 @@ const MessagingHub = () => {
                 }
             }
 
-            const newMessage = await sendMessageWithReply(
+            let newMessage = await sendMessageWithReply(
                 targetConversationId, content.trim(), currentUserId,
                 replyingTo?.id || null, replyingTo?.content || null, replyingTo?.sender_name || null,
                 currentUserOrgId
@@ -336,16 +385,55 @@ const MessagingHub = () => {
             if (attachmentFiles.length > 0) {
                 try {
                     await Promise.all(attachmentFiles.map(file => uploadAttachment(file, targetConversationId, newMessage.id)));
+                    // Re-hydrate message to include the uploaded attachments
+                    const hydrated = await hydrateMessage(newMessage.id);
+                    if (hydrated) newMessage = hydrated;
                 } catch (attachmentError) {
                     console.error('Error uploading attachments:', attachmentError);
                 }
             }
 
+            // Send notifications
+            try {
+                if (currentMembers.length > 0) {
+                    const currentProfile = orgUsers.find(u => u.id === currentUserId);
+                    const senderName = currentProfile?.full_name || 'Someone';
+                    const recipients = currentMembers.filter(m => (m.id || m.user_id) !== currentUserId).map(m => m.id || m.user_id);
+                    if (recipients.length > 0) {
+                        const msgPreview = content.trim()
+                            ? `${senderName}: ${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`
+                            : `${senderName} sent an attachment`;
+                        sendBulkNotifications(recipients, currentUserId, senderName, msgPreview, 'message');
+                    }
+                }
+            } catch (notifError) {
+                console.error('Error sending notifications:', notifError);
+            }
 
             setReplyingTo(null);
             setMessages(prev => [...prev, newMessage]);
+
+            // Mark as read since we just sent a message in this conversation
+            markAsRead(targetConversationId);
+
+            // Move this conversation to top of sidebar
+            setConversations(prevConvs => {
+                const updated = prevConvs.map(c => {
+                    if (c.id === targetConversationId) {
+                        return { ...c, conversation_indexes: [{ last_message: content.trim() || '📎 Attachment', last_message_at: newMessage.created_at || new Date().toISOString() }] };
+                    }
+                    return c;
+                });
+                return updated.sort((a, b) => {
+                    const tA = a.conversation_indexes?.[0]?.last_message_at;
+                    const tB = b.conversation_indexes?.[0]?.last_message_at;
+                    if (!tA && !tB) return 0;
+                    if (!tA) return 1;
+                    if (!tB) return -1;
+                    return new Date(tB).getTime() - new Date(tA).getTime();
+                });
+            });
             setConversationCache(prev => { const c = { ...prev }; delete c[activeCategory]; return c; });
-            await loadConversations();
         } catch (error) {
             console.error('Error sending message:', error);
             setErrorMessage(`Failed to send message: ${error.message || 'Unknown error'}`);
@@ -417,7 +505,7 @@ const MessagingHub = () => {
     //  DELETE HANDLERS
     // ══════════════════════════════════════════════
 
-    const deleteMessageForEveryone = async (messageId) => {
+    const handleDeleteForEveryone = async (messageId) => {
         const msg = messages.find(m => m.id === messageId);
         if (msg && (new Date() - new Date(msg.created_at)) / (1000 * 60) > 5) {
             alert('Messages can only be deleted within 5 minutes of sending.');
@@ -432,7 +520,7 @@ const MessagingHub = () => {
         }
     };
 
-    const deleteMessageForMe = async (messageId) => {
+    const handleDeleteForMe = async (messageId) => {
         const msg = messages.find(m => m.id === messageId);
         if (msg && (new Date() - new Date(msg.created_at)) / (1000 * 60) > 5) {
             alert('Messages can only be deleted within 5 minutes of sending.');
@@ -641,8 +729,8 @@ const MessagingHub = () => {
                     setReplyingTo={setReplyingTo}
                     onReaction={handleReaction}
                     onVote={handleVote}
-                    onDeleteForMe={deleteMessageForMe}
-                    onDeleteForEveryone={deleteMessageForEveryone}
+                    onDeleteForMe={handleDeleteForMe}
+                    onDeleteForEveryone={handleDeleteForEveryone}
                     groupActions={groupActions}
                 />
 

@@ -14,12 +14,12 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md', footer }) => {
 
     return (
         <React.Fragment>
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
                 <div
-                    className={`bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl shadow-2xl w-full ${sizeClasses[size] || 'max-w-md'} flex flex-col max-h-[90vh]`}
+                    className={`bg-[var(--surface)] border border-[var(--border-primary)] rounded-xl shadow-2xl w-full ${sizeClasses[size] || 'max-w-md'} flex flex-col max-h-[90vh] overflow-hidden`}
                     onClick={e => e.stopPropagation()}
                 >
-                    <div className="flex items-center justify-between p-6 border-b border-[var(--border-primary)] shrink-0">
+                    <div className="flex items-center justify-between p-6 border-b border-[var(--border-primary)] shrink-0 bg-[var(--surface)]">
                         <h3 className="text-xl font-semibold text-[var(--text-primary)]">{title}</h3>
                         <button
                             className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors"
@@ -28,11 +28,11 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md', footer }) => {
                             <X size={20} />
                         </button>
                     </div>
-                    <div className="p-6 overflow-y-auto custom-scrollbar grow">
+                    <div className="p-6 overflow-y-auto custom-scrollbar grow shrink bg-[var(--surface)] relative">
                         {children}
                     </div>
                     {footer && (
-                        <div className="p-6 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] rounded-b-xl shrink-0">
+                        <div className="p-6 border-t border-[var(--border-primary)] bg-[var(--surface)] shrink-0 shadow-lg relative z-10">
                             {footer}
                         </div>
                     )}

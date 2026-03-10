@@ -9,6 +9,7 @@ import RiskAlertPopup from '../../../shared/RiskAlertPopup';
 import { supabase } from '../../../../lib/supabaseClient';
 import { useToast } from '../../context/ToastContext';
 import { MessageProvider } from '../../../shared/context/MessageContext';
+import MessageNotificationStack from '../../../shared/MessageNotificationStack';
 
 const Layout = ({ children }) => {
     const [isCollapsed, setIsCollapsed] = React.useState(false);
@@ -111,6 +112,7 @@ const Layout = ({ children }) => {
                     </main>
                     <Chatbot />
                 </div>
+                <MessageNotificationStack />
                 <AnnouncementPopup
                     isOpen={showAnnouncements}
                     onClose={handleAnnouncementsClose}
