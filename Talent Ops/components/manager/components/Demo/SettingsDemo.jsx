@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Users, Lock, Eye, EyeOff, Save, Shield, Edit2, Phone, MapPin, Camera } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
+import OrganizationHolidaysCard from './OrganizationHolidaysCard';
 
 const SettingsDemo = () => {
     const [userProfile, setUserProfile] = useState(null);
@@ -1042,6 +1043,11 @@ const SettingsDemo = () => {
                     </form>
                 )}
             </div>
+
+            {/* Organization Holidays CSV Upload Card */}
+            {userProfile?.role && (
+                <OrganizationHolidaysCard userRole={userProfile.role} />
+            )}
         </div>
     );
 };
