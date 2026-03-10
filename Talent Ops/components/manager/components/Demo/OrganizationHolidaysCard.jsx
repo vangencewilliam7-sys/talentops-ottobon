@@ -8,10 +8,11 @@ const OrganizationHolidaysCard = ({ userRole }) => {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+    const [selectedHolidays, setSelectedHolidays] = useState([]);
 
-    // In the true app, we check if role is one of the admin roles.
-    // For demo/testing purposes, if userRole is undefined, we default to true so it can be tested.
-    const canManage = userRole ? ['executive', 'hr', 'admin', 'super_admin', 'manager'].includes(userRole) : true;
+    // Only allow managers, HR, and executives to see the upload UI.
+    // Employees will only see the list.
+    const canManage = userRole ? ['executive', 'hr', 'manager'].includes(userRole) : false;
 
     useEffect(() => {
         fetchHolidays();
@@ -168,10 +169,48 @@ const OrganizationHolidaysCard = ({ userRole }) => {
 
             if (error) throw error;
             setMessage({ type: 'success', text: 'Holiday removed successfully.' });
+            setSelectedHolidays(prev => prev.filter(selId => selId !== id)); // Remove from selection if selected
             fetchHolidays();
         } catch (error) {
             setMessage({ type: 'error', text: 'Failed to delete holiday.' });
         }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedHolidays.length === 0) return;
+        if (!window.confirm(`Are you sure you want to delete ${selectedHolidays.length} selected holidays?`)) return;
+
+        try {
+            const { error } = await supabase
+                .from('organization_holidays')
+                .delete()
+                .in('id', selectedHolidays);
+
+            if (error) throw error;
+            setMessage({ type: 'success', text: `Successfully removed ${selectedHolidays.length} holidays.` });
+            setSelectedHolidays([]); // Clear selection
+            fetchHolidays();
+        } catch (error) {
+            setMessage({ type: 'error', text: 'Failed to delete selected holidays.' });
+        }
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedHolidays.length === holidays.length) {
+            // Deselect all
+            setSelectedHolidays([]);
+        } else {
+            // Select all
+            setSelectedHolidays(holidays.map(h => h.id));
+        }
+    };
+
+    const toggleSelect = (id) => {
+        setSelectedHolidays(prev =>
+            prev.includes(id)
+                ? prev.filter(item => item !== id)
+                : [...prev, id]
+        );
     };
 
     return (
@@ -183,14 +222,38 @@ const OrganizationHolidaysCard = ({ userRole }) => {
             border: '1px solid var(--border)',
             marginTop: '24px'
         }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                <CalendarIcon size={24} color="var(--primary)" />
-                <div>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Organization Holidays</h3>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                        Manage company-wide holidays that affect leave balance and attendance.
-                    </p>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <CalendarIcon size={24} color="var(--primary)" />
+                    <div>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Organization Holidays</h3>
+                        <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                            Manage company-wide holidays that affect leave balance and attendance.
+                        </p>
+                    </div>
                 </div>
+
+                {canManage && selectedHolidays.length > 0 && (
+                    <button
+                        onClick={handleBulkDelete}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            backgroundColor: '#fee2e2',
+                            color: '#ef4444',
+                            border: '1px solid #f87171',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                            fontSize: '0.875rem',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        <Trash2 size={16} /> Delete Selected ({selectedHolidays.length})
+                    </button>
+                )}
             </div>
 
             {/* Message Area */}
@@ -267,6 +330,16 @@ const OrganizationHolidaysCard = ({ userRole }) => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                             <thead style={{ backgroundColor: 'var(--background)' }}>
                                 <tr>
+                                    {canManage && (
+                                        <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', width: '40px' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={holidays.length > 0 && selectedHolidays.length === holidays.length}
+                                                onChange={toggleSelectAll}
+                                                style={{ cursor: 'pointer' }}
+                                            />
+                                        </th>
+                                    )}
                                     <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Date</th>
                                     <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Holiday Name</th>
                                     <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Type</th>
@@ -275,7 +348,20 @@ const OrganizationHolidaysCard = ({ userRole }) => {
                             </thead>
                             <tbody>
                                 {holidays.map((holiday) => (
-                                    <tr key={holiday.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                    <tr key={holiday.id} style={{
+                                        borderBottom: '1px solid var(--border)',
+                                        backgroundColor: selectedHolidays.includes(holiday.id) ? 'var(--background)' : 'transparent'
+                                    }}>
+                                        {canManage && (
+                                            <td style={{ padding: '12px 16px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedHolidays.includes(holiday.id)}
+                                                    onChange={() => toggleSelect(holiday.id)}
+                                                    style={{ cursor: 'pointer' }}
+                                                />
+                                            </td>
+                                        )}
                                         <td style={{ padding: '12px 16px', fontSize: '0.95rem' }}>
                                             {new Date(holiday.holiday_date).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                                         </td>
