@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, UploadCloud, RefreshCw, Trash2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
+import * as XLSX from 'xlsx';
 
 const OrganizationHolidaysCard = ({ userRole }) => {
     const [holidays, setHolidays] = useState([]);
@@ -47,31 +48,82 @@ const OrganizationHolidaysCard = ({ userRole }) => {
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
-                const text = e.target.result;
-                const lines = text.split('\n').filter(line => line.trim() !== '');
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
 
-                // Assuming simple CSV format: "Date,Name,Type"
-                // Example: 2026-01-26,Republic Day,public
-                // Skip header if it exists (check if first row has letters instead of numbers)
-                let startIndex = 0;
-                if (lines[0].toLowerCase().includes('date')) {
-                    startIndex = 1;
+                // Get first sheet
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert to JSON (array of arrays to handle no headers properly)
+                const jsonArray = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                if (jsonArray.length === 0) {
+                    throw new Error('No valid data found in the file.');
                 }
 
                 const parsedHolidays = [];
 
-                for (let i = startIndex; i < lines.length; i++) {
-                    const row = lines[i].split(',').map(s => s.trim());
-                    if (row.length >= 2) {
-                        const [dateStr, name, type] = row;
+                // Check if first row is headers
+                let startIndex = 0;
+                if (jsonArray[0].length > 0 && String(jsonArray[0][0]).toLowerCase().includes('date')) {
+                    startIndex = 1;
+                }
 
-                        // Basic validation for YYYY-MM-DD
-                        if (!dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                            throw new Error(`Invalid date format on line ${i + 1}. Expected YYYY-MM-DD.`);
+                for (let i = startIndex; i < jsonArray.length; i++) {
+                    const row = jsonArray[i];
+                    // Skip empty rows completely
+                    if (!row || row.length === 0 || row.every(cell => !cell || String(cell).trim() === '')) {
+                        continue;
+                    }
+
+                    if (row.length >= 2) {
+                        // Excel sometimes returns serial dates, or just string text formats.
+                        // We must handle both.
+                        let dateStr = row[0];
+                        const name = String(row[1]).trim();
+                        const type = row.length > 2 ? String(row[2]).trim() : 'company';
+
+                        // Handle Excel Serial Date
+                        if (typeof dateStr === 'number') {
+                            const jsDate = new Date(Math.round((dateStr - 25569) * 86400 * 1000));
+                            dateStr = jsDate.toISOString().split('T')[0];
+                        } else {
+                            dateStr = String(dateStr).trim();
+                        }
+
+                        // Flexible Date Parsing for Text strings
+                        let formattedDateStr = "";
+                        const cleanDateStr = dateStr.replace(/[\/\.]/g, '-');
+
+                        const yyyyMmDd = /^(\d{4})-(\d{1,2})-(\d{1,2})$/;
+                        const ddMmYyyy = /^(\d{1,2})-(\d{1,2})-(\d{4})$/;
+
+                        let parts;
+                        if ((parts = cleanDateStr.match(yyyyMmDd))) {
+                            const y = parts[1], m = parts[2].padStart(2, '0'), d = parts[3].padStart(2, '0');
+                            formattedDateStr = `${y}-${m}-${d}`;
+                        } else if ((parts = cleanDateStr.match(ddMmYyyy))) {
+                            let p1 = parseInt(parts[1], 10), p2 = parseInt(parts[2], 10), y = parts[3];
+                            let d, m;
+                            if (p2 > 12) { m = p1; d = p2; } // Must be MM-DD-YYYY
+                            else if (p1 > 12) { d = p1; m = p2; } // Must be DD-MM-YYYY
+                            else { d = p1; m = p2; } // Ambiguous: Defaulting to DD-MM-YYYY
+                            formattedDateStr = `${y}-${m.toString().padStart(2, '0')}-${d.toString().padStart(2, '0')}`;
+                        } else {
+                            // Try JS Date parser as a fallback
+                            const jsDate = new Date(dateStr);
+                            if (!isNaN(jsDate.getTime())) {
+                                formattedDateStr = jsDate.toISOString().split('T')[0];
+                            }
+                        }
+
+                        if (!formattedDateStr || isNaN(new Date(formattedDateStr).getTime())) {
+                            throw new Error(`Invalid date format on row ${i + 1} ("${dateStr}"). Try YYYY-MM-DD or DD/MM/YYYY.`);
                         }
 
                         parsedHolidays.push({
-                            holiday_date: dateStr,
+                            holiday_date: formattedDateStr,
                             holiday_name: name,
                             holiday_type: type || 'company'
                         });
@@ -83,18 +135,18 @@ const OrganizationHolidaysCard = ({ userRole }) => {
                 }
 
                 // Call the Bulk Insert RPC
-                const { data, error } = await supabase.rpc('rpc_setup_organization_holidays', {
+                const { data: dbData, error } = await supabase.rpc('rpc_setup_organization_holidays', {
                     p_holidays: parsedHolidays
                 });
 
                 if (error) throw error;
-                if (!data.success) throw new Error(data.message);
+                if (!dbData.success) throw new Error(dbData.message);
 
-                setMessage({ type: 'success', text: data.message });
+                setMessage({ type: 'success', text: dbData.message });
                 fetchHolidays(); // Refresh the list
 
             } catch (error) {
-                console.error('Error parsing/uploading CSV:', error);
+                console.error('Error parsing/uploading File:', error);
                 setMessage({ type: 'error', text: error.message });
             } finally {
                 setUploading(false);
@@ -102,7 +154,7 @@ const OrganizationHolidaysCard = ({ userRole }) => {
             }
         };
 
-        reader.readAsText(file);
+        reader.readAsArrayBuffer(file);
     };
 
     const handleDelete = async (id) => {
@@ -178,7 +230,7 @@ const OrganizationHolidaysCard = ({ userRole }) => {
                 }}>
                     <input
                         type="file"
-                        accept=".csv"
+                        accept=".csv, .xlsx, .xls"
                         onChange={handleFileUpload}
                         disabled={uploading}
                         style={{
@@ -191,10 +243,10 @@ const OrganizationHolidaysCard = ({ userRole }) => {
                     />
                     <UploadCloud size={32} color="var(--primary)" style={{ marginBottom: '12px' }} />
                     <h4 style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                        {uploading ? 'Processing CSV...' : 'To upload new holidays, drag & drop a CSV here'}
+                        {uploading ? 'Processing File...' : 'To upload new holidays, drag & drop an Excel (.xlsx) or CSV file here'}
                     </h4>
                     <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                        Format required: YYYY-MM-DD, Holiday Name, public/company
+                        Format required: Date, Holiday Name, Type (public/company)
                     </p>
                 </div>
             )}
