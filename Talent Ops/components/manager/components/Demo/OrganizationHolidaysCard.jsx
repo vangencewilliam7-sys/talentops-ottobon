@@ -158,23 +158,7 @@ const OrganizationHolidaysCard = ({ userRole }) => {
         reader.readAsArrayBuffer(file);
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm("Are you sure you want to remove this holiday?")) return;
 
-        try {
-            const { error } = await supabase
-                .from('organization_holidays')
-                .delete()
-                .eq('id', id);
-
-            if (error) throw error;
-            setMessage({ type: 'success', text: 'Holiday removed successfully.' });
-            setSelectedHolidays(prev => prev.filter(selId => selId !== id)); // Remove from selection if selected
-            fetchHolidays();
-        } catch (error) {
-            setMessage({ type: 'error', text: 'Failed to delete holiday.' });
-        }
-    };
 
     const handleBulkDelete = async () => {
         if (selectedHolidays.length === 0) return;
@@ -343,7 +327,6 @@ const OrganizationHolidaysCard = ({ userRole }) => {
                                     <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Date</th>
                                     <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Holiday Name</th>
                                     <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Type</th>
-                                    {canManage && <th style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 600, color: 'var(--text-secondary)', fontSize: '0.875rem', textAlign: 'right' }}>Actions</th>}
                                 </tr>
                             </thead>
                             <tbody>
@@ -379,17 +362,6 @@ const OrganizationHolidaysCard = ({ userRole }) => {
                                                 {holiday.holiday_type}
                                             </span>
                                         </td>
-                                        {canManage && (
-                                            <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                                                <button
-                                                    onClick={() => handleDelete(holiday.id)}
-                                                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
-                                                    title="Remove Holiday"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </td>
-                                        )}
                                     </tr>
                                 ))}
                             </tbody>
