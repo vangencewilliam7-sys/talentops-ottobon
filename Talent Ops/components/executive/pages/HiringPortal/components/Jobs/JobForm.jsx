@@ -264,7 +264,7 @@ const JobForm = ({ job, onSubmit, onCancel }) => {
         }
 
         .skills-input-wrapper {
-          background: var(--bg-glass);
+          background: var(--background);
           border: 1px solid var(--border-primary);
           border-radius: var(--radius-md);
           padding: var(--spacing-sm);
@@ -332,7 +332,7 @@ const JobForm = ({ job, onSubmit, onCancel }) => {
           align-items: center;
           gap: 4px;
           padding: 4px 10px;
-          background: var(--bg-tertiary);
+          background: var(--background);
           border: 1px solid var(--border-secondary);
           border-radius: var(--radius-full);
           font-size: 0.75rem;
@@ -342,7 +342,7 @@ const JobForm = ({ job, onSubmit, onCancel }) => {
         }
 
         .skill-suggestion:hover {
-          background: var(--bg-glass-hover);
+          background: var(--border);
           border-color: var(--accent-primary);
           color: var(--text-primary);
         }
@@ -377,7 +377,7 @@ const JobForm = ({ job, onSubmit, onCancel }) => {
           align-items: flex-start;
           gap: var(--spacing-md);
           padding: var(--spacing-md);
-          background: var(--bg-glass);
+          background: var(--background);
           border: 2px solid var(--border-primary);
           border-radius: var(--radius-md);
           cursor: pointer;
