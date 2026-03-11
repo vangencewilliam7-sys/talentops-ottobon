@@ -119,6 +119,33 @@ const DashboardHome = () => {
                         combinedEvents = [...combinedEvents, ...announcementEvents];
                     }
 
+                    // Fetch Organization Holidays
+                    const { data: orgHolidays } = await supabase
+                        .from('organization_holidays')
+                        .select('*')
+                        .gte('holiday_date', new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]);
+
+                    if (orgHolidays) {
+                        const todayStr = formatDate(new Date());
+                        const holidayEvents = orgHolidays.map(h => {
+                            let status = 'future';
+                            if (h.holiday_date < todayStr) status = 'completed';
+                            if (h.holiday_date === todayStr) status = 'active';
+
+                            return {
+                                id: `holiday-${h.id}`,
+                                time: 'All Day',
+                                title: `Holiday: ${h.holiday_name}`,
+                                location: h.holiday_type === 'public' ? 'Public Holiday' : 'Company Holiday',
+                                color: '#dcfce7',
+                                date: h.holiday_date,
+                                status: status,
+                                type: 'announcement' // Make it behave like an announcement for easy click routing
+                            };
+                        });
+                        combinedEvents = [...combinedEvents, ...holidayEvents];
+                    }
+
                     // Sort by priority: Active > Future > Completed, then by time within each group
                     combinedEvents.sort((a, b) => {
                         // Determine status priority (Active=1, Future=2, Completed=3)
@@ -450,6 +477,9 @@ const DashboardHome = () => {
                             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
                                 const isSelected = selectedDate.getDate() === d && selectedDate.getMonth() === currentMonth.getMonth() && selectedDate.getFullYear() === currentMonth.getFullYear();
                                 const isToday = today.getDate() === d && today.getMonth() === currentMonth.getMonth() && today.getFullYear() === currentMonth.getFullYear();
+                                const currentDateStr = formatDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d));
+                                const isHoliday = timeline.some(e => e.date === currentDateStr && e.id && e.id.toString().startsWith('holiday-'));
+                                const hasOtherEvents = timeline.some(e => e.date === currentDateStr && (!e.id || !e.id.toString().startsWith('holiday-')));
 
                                 return (
                                     <div
@@ -461,18 +491,30 @@ const DashboardHome = () => {
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             borderRadius: '6px',
-                                            backgroundColor: isSelected ? '#38bdf8' : isToday ? '#f0f9ff' : 'transparent',
-                                            color: isSelected ? '#fff' : isToday ? '#38bdf8' : '#334155',
+                                            backgroundColor: isSelected ? '#38bdf8' : isHoliday ? '#ffedd5' : isToday ? '#f0f9ff' : 'transparent',
+                                            color: isSelected ? '#fff' : isHoliday ? '#ea580c' : isToday ? '#38bdf8' : '#334155',
                                             cursor: 'pointer',
-                                            fontWeight: isSelected || isToday ? 800 : 600,
+                                            fontWeight: isSelected || isToday || isHoliday ? 800 : 600,
                                             fontSize: '0.95rem',
                                             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                            border: isToday && !isSelected ? '1px solid #bae6fd' : '1px solid transparent'
+                                            border: (isToday && !isSelected && !isHoliday) ? '1px solid #bae6fd' : isHoliday && !isSelected ? '1px solid #fed7aa' : '1px solid transparent',
+                                            position: 'relative'
                                         }}
-                                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = '#f8fafc'; }}
-                                        onMouseLeave={(e) => { if (!isSelected && !isToday) e.currentTarget.style.backgroundColor = 'transparent'; else if (isToday && !isSelected) e.currentTarget.style.backgroundColor = '#f0f9ff'; }}
+                                        onMouseEnter={(e) => {
+                                            if (!isSelected) {
+                                                e.currentTarget.style.backgroundColor = isHoliday ? '#fed7aa' : '#f8fafc';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (!isSelected) {
+                                                e.currentTarget.style.backgroundColor = isHoliday ? '#ffedd5' : isToday ? '#f0f9ff' : 'transparent';
+                                            }
+                                        }}
                                     >
                                         {d}
+                                        {hasOtherEvents && (
+                                            <div style={{ position: 'absolute', bottom: '10%', width: '4px', height: '4px', borderRadius: '50%', backgroundColor: isSelected ? '#fff' : isHoliday ? '#ea580c' : '#0ea5e9' }}></div>
+                                        )}
                                     </div>
                                 );
                             })}

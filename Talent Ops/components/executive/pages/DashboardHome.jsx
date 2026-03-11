@@ -218,6 +218,33 @@ const DashboardHome = () => {
                     combinedEvents = [...combinedEvents, ...formattedEvents];
                 }
 
+                // Fetch Organization Holidays
+                const { data: orgHolidays } = await supabase
+                    .from('organization_holidays')
+                    .select('*')
+                    .gte('holiday_date', new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]);
+
+                if (orgHolidays) {
+                    const todayStr = formatDate(new Date());
+                    const holidayEvents = orgHolidays.map(h => {
+                        let status = 'future';
+                        if (h.holiday_date < todayStr) status = 'completed';
+                        if (h.holiday_date === todayStr) status = 'active';
+
+                        return {
+                            id: `holiday-${h.id}`,
+                            time: 'All Day',
+                            title: `Holiday: ${h.holiday_name}`,
+                            location: h.holiday_type === 'public' ? 'Public Holiday' : 'Company Holiday',
+                            color: '#dcfce7',
+                            date: h.holiday_date,
+                            status: status,
+                            type: 'announcement' // Trick the timeline into prioritizing it like an announcement
+                        };
+                    });
+                    combinedEvents = [...combinedEvents, ...holidayEvents];
+                }
+
                 // Sort by priority: Active > Future > Completed, then by time within each group
                 combinedEvents.sort((a, b) => {
                     const getStatusPriority = (event) => {
@@ -716,6 +743,9 @@ const DashboardHome = () => {
                             {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => {
                                 const isSelected = selectedDate.getDate() === d && selectedDate.getMonth() === currentMonth.getMonth() && selectedDate.getFullYear() === currentMonth.getFullYear();
                                 const isToday = today.getDate() === d && today.getMonth() === currentMonth.getMonth() && today.getFullYear() === currentMonth.getFullYear();
+                                const currentDateStr = formatDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d));
+                                const isHoliday = timeline.some(e => e.date === currentDateStr && e.id && e.id.toString().startsWith('holiday-'));
+                                const hasOtherEvents = timeline.some(e => e.date === currentDateStr && (!e.id || !e.id.toString().startsWith('holiday-')));
 
                                 return (
                                     <div
@@ -727,20 +757,28 @@ const DashboardHome = () => {
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             borderRadius: '12px',
-                                            backgroundColor: isSelected ? '#0f172a' : isToday ? '#e2e8f0' : 'transparent',
-                                            color: isSelected ? '#fff' : isToday ? '#1e293b' : '#475569',
+                                            backgroundColor: isSelected ? '#0f172a' : isHoliday ? '#ffedd5' : isToday ? '#e2e8f0' : 'transparent',
+                                            color: isSelected ? '#fff' : isHoliday ? '#ea580c' : isToday ? '#1e293b' : '#475569',
                                             cursor: 'pointer',
-                                            fontWeight: isSelected || isToday ? '800' : '600',
+                                            fontWeight: isSelected || isToday || isHoliday ? '800' : '600',
                                             fontSize: '0.85rem',
                                             transition: 'all 0.2s',
                                             position: 'relative'
                                         }}
-                                        onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = '#f8fafc'; }}
-                                        onMouseLeave={(e) => { if (!isSelected && !isToday) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                        onMouseEnter={(e) => {
+                                            if (!isSelected) {
+                                                e.currentTarget.style.backgroundColor = isHoliday ? '#fed7aa' : '#f8fafc';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (!isSelected) {
+                                                e.currentTarget.style.backgroundColor = isHoliday ? '#ffedd5' : isToday ? '#e2e8f0' : 'transparent';
+                                            }
+                                        }}
                                     >
                                         {d}
-                                        {timeline.some(e => e.date === formatDate(new Date(currentMonth.getFullYear(), currentMonth.getMonth(), d))) && (
-                                            <div style={{ position: 'absolute', bottom: '6px', width: '4px', height: '4px', borderRadius: '50%', backgroundColor: isSelected ? '#38bdf8' : '#0ea5e9' }}></div>
+                                        {hasOtherEvents && (
+                                            <div style={{ position: 'absolute', bottom: '6px', width: '4px', height: '4px', borderRadius: '50%', backgroundColor: isSelected ? '#38bdf8' : isHoliday ? '#ea580c' : '#0ea5e9' }}></div>
                                         )}
                                     </div>
                                 );

@@ -8,6 +8,8 @@ import { TeamLeadDashboard } from './components/pages/TeamLeadDashboard';
 import { EmployeeDashboard } from './components/pages/EmployeeDashboard';
 import { ForgotPasswordPage } from './components/pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './components/pages/ResetPasswordPage';
+import SuperAdminDashboard from './components/pages/SuperAdminDashboard';
+import AuditLogViewer from './components/pages/AuditLogViewer';
 // @ts-ignore
 import FullRankingPage from './components/performance/FullRankingPage';
 // @ts-ignore
@@ -71,6 +73,8 @@ function App() {
                     <Route path="/manager-dashboard/*" element={<ManagerDashboard />} />
                     <Route path="/teamlead-dashboard/*" element={<TeamLeadDashboard />} />
                     <Route path="/employee-dashboard/*" element={<EmployeeDashboard />} />
+                    <Route path="/super-admin/*" element={<SuperAdminDashboard />} />
+                    <Route path="/audit-logs" element={<AuditLogViewer />} />
                     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                     <Route path="/reset-password" element={<ResetPasswordPage />} />
                     <Route path="/reset-password" element={<ResetPasswordPage />} />

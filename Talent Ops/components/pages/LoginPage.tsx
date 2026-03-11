@@ -65,6 +65,9 @@ export const LoginPage = () => {
                     case 'admin':
                         navigate('/executive-dashboard');
                         break;
+                    case 'super_admin':
+                        navigate('/super-admin');
+                        break;
                     case 'manager':
                         navigate('/manager-dashboard');
                         break;
@@ -87,80 +90,116 @@ export const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-paper flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Background Effects */}
-            <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-accent-violet/5 blur-[100px]" />
-                <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-accent-cyan/5 blur-[100px]" />
+        <div className="min-h-screen bg-[#fdfbf7] flex items-center justify-center p-4 relative overflow-hidden font-sans">
+            {/* Background Decorative SVGs to match the vibe */}
+            <div className="absolute left-[8%] top-[50%] -translate-y-[50%] hidden lg:block pointer-events-none">
+                {/* Dotted yellowish box */}
+                <div className="w-28 h-56 bg-[#fde6a2] rounded-sm relative shadow-sm border-[1.5px] border-gray-900" style={{ backgroundImage: 'radial-gradient(circle, #111827 2px, transparent 2px)', backgroundSize: '24px 24px', backgroundPosition: 'center' }}></div>
+
+                {/* SVGs & small details */}
+                <svg className="absolute -top-24 -left-12 w-48 h-48 text-gray-800" fill="none" viewBox="0 0 100 100" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M10,80 Q30,10 60,50 T90,20" />
+                    <circle cx="85" cy="15" r="2" fill="none" />
+                    <rect x="30" y="60" width="40" height="30" fill="none" />
+                    <path d="M40,70 h20 M40,80 h15" fill="none" strokeWidth="1" />
+                </svg>
+
+                <div className="absolute top-1/2 -right-36 w-24 h-28 bg-white border-[1.5px] border-gray-900 flex items-center justify-center rounded-sm">
+                    <svg className="w-10 h-10 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                    </svg>
+                </div>
+
+                <svg className="absolute -bottom-10 -right-20 w-32 h-32 text-gray-800" fill="none" viewBox="0 0 100 100" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M10,10 Q20,30 40,20 T70,50" />
+                </svg>
             </div>
 
-            <div className="w-full max-w-md relative z-10 transition-all duration-500 ease-out">
-                <div className="bg-white border border-graphite/5 rounded-2xl p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-shadow duration-300">
-                    <div className="text-center mb-10">
-                        <span className="font-display text-4xl font-bold text-gradient-violet mb-2 block">
-                            T
-                        </span>
-                        <h2 className="font-display text-3xl font-bold text-ink mb-2">Talent Ops</h2>
-                        <p className="font-elegant text-graphite-light text-lg italic">Enter the Zone</p>
+            {/* Right side background elements */}
+            <div className="absolute right-[12%] top-[45%] hidden lg:block pointer-events-none">
+                <div className="w-24 h-48 bg-[#fbc485] rounded-sm relative shadow-sm border-[1.5px] border-gray-900 mt-20" style={{ backgroundImage: 'radial-gradient(circle, #111827 2px, transparent 2px)', backgroundSize: '20px 20px', backgroundPosition: 'center' }}></div>
+                <svg className="absolute -top-32 -right-16 w-56 h-56 text-gray-800" fill="none" viewBox="0 0 100 100" stroke="currentColor" strokeWidth="1.5">
+                    <path d="M0,50 Q20,80 50,40 T90,60" />
+                    <circle cx="95" cy="55" r="2" fill="none" />
+                    <rect x="10" y="10" width="35" height="25" fill="none" />
+                    <path d="M15,20 h20 M15,28 h12" fill="none" strokeWidth="1" />
+                </svg>
+
+                {/* Additional floating cube */}
+                <div className="absolute top-0 -left-20 w-32 h-32 bg-white border-[1.5px] border-gray-900 rounded-sm"></div>
+            </div>
+
+            <svg className="absolute top-16 right-1/4 w-32 h-32 text-gray-800 hidden lg:block pointer-events-none" fill="none" viewBox="0 0 100 100" stroke="currentColor" strokeWidth="1.5">
+                <path d="M10,50 Q20,30 30,50 T50,50 T70,50" />
+            </svg>
+
+            {/* Main Login Card */}
+            <div className="w-full max-w-[420px] relative z-10 mx-auto">
+                <div className="bg-white rounded-[32px] p-10 md:p-12 shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-gray-100">
+                    <div className="text-center mb-8">
+                        <h2 className="text-[28px] font-bold text-gray-900 tracking-tight mb-2">TalentOps</h2>
+                        <p className="text-[15px] text-gray-600 px-2 leading-relaxed">Hey, Enter your details to get sign in to your account</p>
                     </div>
 
-                    <form onSubmit={handleLogin} className="space-y-6">
-                        <div className="space-y-2">
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <div className="relative">
                             <input
                                 type="text"
-                                className="w-full bg-paper border border-graphite/10 rounded-lg px-4 py-3 text-ink font-body placeholder:text-graphite-light/50 focus:outline-none focus:border-accent-violet/50 focus:bg-white transition-all duration-300"
-                                placeholder="Email"
+                                className="w-full bg-white border border-gray-200 rounded-xl px-5 py-[14px] text-gray-900 text-[15px] placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 transition-all font-medium"
+                                placeholder="Enter Email / Phone No"
                                 autoFocus
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                             />
+                            <div className="absolute right-5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-full border border-gray-300"></div>
                         </div>
 
-                        <div className="space-y-2 relative">
+                        <div className="relative">
                             <input
                                 type={showPassword ? "text" : "password"}
-                                className="w-full bg-paper border border-graphite/10 rounded-lg px-4 py-3 text-ink font-body placeholder:text-graphite-light/50 focus:outline-none focus:border-accent-violet/50 focus:bg-white transition-all duration-300 pr-12"
-                                placeholder="Password"
+                                className="w-full bg-white border border-gray-200 rounded-xl px-5 py-[14px] text-gray-900 text-[15px] placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 transition-all font-medium pr-16"
+                                placeholder="Passcode"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />
                             <button
                                 type="button"
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-graphite-light/40 hover:text-accent-violet transition-colors duration-300"
+                                className="absolute right-5 top-1/2 -translate-y-1/2 text-[13px] font-bold text-gray-500 hover:text-gray-800 transition-colors tracking-wide"
                                 onClick={() => setShowPassword(!showPassword)}
-                                aria-label={showPassword ? "Hide password" : "Show password"}
                             >
-                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                {showPassword ? "Show" : "Hide"}
                             </button>
                         </div>
 
-                        <div className="flex justify-end">
+                        <div className="pt-2 pb-1">
                             <Link
                                 to="/forgot-password"
-                                className="font-accent text-[10px] font-bold text-graphite-light hover:text-accent-violet uppercase tracking-widest transition-colors duration-300"
+                                className="text-[14px] font-bold text-gray-700 hover:text-gray-900 transition-colors"
                             >
-                                Forgot password?
+                                Having trouble in sign in?
                             </Link>
                         </div>
 
                         {error && (
-                            <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-500 text-xs text-center font-body">
+                            <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-500 text-xs text-center font-medium">
                                 {error}
                             </div>
                         )}
 
-                        <button
-                            type="submit"
-                            className="w-full bg-ink text-paper font-accent font-bold uppercase tracking-widest text-xs py-4 rounded hover:bg-accent-violet hover:text-white transition-all duration-300 transform hover:-translate-y-1 shadow-lg shadow-ink/10 hover:shadow-accent-violet/20"
-                        >
-                            Login
-                        </button>
+                        <div className="pt-3">
+                            <button
+                                type="submit"
+                                className="w-full bg-[#facb8e] hover:bg-[#f6bd74] active:bg-[#eeb164] text-gray-900 font-bold text-[16px] py-[14px] rounded-xl transition-all duration-200"
+                            >
+                                Sign in
+                            </button>
+                        </div>
                     </form>
 
-                    <div className="mt-8 text-center">
+                    <div className="mt-8 pt-6 border-t border-gray-100/60 text-center">
                         <Link
                             to="/"
-                            className="font-accent text-xs font-medium text-graphite-light hover:text-accent-violet uppercase tracking-widest transition-colors duration-300"
+                            className="text-[13px] font-bold text-gray-500 hover:text-gray-900 transition-colors tracking-wide"
                         >
                             ← Back to Home
                         </Link>

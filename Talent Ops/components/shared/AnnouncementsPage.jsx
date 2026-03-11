@@ -69,11 +69,48 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
 
             if (error) throw error;
 
-            if (data) {
-                // RPC returns 'status' calculated dynamically. 
-                // We no longer need the client-side auto-update logic here.
-                setAnnouncements(data);
+            let allEvents = data || [];
+
+            // Inject Organization Holidays into the global event stream
+            const { data: holidays } = await supabase
+                .from('organization_holidays')
+                .select('*')
+                .gte('holiday_date', new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]); // Current year onwards
+
+            if (holidays) {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const holidayEvents = holidays.map(h => {
+                    let status = 'future';
+                    if (h.holiday_date < todayStr) status = 'completed';
+                    if (h.holiday_date === todayStr) status = 'active';
+
+                    return {
+                        id: h.id,
+                        title: `${h.holiday_name} (${h.holiday_type === 'public' ? 'Public' : 'Company'} Holiday)`,
+                        event_date: h.holiday_date,
+                        event_time: '00:00:00', // All day
+                        location: 'Organization Wide',
+                        message: `Scheduled ${h.holiday_type} holiday to observe ${h.holiday_name}.`,
+                        event_for: 'all',
+                        teams: [],
+                        created_at: h.created_at || new Date().toISOString(),
+                        status: status,
+                        type: 'holiday',
+                        isHoliday: true
+                    };
+                });
+                allEvents = [...allEvents, ...holidayEvents];
             }
+
+            // Sort all mixed events together
+            allEvents.sort((a, b) => {
+                const dateA = new Date(`${a.event_date}T${a.event_time}`);
+                const dateB = new Date(`${b.event_date}T${b.event_time}`);
+                return dateA - dateB;
+            });
+
+            setAnnouncements(allEvents);
+
         } catch (err) {
             console.error('Error loading announcements:', err);
         } finally {
@@ -136,6 +173,16 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                 return dateB - dateA;
             });
 
+        } else if (viewMode === 'holidays') {
+            // HOLIDAYS MODE
+            filtered = announcements.filter(item => item.isHoliday);
+
+            // Sort by Date ascending (next upcoming first)
+            filtered.sort((a, b) => {
+                const dateA = new Date(a.event_date);
+                const dateB = new Date(b.event_date);
+                return dateA - dateB;
+            });
         } else {
             // EVENTS MODE
             filtered = announcements.filter(event => {
@@ -506,6 +553,24 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                     >
                         Announcements
                     </button>
+                    <button
+                        onClick={() => setViewMode('holidays')}
+                        style={{
+                            padding: '8px 20px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            backgroundColor: viewMode === 'holidays' ? '#f97316' : 'transparent',
+                            color: viewMode === 'holidays' ? 'white' : '#64748b',
+                            fontWeight: '800',
+                            fontSize: '0.75rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.02em',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        Holidays
+                    </button>
                 </div>
 
                 {/* Vertical Divider */}
@@ -580,10 +645,10 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                         </div>
                         <div>
                             <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#0f172a', marginBottom: '6px' }}>
-                                No {activeTab} {viewMode}
+                                {viewMode === 'holidays' ? 'No Upcoming Holidays' : viewMode === 'announcements' ? 'No Announcements' : `No ${activeTab} events`}
                             </h3>
                             <p style={{ fontSize: '0.9rem', color: '#64748b', maxWidth: '400px', margin: '0 auto', lineHeight: 1.6 }}>
-                                {activeTab === 'active' ? 'Everything is quiet today. No events are currently happening.' :
+                                {viewMode === 'holidays' ? 'There are no organization holidays scheduled at this time.' : viewMode === 'announcements' ? 'There are no current announcements.' : activeTab === 'active' ? 'Everything is quiet today. No events are currently happening.' :
                                     activeTab === 'upcoming' ? 'Your calendar is clear. Check back later for new scheduled events.' : 'No completed events found in the history.'}
                             </p>
                         </div>
@@ -628,7 +693,7 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                                 borderRadius: '0 4px 4px 0',
                                 backgroundColor: viewMode === 'announcements'
                                     ? '#f59e0b'
-                                    : activeTab === 'active' ? '#10b981' : activeTab === 'upcoming' ? '#3b82f6' : '#cbd5e1'
+                                    : viewMode === 'holidays' ? '#f97316' : activeTab === 'active' ? '#10b981' : activeTab === 'upcoming' ? '#3b82f6' : '#cbd5e1'
                             }}></div>
 
                             {/* Header: Title and Actions */}
@@ -644,17 +709,17 @@ const AnnouncementsPage = ({ userRole, userId, orgId }) => {
                                             letterSpacing: '0.05em',
                                             backgroundColor: viewMode === 'announcements'
                                                 ? '#f59e0b15'
-                                                : activeTab === 'active' ? '#10b98115' : activeTab === 'upcoming' ? '#3b82f615' : '#f1f5f9',
+                                                : viewMode === 'holidays' ? '#f9731615' : activeTab === 'active' ? '#10b98115' : activeTab === 'upcoming' ? '#3b82f615' : '#f1f5f9',
                                             color: viewMode === 'announcements'
                                                 ? '#f59e0b'
-                                                : activeTab === 'active' ? '#10b981' : activeTab === 'upcoming' ? '#3b82f6' : '#64748b',
+                                                : viewMode === 'holidays' ? '#f97316' : activeTab === 'active' ? '#10b981' : activeTab === 'upcoming' ? '#3b82f6' : '#64748b',
                                         }}>
-                                            {viewMode === 'announcements' ? 'Broadcast' : activeTab === 'active' ? 'Active now' : activeTab === 'upcoming' ? 'Scheduled' : 'Past Event'}
+                                            {viewMode === 'announcements' ? 'Broadcast' : viewMode === 'holidays' ? 'Holiday' : activeTab === 'active' ? 'Active now' : activeTab === 'upcoming' ? 'Scheduled' : 'Past Event'}
                                         </span>
                                     </div>
                                     <h3 style={{ fontSize: '1.4rem', fontWeight: '900', color: '#0f172a', lineHeight: 1.2, letterSpacing: '-0.02em' }}>{event.title}</h3>
                                 </div>
-                                {canManageEvents && (
+                                {canManageEvents && !event.isHoliday && (
                                     <button
                                         onClick={(e) => handleDeleteEvent(e, event.id)}
                                         style={{
