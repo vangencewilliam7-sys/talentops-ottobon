@@ -54,7 +54,7 @@ const Leaderboard = () => {
             </div>
 
             <div className="relative z-10">
-                <h3 className="text-lg font-display font-medium mb-6 flex items-center gap-2">
+                <h3 className="text-lg font-body font-medium mb-6 flex items-center gap-2">
                     <Trophy className="w-5 h-5 text-yellow-400" />
                     Top Performers
                 </h3>

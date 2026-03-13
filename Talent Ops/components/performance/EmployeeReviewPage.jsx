@@ -189,7 +189,7 @@ const ReviewPage = () => {
                         <Brain className="w-6 h-6" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-display font-medium text-ink">Development Skills</h2>
+                        <h2 className="text-xl font-body font-medium text-ink">Development Skills</h2>
                         <p className="text-sm text-graphite-light">Rate your technical capabilities</p>
                     </div>
                 </div>
@@ -236,9 +236,15 @@ const ReviewPage = () => {
                                     style={{ width: `${((devScores[skill] || 0) / 10) * 100}%` }}
                                 />
                             </div>
-                            <div className="flex justify-between text-xs text-graphite-light font-light px-1">
-                                <span>Beginner</span>
-                                <span>Expert</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', padding: '0 1px', marginTop: '2px' }}>
+                                {[0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((val) => (
+                                    <div key={val} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '5%' }}>
+                                        <div style={{ width: '1px', height: val % 1 === 0 ? '6px' : '3px', backgroundColor: val % 1 === 0 ? '#94a3b8' : '#cbd5e1' }} />
+                                        {val % 1 === 0 && (
+                                            <span style={{ fontSize: '0.6rem', color: '#94a3b8', marginTop: '1px', fontWeight: '500' }}>{val}</span>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     ))}
@@ -252,7 +258,7 @@ const ReviewPage = () => {
                         <Heart className="w-6 h-6" />
                     </div>
                     <div>
-                        <h2 className="text-xl font-display font-medium text-ink">Soft Traits</h2>
+                        <h2 className="text-xl font-body font-medium text-ink">Soft Traits</h2>
                         <p className="text-sm text-graphite-light">Rate your behavioral competencies</p>
                     </div>
                 </div>
@@ -297,9 +303,15 @@ const ReviewPage = () => {
                                     style={{ width: `${((softScores[trait] || 0) / 10) * 100}%` }}
                                 />
                             </div>
-                            <div className="flex justify-between text-xs text-graphite-light font-light px-1">
-                                <span>Needs Improvement</span>
-                                <span>Role Model</span>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', position: 'relative', padding: '0 1px', marginTop: '2px' }}>
+                                {[0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((val) => (
+                                    <div key={val} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '5%' }}>
+                                        <div style={{ width: '1px', height: val % 1 === 0 ? '6px' : '3px', backgroundColor: val % 1 === 0 ? '#94a3b8' : '#cbd5e1' }} />
+                                        {val % 1 === 0 && (
+                                            <span style={{ fontSize: '0.6rem', color: '#94a3b8', marginTop: '1px', fontWeight: '500' }}>{val}</span>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     ))}
@@ -340,14 +352,14 @@ const ReviewPage = () => {
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                                 <div className="text-sm opacity-70 mb-1">Technical Score</div>
-                                <div className="text-2xl font-bold font-display">
+                                <div className="text-2xl font-bold font-body">
                                     {reviewData.manager_score_dev || 0}
                                     <span className="text-sm font-normal opacity-60 ml-1">/90</span>
                                 </div>
                             </div>
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                                 <div className="text-sm opacity-70 mb-1">Behavioral Score</div>
-                                <div className="text-2xl font-bold font-display">
+                                <div className="text-2xl font-bold font-body">
                                     {reviewData.manager_score_soft || 0}
                                     <span className="text-sm font-normal opacity-60 ml-1">/100</span>
                                 </div>
@@ -355,14 +367,14 @@ const ReviewPage = () => {
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 relative overflow-hidden group">
                                 <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                                 <div className="text-sm opacity-70 mb-1">Total Score</div>
-                                <div className="text-3xl font-bold font-display text-yellow-300">
+                                <div className="text-3xl font-bold font-body text-yellow-300">
                                     {reviewData.manager_score_total || 0}
                                     <span className="text-sm font-normal text-white opacity-60 ml-1">/190</span>
                                 </div>
                             </div>
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                                 <div className="text-sm opacity-70 mb-1">Percentage</div>
-                                <div className="text-2xl font-bold font-display">
+                                <div className="text-2xl font-bold font-body">
                                     {reviewData.manager_score_percentage || 0}%
                                 </div>
                             </div>
@@ -376,7 +388,7 @@ const ReviewPage = () => {
                             <Brain className="w-6 h-6" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-display font-medium text-ink">Technical Assessment</h2>
+                            <h2 className="text-xl font-body font-medium text-ink">Technical Assessment</h2>
                             <p className="text-sm text-graphite-light">Manager's rating of your skills</p>
                         </div>
                     </div>
@@ -422,7 +434,7 @@ const ReviewPage = () => {
                             <Heart className="w-6 h-6" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-display font-medium text-ink">Behavioral Assessment</h2>
+                            <h2 className="text-xl font-body font-medium text-ink">Behavioral Assessment</h2>
                             <p className="text-sm text-graphite-light">Manager's rating of your traits</p>
                         </div>
                     </div>
@@ -488,95 +500,104 @@ const ReviewPage = () => {
 
     return (
         <div className="min-h-screen bg-paper font-body p-6 pb-24">
-            {/* Header Section */}
-            <header className="mb-8 flex flex-col xl:flex-row xl:items-end justify-between gap-4">
-                <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ duration: 0.5 }}
-                >
-                    <h1 className="text-3xl font-display font-medium text-ink flex items-center gap-3">
-                        <span className="p-2 bg-violet-100 rounded-lg text-accent-violet">
-                            <Sparkles className="w-6 h-6" />
-                        </span>
-                        Performance Review
-                    </h1>
-                    <p className="text-graphite-light mt-2 text-lg max-w-2xl font-light">
-                        Track your growth through self-reflection and manager feedback.
-                    </p>
-                </motion.div>
-
-                <div className="flex flex-col sm:flex-row items-center gap-4">
-                    {/* Month Selector */}
-                    <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-mist shadow-sm">
-                        <Calendar className="w-4 h-4 text-accent-violet" />
-                        <select
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                            className="bg-transparent text-sm font-medium text-ink focus:outline-none cursor-pointer"
-                        >
-                            {[
-                                "January", "February", "March", "April", "May", "June",
-                                "July", "August", "September", "October", "November", "December"
-                            ].map((month, idx) => (
-                                <option key={idx} value={idx + 1}>{month}</option>
-                            ))}
-                        </select>
-                        <select
-                            value={selectedYear}
-                            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                            className="bg-transparent text-sm font-medium text-ink focus:outline-none cursor-pointer border-l pl-2 border-mist ml-1"
-                        >
-                            <option value={2024}>2024</option>
-                            <option value={2025}>2025</option>
-                            <option value={2026}>2026</option>
-                        </select>
+            {/* Compact Header - Matching Leave Requests Style */}
+            <div style={{
+                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                borderRadius: '8px',
+                padding: '20px 28px',
+                color: 'white',
+                position: 'relative',
+                overflow: 'hidden',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                marginBottom: '20px'
+            }}>
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dashboard</span>
+                            <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '600' }}>/</span>
+                            <span style={{ color: '#22d3ee', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase' }}>Performance Review</span>
+                        </div>
+                        <h1 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '6px', letterSpacing: '-0.02em', lineHeight: 1.3 }}>
+                            Performance Review
+                        </h1>
+                        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', fontWeight: '400' }}>
+                            Track your growth through self-reflection and manager feedback.
+                        </p>
                     </div>
 
-                    {/* Tabs */}
-                    <div className="bg-white p-1 rounded-xl border border-mist flex gap-1 shadow-sm">
-                        <button
-                            onClick={() => setActiveTab('self')}
-                            className={`
-                            px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all
-                            ${activeTab === 'self'
-                                    ? 'bg-accent-violet text-white shadow-sm'
-                                    : 'text-graphite hover:bg-paper'
-                                }
-                        `}
-                        >
-                            <User className="w-4 h-4" />
-                            Self Assessment
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('manager')}
-                            className={`
-                            px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all
-                            ${activeTab === 'manager'
-                                    ? 'bg-accent-violet text-white shadow-sm'
-                                    : 'text-graphite hover:bg-paper'
-                                }
-                        `}
-                        >
-                            <Users className="w-4 h-4" />
-                            Manager Review
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('ranking')}
-                            className={`
-                            px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all
-                            ${activeTab === 'ranking'
-                                    ? 'bg-accent-violet text-white shadow-sm'
-                                    : 'text-graphite hover:bg-paper'
-                                }
-                        `}
-                        >
-                            <Trophy className="w-4 h-4" />
-                            Ranking
-                        </button>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        {/* Month/Year Selector */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.1)', padding: '8px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)' }}>
+                            <Calendar className="w-4 h-4" style={{ color: 'rgba(255,255,255,0.6)' }} />
+                            <select
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                                style={{ background: 'transparent', color: 'white', fontSize: '0.85rem', fontWeight: '500', border: 'none', outline: 'none', cursor: 'pointer' }}
+                            >
+                                {[
+                                    "January", "February", "March", "April", "May", "June",
+                                    "July", "August", "September", "October", "November", "December"
+                                ].map((month, idx) => (
+                                    <option key={idx} value={idx + 1} style={{ color: '#0f172a' }}>{month}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={selectedYear}
+                                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                                style={{ background: 'transparent', color: 'white', fontSize: '0.85rem', fontWeight: '500', border: 'none', borderLeft: '1px solid rgba(255,255,255,0.2)', paddingLeft: '8px', outline: 'none', cursor: 'pointer' }}
+                            >
+                                <option value={2024} style={{ color: '#0f172a' }}>2024</option>
+                                <option value={2025} style={{ color: '#0f172a' }}>2025</option>
+                                <option value={2026} style={{ color: '#0f172a' }}>2026</option>
+                            </select>
+                        </div>
+
+                        {/* Tabs */}
+                        <div style={{ display: 'flex', gap: '4px', backgroundColor: 'rgba(255,255,255,0.08)', padding: '4px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <button
+                                onClick={() => setActiveTab('self')}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    padding: '8px 14px', borderRadius: '6px', border: 'none',
+                                    backgroundColor: activeTab === 'self' ? 'rgba(139,92,246,0.9)' : 'transparent',
+                                    color: activeTab === 'self' ? 'white' : 'rgba(255,255,255,0.6)',
+                                    fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', transition: 'all 0.2s'
+                                }}
+                            >
+                                <User className="w-4 h-4" />
+                                Self Assessment
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('manager')}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    padding: '8px 14px', borderRadius: '6px', border: 'none',
+                                    backgroundColor: activeTab === 'manager' ? 'rgba(139,92,246,0.9)' : 'transparent',
+                                    color: activeTab === 'manager' ? 'white' : 'rgba(255,255,255,0.6)',
+                                    fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', transition: 'all 0.2s'
+                                }}
+                            >
+                                <Users className="w-4 h-4" />
+                                Manager Review
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('ranking')}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    padding: '8px 14px', borderRadius: '6px', border: 'none',
+                                    backgroundColor: activeTab === 'ranking' ? 'rgba(139,92,246,0.9)' : 'transparent',
+                                    color: activeTab === 'ranking' ? 'white' : 'rgba(255,255,255,0.6)',
+                                    fontWeight: '600', fontSize: '0.8rem', cursor: 'pointer', transition: 'all 0.2s'
+                                }}
+                            >
+                                <Trophy className="w-4 h-4" />
+                                Ranking
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </header>
+            </div>
 
             {/* Content Area */}
             <AnimatePresence mode="wait">

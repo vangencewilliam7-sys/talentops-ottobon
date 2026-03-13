@@ -242,14 +242,39 @@ const TeamReviewsPage = () => {
     });
 
     return (
-        <div className="min-h-screen bg-paper font-body p-6 pb-20 flex gap-6">
+        <div className="min-h-screen bg-paper font-body p-6 pb-20">
+            {/* Compact Header - Matching Leave Requests Style */}
+            <div style={{
+                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                borderRadius: '8px',
+                padding: '20px 28px',
+                color: 'white',
+                position: 'relative',
+                overflow: 'hidden',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                marginBottom: '20px'
+            }}>
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dashboard</span>
+                            <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '600' }}>/</span>
+                            <span style={{ color: '#22d3ee', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase' }}>Manager Reviews</span>
+                        </div>
+                        <h1 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '6px', letterSpacing: '-0.02em', lineHeight: 1.3 }}>
+                            Employee Reviews
+                        </h1>
+                        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', fontWeight: '400' }}>
+                            Evaluate your team members' performance.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex gap-6">
 
             {/* List Sidebar */}
             <div className={`w-full lg:w-1/3 flex flex-col gap-6 ${selectedEmployee ? 'hidden lg:flex' : ''}`}>
-                <div className="flex flex-col gap-2">
-                    <h1 className="text-2xl font-display font-medium text-ink">Employee Reviews</h1>
-                    <p className="text-graphite-light text-sm">Evaluate your team members' performance.</p>
-                </div>
 
                 {/* Filters */}
                 <div className="flex flex-col gap-4 bg-white p-4 rounded-xl border border-mist shadow-sm">
@@ -395,7 +420,7 @@ const TeamReviewsPage = () => {
                         <div className="w-16 h-16 bg-violet-50 text-accent-violet rounded-full flex items-center justify-center mx-auto mb-4">
                             <Star className="w-8 h-8" />
                         </div>
-                        <h2 className="text-xl font-display font-medium text-ink mb-2">Select an Employee</h2>
+                        <h2 className="text-xl font-body font-medium text-ink mb-2">Select an Employee</h2>
                         <p className="text-graphite-light max-w-xs mx-auto">
                             Choose a team member from the list to start or edit their performance review.
                         </p>
@@ -412,7 +437,7 @@ const TeamReviewsPage = () => {
                                     <ChevronRight className="w-5 h-5 rotate-180" />
                                 </button>
                                 <div>
-                                    <h2 className="text-xl font-display font-medium text-ink">Reviewing {selectedEmployee.full_name}</h2>
+                                    <h2 className="text-xl font-body font-medium text-ink">Reviewing {selectedEmployee.full_name}</h2>
                                     <p className="text-sm text-graphite-light">
                                         {selectedEmployee.managerReviewed ? 'Update your review' : 'Submit new review'}
                                     </p>
@@ -604,6 +629,7 @@ const TeamReviewsPage = () => {
                         </div>
                     </>
                 )}
+            </div>
             </div>
         </div>
     );

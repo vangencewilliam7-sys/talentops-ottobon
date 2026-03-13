@@ -100,39 +100,53 @@ const FullRankingPage = () => {
         <div className="min-h-screen bg-paper font-body p-6 pb-20">
             <div className="max-w-6xl mx-auto space-y-6">
 
-                {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                    <div>
-                        <div className="flex items-center gap-2 text-accent-violet mb-2">
-                            <Trophy className="w-5 h-5" />
-                            <span className="text-xs font-bold uppercase tracking-wider">Organization Leaderboard</span>
+                {/* Compact Header - Matching Leave Requests Style */}
+                <div style={{
+                    background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                    borderRadius: '8px',
+                    padding: '20px 28px',
+                    color: 'white',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                    marginBottom: '20px'
+                }}>
+                    <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                                <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dashboard</span>
+                                <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '600' }}>/</span>
+                                <span style={{ color: '#22d3ee', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase' }}>Rankings</span>
+                            </div>
+                            <h1 style={{ fontSize: '1.5rem', fontWeight: '700', marginBottom: '6px', letterSpacing: '-0.02em', lineHeight: 1.3 }}>
+                                Employee Rankings
+                            </h1>
+                            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', fontWeight: '400' }}>
+                                Comprehensive performance ranking based on manager evaluations.
+                            </p>
                         </div>
-                        <h1 className="text-3xl font-display font-medium text-ink">Employee Rankings</h1>
-                        <p className="text-graphite-light mt-1">
-                            Comprehensive performance ranking based on manager evaluations.
-                        </p>
-                    </div>
 
-                    {/* Stats Cards */}
-                    <div className="flex gap-4">
-                        <div className="bg-white p-4 rounded-xl border border-mist shadow-sm flex items-center gap-3">
-                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                                <TrendingUp className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold font-display text-ink">
-                                    {rankings.length > 0 ? (rankings.reduce((acc, curr) => acc + curr.manager_score_total, 0) / rankings.length).toFixed(1) : 0}
+                        {/* Stats Cards */}
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <div style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ padding: '6px', backgroundColor: 'rgba(59,130,246,0.2)', borderRadius: '6px' }}>
+                                    <TrendingUp className="w-5 h-5" style={{ color: '#60a5fa' }} />
                                 </div>
-                                <div className="text-xs text-graphite-light">Avg Score</div>
+                                <div>
+                                    <div style={{ fontSize: '1.25rem', fontWeight: '700' }}>
+                                        {rankings.length > 0 ? (rankings.reduce((acc, curr) => acc + curr.manager_score_total, 0) / rankings.length).toFixed(1) : 0}
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)' }}>Avg Score</div>
+                                </div>
                             </div>
-                        </div>
-                        <div className="bg-white p-4 rounded-xl border border-mist shadow-sm flex items-center gap-3">
-                            <div className="p-2 bg-violet-50 text-accent-violet rounded-lg">
-                                <Medal className="w-5 h-5" />
-                            </div>
-                            <div>
-                                <div className="text-2xl font-bold font-display text-ink">{rankings.length}</div>
-                                <div className="text-xs text-graphite-light">Ranked Employees</div>
+                            <div style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '12px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ padding: '6px', backgroundColor: 'rgba(139,92,246,0.2)', borderRadius: '6px' }}>
+                                    <Medal className="w-5 h-5" style={{ color: '#a78bfa' }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: '1.25rem', fontWeight: '700' }}>{rankings.length}</div>
+                                    <div style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.5)' }}>Ranked Employees</div>
+                                </div>
                             </div>
                         </div>
                     </div>

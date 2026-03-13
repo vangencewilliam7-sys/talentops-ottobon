@@ -63,7 +63,7 @@ const RankingTab = ({ currentUserProfile }) => {
                     <div className="relative z-10 flex items-center justify-between">
                         <div>
                             <h3 className="text-lg font-medium text-ink mb-1">Your Ranking</h3>
-                            <div className="text-4xl font-bold font-display text-accent-violet">
+                            <div className="text-4xl font-bold font-body text-accent-violet">
                                 #{myRankData.rank} <span className="text-lg text-graphite-light font-normal">/ {myRankData.total}</span>
                             </div>
                             <p className="text-sm text-graphite-light mt-2">
