@@ -118,6 +118,18 @@ ACTION_REGISTRY = {
         "description": "Retrieve and summarize recent payslips (salary, net pay, deductions).",
         "parameters": {}
     },
+    "post_announcement": {
+        "description": "Post a new announcement or event for the team or organization.",
+        "parameters": {"title": "string", "content": "string", "type": "string"}
+    },
+    "raise_ticket": {
+        "description": "Navigate to or perform the action of raising a support ticket.",
+        "parameters": {"subject": "string", "description": "string"}
+    },
+    "get_performance": {
+        "description": "View performance metrics, rankings, or reviews.",
+        "parameters": {}
+    },
     "chat": {
         "description": "General conversation or context-specific helpful response.",
         "parameters": {}
@@ -139,6 +151,7 @@ RBAC_RULES = {
         "get_leave_balance", "apply_leave", 
         "get_payslips",
         "get_policies",
+        "raise_ticket", "get_notifications",
         "chat", "greeting", "navigate_to_module"
     ],
     "team_lead": [

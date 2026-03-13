@@ -1,1 +1,0 @@
-✅ Table task_steps exists.
