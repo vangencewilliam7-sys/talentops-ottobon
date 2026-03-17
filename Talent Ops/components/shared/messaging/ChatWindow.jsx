@@ -10,6 +10,7 @@ import VoteDetailsModal from './VoteDetailsModal';
 import MembersModal from './MembersModal';
 import AddMemberModal from './AddMemberModal';
 import RenameGroupModal from './RenameGroupModal';
+import DocumentViewer from '../DocumentViewer';
 
 // ── Helper: render message content with clickable links & newline support ──
 
@@ -99,6 +100,11 @@ const ChatWindow = ({
     const [showRenameModal, setShowRenameModal] = useState(false);
     const [newGroupName, setNewGroupName] = useState('');
     const [showVoteDetails, setShowVoteDetails] = useState(null);
+
+    // Document Viewer state
+    const [previewUrl, setPreviewUrl] = useState('');
+    const [previewFileName, setPreviewFileName] = useState('');
+    const [showPreview, setShowPreview] = useState(false);
 
     const messagesEndRef = useRef(null);
     const messageRefs = useRef({});
@@ -527,9 +533,19 @@ const ChatWindow = ({
                                                 {msg.attachments && msg.attachments.length > 0 && (
                                                     <div className="message-attachments">
                                                         {msg.attachments.map(att => (
-                                                            <a key={att.id} href={att.url} target="_blank" rel="noopener noreferrer" className="attachment-link">
+                                                            <button 
+                                                                key={att.id} 
+                                                                onClick={() => {
+                                                                    setPreviewUrl(att.url);
+                                                                    setPreviewFileName(att.file_name);
+                                                                    setShowPreview(true);
+                                                                }} 
+                                                                title="View Attachment"
+                                                                className="attachment-link"
+                                                                style={{ border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left', padding: '0', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'underline' }}
+                                                            >
                                                                 📎 {att.file_name}
-                                                            </a>
+                                                            </button>
                                                         ))}
                                                     </div>
                                                 )}
@@ -633,6 +649,17 @@ const ChatWindow = ({
                     onClose={() => setShowVoteDetails(null)}
                 />
             )}
+
+            {/* ════════ Document Preview Modal ════════ */}
+            {
+                showPreview && previewUrl && (
+                    <DocumentViewer
+                        url={previewUrl}
+                        fileName={previewFileName || "Attachment"}
+                        onClose={() => { setShowPreview(false); setPreviewUrl(''); setPreviewFileName(''); }}
+                    />
+                )
+            }
         </div>
     );
 };

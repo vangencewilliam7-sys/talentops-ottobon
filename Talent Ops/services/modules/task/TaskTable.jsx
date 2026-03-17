@@ -31,7 +31,7 @@ const getStatusStyle = (status) => {
     return styles[status?.toLowerCase()] || styles.pending;
 };
 
-const LifecycleProgress = ({ currentPhase, subState, validations, taskStatus }) => {
+const LifecycleProgress = ({ currentPhase, subState, validations, taskStatus, isActiveNow }) => {
     let parsedValidations = validations;
     if (typeof validations === 'string') {
         try {
@@ -65,19 +65,23 @@ const LifecycleProgress = ({ currentPhase, subState, validations, taskStatus }) 
                     if (status === 'approved') color = '#10b981';
                     else if (status === 'rejected') color = '#ef4444';
                     else if (hasProof) color = '#f59e0b';
-                    else color = '#3b82f6';
+                    else if (isActiveNow) color = '#3b82f6';
+                    else color = '#e5e7eb';
                 } else if (hasProof) {
                     if (status === 'approved') color = '#10b981';
                     else if (status === 'rejected') color = '#ef4444';
                     else color = '#f59e0b';
                 }
 
+                const isActiveButNotStarted = idx === currentIndex && color === '#e5e7eb';
+
                 return (
                     <React.Fragment key={phase.key}>
                         <div title={`${phase.label}: ${status || 'Pending'}`} style={{
                             width: '24px', height: '24px', borderRadius: '50%', backgroundColor: color,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            color: (color === '#e5e7eb') ? '#9ca3af' : (color === '#f59e0b' ? 'white' : 'white'),
+                            color: (color === '#e5e7eb') ? (isActiveButNotStarted ? '#3b82f6' : '#9ca3af') : 'white',
+                            border: isActiveButNotStarted ? '2px solid #3b82f6' : 'none',
                             fontSize: '0.65rem', fontWeight: 700, cursor: 'help'
                         }}>
                             {color === '#10b981' ? '✓' : phase.short.charAt(0)}
@@ -248,7 +252,7 @@ const TaskTable = ({
                                         </div>
                                     </td>
                                     <td style={{ padding: '12px', verticalAlign: 'middle' }}>
-                                        <LifecycleProgress currentPhase={task.lifecycle_state} subState={task.sub_state} validations={task.phase_validations} taskStatus={task.status} />
+                                        <LifecycleProgress currentPhase={task.lifecycle_state} subState={task.sub_state} validations={task.phase_validations} taskStatus={task.status} isActiveNow={task.is_active_now} />
                                     </td>
                                     <td style={{ padding: '12px', verticalAlign: 'middle' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b', whiteSpace: 'nowrap' }}>
@@ -286,7 +290,6 @@ const TaskTable = ({
                                                     minWidth: '80px'
                                                 }}
                                             >
-                                                <option value="critical">CRITICAL</option>
                                                 <option value="high">HIGH</option>
                                                 <option value="medium">MEDIUM</option>
                                                 <option value="low">LOW</option>

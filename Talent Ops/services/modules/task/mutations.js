@@ -68,20 +68,33 @@ export const resolveTaskIssue = async (task, user, orgId) => {
     return true;
 };
 
-export const updateTask = async (taskId, updates) => {
-    // Fetch task to get assignee and title before update
+export const updateTask = async (taskId, updates, orgId) => {
+    // Fetch task to get assignee and title before update, constrained by orgId
     const { data: task } = await supabase
         .from('tasks')
         .select('assigned_to, assigned_by, title')
         .eq('id', taskId)
+        .eq('org_id', orgId)
         .single();
 
-    const { error } = await supabase.from('tasks').update(updates).eq('id', taskId);
+    if (!task) throw new Error('Task not found or access denied');
+
+    const { error } = await supabase
+        .from('tasks')
+        .update(updates)
+        .eq('id', taskId)
+        .eq('org_id', orgId);
+        
     if (error) throw error;
 
     // Notify Assignee of the update
     if (task && task.assigned_to) {
-        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', task.assigned_by || '').single();
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', task.assigned_by || '')
+            .single();
+            
         const senderName = profile?.full_name || 'Manager';
 
         await sendNotification(
@@ -89,21 +102,30 @@ export const updateTask = async (taskId, updates) => {
             task.assigned_by || '',
             senderName,
             `Task updated: ${task.title}`,
-            'task_updated'
+            'task_updated',
+            orgId
         );
     }
 
     return true;
 };
 
-export const deleteTask = async (taskId) => {
-    const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+export const deleteTask = async (taskId, orgId) => {
+    const { error } = await supabase
+        .from('tasks')
+        .delete()
+        .eq('id', taskId)
+        .eq('org_id', orgId);
     if (error) throw error;
     return true;
 };
 
-export const archiveTask = async (taskId) => {
-    const { error } = await supabase.from('tasks').update({ status: 'archived' }).eq('id', taskId);
+export const archiveTask = async (taskId, orgId) => {
+    const { error } = await supabase
+        .from('tasks')
+        .update({ status: 'archived' })
+        .eq('id', taskId)
+        .eq('org_id', orgId);
     if (error) throw error;
     return true;
 };
@@ -344,20 +366,27 @@ export const createTask = async ({
     }
 };
 
-export const addTaskStep = async (step) => {
-    const { data, error } = await supabase.from('task_steps').insert(step).select();
+export const addTaskStep = async (step, orgId) => {
+    const stepWithOrg = { ...step, org_id: orgId || step.org_id };
+    const { data, error } = await supabase.from('task_steps').insert(stepWithOrg).select();
     if (error) throw error;
     return data[0];
 };
 
-export const updateTaskStep = async (stepId, updates) => {
-    const { data, error } = await supabase.from('task_steps').update(updates).eq('id', stepId).select();
+export const updateTaskStep = async (stepId, updates, orgId) => {
+    let query = supabase.from('task_steps').update(updates).eq('id', stepId);
+    if (orgId) query = query.eq('org_id', orgId);
+    
+    const { data, error } = await query.select();
     if (error) throw error;
     return data[0];
 };
 
-export const deleteTaskStep = async (stepId) => {
-    const { error } = await supabase.from('task_steps').delete().eq('id', stepId);
+export const deleteTaskStep = async (stepId, orgId) => {
+    let query = supabase.from('task_steps').delete().eq('id', stepId);
+    if (orgId) query = query.eq('org_id', orgId);
+    
+    const { error } = await query;
     if (error) throw error;
     return true;
 };

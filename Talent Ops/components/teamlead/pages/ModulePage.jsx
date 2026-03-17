@@ -28,7 +28,9 @@ import TeamTasks from '../components/TeamTasks';
 import PayslipsPage from '../../shared/PayslipsPage';
 import AnnouncementsPage from '../../shared/AnnouncementsPage';
 import ProjectHierarchyDemo from '../../shared/ProjectHierarchyDemo';
-
+import DocumentViewer from '../../shared/DocumentViewer';
+import { usePolicies } from '../../shared/hooks/usePolicies';
+import PoliciesFeature from '../../shared/features/PoliciesFeature';
 
 const ModulePage = ({ title, type }) => {
     const { addToast } = useToast();
@@ -55,48 +57,38 @@ const ModulePage = ({ title, type }) => {
     // State for team status
     const [teamStatus, setTeamStatus] = useState([]);
 
-    // State for Policies
-    const [policies, setPolicies] = useState([]);
-    const [isLoadingPolicies, setIsLoadingPolicies] = useState(false);
-    const [policyError, setPolicyError] = useState(null);
+    // Shared Policies Hook
 
 
     const fetchLeaves = async () => {
         if (type !== 'leaves' || !orgId) return;
 
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return;
-
-            // Fetch team members to get their leaves too
-            const { data: assignments } = await supabase
-                .from('project_members')
-                .select('user_id')
-                .eq('project_id', teamId)
-                .eq('org_id', orgId);
-
-            const teamMemberIds = assignments?.map(a => a.user_id) || [];
-            const allRelevantIds = Array.from(new Set([user.id, ...teamMemberIds]));
-
-            // Fetch leaves for self AND team members
-            const { data, error } = await supabase
+            console.log('Fetching leaves for org:', orgId);
+            
+            // Fetch leaves for the entire organization that the TL has access to
+            const { data: leaves, error } = await supabase
                 .from('leaves')
-                .select('*, profiles:employee_id(full_name)')
-                .in('employee_id', allRelevantIds)
-                .eq('org_id', orgId)
-                .order('created_at', { ascending: false });
+                .select(`
+                    *,
+                    profiles:employee_id (
+                        full_name,
+                        role
+                    )
+                `)
+                .eq('org_id', orgId);
 
             if (error) throw error;
 
-            if (data) {
-                const mappedLeaves = data.map(leave => {
+            if (leaves) {
+                const mappedLeaves = leaves.map(leave => {
                     const start = new Date(leave.from_date);
                     const end = new Date(leave.to_date);
                     const diffTime = Math.abs(end - start);
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-                    let type = 'Leave';
-                    let reason = leave.reason || '';
+                    let type = leave.leave_type || 'Casual Leave';
+                    const reason = leave.reason || '';
                     if (reason.includes(':')) {
                         type = reason.split(':')[0];
                     }
@@ -106,21 +98,26 @@ const ModulePage = ({ title, type }) => {
                     return {
                         id: leave.id,
                         employee_id: leave.employee_id,
-                        name: leave.profiles?.full_name || (leave.employee_id === user.id ? userName : 'Unknown'),
+                        name: leave.profiles?.full_name || (leave.employee_id === userId ? userName : 'Unknown'),
                         type: type,
                         reason: leave.reason || 'No reason provided',
                         startDate: leave.from_date,
                         endDate: leave.to_date,
                         duration: diffDays === 1 ? '1 Day' : `${diffDays} Days`,
-                        duration_weekdays: leave.duration_weekdays, // Critical for approval calculation
-                        lop_days: leave.lop_days, // Critical for approval calculation
-                        dates: start.toDateString() === end.toDateString()
-                            ? start.toLocaleDateString('en-US', { month: 'short', day: '2-digit' })
-                            : `${start.toLocaleDateString('en-US', { month: 'short', day: '2-digit' })} - ${end.toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}`,
+                        duration_weekdays: leave.duration_weekdays,
+                        lop_days: leave.lop_days,
                         status: status,
                         created_at: leave.created_at
                     };
                 });
+
+                // Sort: Pending first, then by date
+                mappedLeaves.sort((a, b) => {
+                    if (a.status === 'Pending' && b.status !== 'Pending') return -1;
+                    if (a.status !== 'Pending' && b.status === 'Pending') return 1;
+                    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+                });
+
                 setLeaveRequests(mappedLeaves);
             }
         } catch (error) {
@@ -421,51 +418,12 @@ const ModulePage = ({ title, type }) => {
         fetchTeamStatus();
     }, [teamId, type, orgId]);
 
-    // Fetch Policies from Supabase
-    useEffect(() => {
-        const fetchPolicies = async () => {
-            if (type === 'policies' && orgId) {
-                try {
-                    console.log('Fetching policies from Supabase...');
-                    setIsLoadingPolicies(true);
-                    setPolicyError(null);
-
-                    const { data, error } = await supabase
-                        .from('policies')
-                        .select('*')
-                        .eq('status', 'Active')
-                        .eq('org_id', orgId)
-                        .order('created_at', { ascending: false });
-
-                    if (error) {
-                        console.error('Error fetching policies:', error);
-                        setPolicyError(error.message);
-                        return;
-                    }
-
-                    if (data) {
-                        const transformedPolicies = data.map(policy => ({
-                            id: policy.id,
-                            name: policy.title || 'Untitled Policy',
-                            category: policy.category || 'General',
-                            effectiveDate: policy.effective_date ? new Date(policy.effective_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'N/A',
-                            status: policy.status || 'Active',
-                            file_url: policy.file_url
-                        }));
-                        setPolicies(transformedPolicies);
-                    }
-                } catch (err) {
-                    console.error('Unexpected error fetching policies:', err);
-                    setPolicyError(err.message);
-                } finally {
-                    setIsLoadingPolicies(false);
-                }
-            }
-        };
-
-        fetchPolicies();
-    }, [type, orgId]);
-
+    // Shared Policies Data
+    const { 
+        policies: sharedPolicies, 
+        isLoadingPolicies: sharedIsLoadingPolicies, 
+        policyError: sharedPolicyError 
+    } = usePolicies(orgId);
 
     // State for Apply Leave modal
     const [showApplyLeaveModal, setShowApplyLeaveModal] = useState(false);
@@ -499,6 +457,7 @@ const ModulePage = ({ title, type }) => {
     // State for Candidate Details modal
     const [selectedCandidate, setSelectedCandidate] = useState(null);
     const [showCandidateModal, setShowCandidateModal] = useState(false);
+
 
     const fetchPendingTasks = async (employeeId) => {
         try {
@@ -631,107 +590,6 @@ const ModulePage = ({ title, type }) => {
         }
     };
 
-    const handlePolicyView = async (policy) => {
-        try {
-            console.log('Attempting to view policy:', policy);
-
-            if (!policy.file_url) {
-                console.error('No file_url found in policy object');
-                addToast('No document available to view', 'error');
-                return;
-            }
-
-            addToast('Opening document...', 'info');
-
-            // Extract file path from the storage URL
-            let filePath;
-            if (policy.file_url.includes('/policies/')) {
-                filePath = policy.file_url.split('/policies/')[1];
-            } else {
-                filePath = policy.file_url.split('/').pop();
-            }
-
-            console.log('Viewing path:', filePath);
-
-            // Create a signed URL valid for 60 seconds
-            const { data, error } = await supabase.storage
-                .from('policies')
-                .createSignedUrl(filePath, 60);
-
-            if (error) {
-                console.error('Error creating signed URL:', error);
-                throw error;
-            }
-
-            if (data?.signedUrl) {
-                window.open(data.signedUrl, '_blank');
-            } else {
-                throw new Error('No signed URL returned');
-            }
-
-        } catch (error) {
-            console.error('View error:', error);
-            addToast(`Could not view document: ${error.message}`, 'error');
-        }
-    };
-
-    const handlePolicyDownload = async (policy) => {
-        try {
-            console.log('Attempting to download policy:', policy);
-            console.log('File URL:', policy.file_url);
-
-            if (!policy.file_url) {
-                console.error('No file_url found in policy object');
-                addToast('No document available for this policy', 'error');
-                return;
-            }
-
-            addToast('Downloading policy...', 'info');
-
-            let filePath;
-            if (policy.file_url.includes('/policies/')) {
-                filePath = policy.file_url.split('/policies/')[1];
-            } else {
-                filePath = policy.file_url.split('/').pop();
-            }
-
-            console.log('Downloading from path:', filePath);
-
-            const { data, error } = await supabase.storage
-                .from('policies')
-                .download(filePath);
-
-            if (error) {
-                console.error('Download error:', error);
-                throw error;
-            }
-
-            if (!data) {
-                throw new Error('No data returned from download');
-            }
-
-            console.log('Download successful, creating blob URL...');
-
-            const pdfBlob = new Blob([data], { type: 'application/pdf' });
-            const url = window.URL.createObjectURL(pdfBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${policy.name}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-
-            setTimeout(() => {
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(url);
-            }, 100);
-
-            addToast(`${policy.name} downloaded successfully`, 'success');
-
-        } catch (error) {
-            console.error('Download error:', error);
-            addToast(`Could not download: ${error.message || 'File missing'}`, 'error');
-        }
-    };
 
     const handleAction = (action, item) => {
         if (type === 'leaves' && action === 'Apply for Leave') {
@@ -1245,7 +1103,47 @@ const ModulePage = ({ title, type }) => {
                                 <Eye size={14} />
                                 View
                             </button>
-                            {row.status === 'Pending' && (
+                            {row.status === 'Pending' && row.employee_id !== userId && (
+                                <>
+                                    <button
+                                        onClick={() => handleAction('Approve', row)}
+                                        style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '6px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 600,
+                                            backgroundColor: '#dcfce7',
+                                            color: '#166534',
+                                            border: '1px solid #86efac',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#bbf7d0'}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dcfce7'}
+                                    >
+                                        Approve
+                                    </button>
+                                    <button
+                                        onClick={() => handleAction('Reject', row)}
+                                        style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '6px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 600,
+                                            backgroundColor: '#fee2e2',
+                                            color: '#991b1b',
+                                            border: '1px solid #fca5a5',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fecaca'}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                                    >
+                                        Reject
+                                    </button>
+                                </>
+                            )}
+                            {row.status === 'Pending' && row.employee_id === userId && (
                                 <button
                                     onClick={() => handleDeleteLeave(row)}
                                     style={{
@@ -1290,93 +1188,6 @@ const ModulePage = ({ title, type }) => {
             ],
             data: []
         },
-        policies: {
-            columns: [
-                { header: 'Policy Name', accessor: 'name' },
-                { header: 'Category', accessor: 'category' },
-                { header: 'Effective Date', accessor: 'effectiveDate' },
-                {
-                    header: 'Status', accessor: 'status', render: (row) => (
-                        <span style={{ color: row.status === 'Active' ? 'var(--success)' : 'var(--text-secondary)', fontWeight: 600 }}>{row.status}</span>
-                    )
-                },
-                {
-                    header: 'View',
-                    accessor: 'view',
-                    render: (row) => (
-                        <button
-                            onClick={() => handlePolicyView(row)}
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '8px',
-                                fontSize: '0.875rem',
-                                fontWeight: 600,
-                                backgroundColor: '#e0f2fe',
-                                color: '#0369a1',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                transition: 'all 0.2s',
-                                boxShadow: 'var(--shadow-sm)'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#bae6fd';
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#e0f2fe';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                            }}
-                        >
-                            <Eye size={16} />
-                            View
-                        </button>
-                    )
-                },
-                {
-                    header: 'Download',
-                    accessor: 'download',
-                    render: (row) => (
-                        <button
-                            onClick={() => handlePolicyDownload(row)}
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '8px',
-                                fontSize: '0.875rem',
-                                fontWeight: 600,
-                                backgroundColor: '#7c3aed',
-                                color: 'white',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                transition: 'all 0.2s',
-                                boxShadow: 'var(--shadow-sm)'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#6d28d9';
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#7c3aed';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                            }}
-                        >
-                            <Download size={16} />
-                            Download
-                        </button>
-                    )
-                }
-            ],
-            data: policies
-        },
         // leave team_tasks config removed as it uses custom component now
         // Default fallback for other modules
         // Default fallback for other modules
@@ -1392,6 +1203,17 @@ const ModulePage = ({ title, type }) => {
     };
 
     const config = configs[type] || configs.default;
+
+    if (type === 'policies') {
+        return (
+            <PoliciesFeature 
+                policies={sharedPolicies}
+                isLoadingPolicies={sharedIsLoadingPolicies}
+                policyError={sharedPolicyError}
+                userRole={userRole}
+            />
+        );
+    }
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -2349,6 +2171,7 @@ const ModulePage = ({ title, type }) => {
                     </div>
                 </div>
             )}
+
         </div>
     );
 };

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
+import { useUser } from './UserContext';
 
 const ProjectContext = createContext(null);
 
@@ -23,11 +24,9 @@ export const ProjectProvider = ({ children }) => {
     const [userProjects, setUserProjects] = useState([]);
     const [projectRole, setProjectRole] = useState(null);
     const [loading, setLoading] = useState(true);
+    const { orgId } = useUser();
 
     const fetchUserProjects = React.useCallback(async () => {
-        // Don't set loading to true here to avoid UI flicker during background refresh
-        // unless it is the initial load (which is handled by initial state)
-
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
@@ -35,20 +34,29 @@ export const ProjectProvider = ({ children }) => {
                 return;
             }
 
-            // Single optimized query with join
-            const { data: memberships, error } = await supabase
-                .from('project_members')
-                .select('id, role, project_id, projects(id, name, status)')
-                .eq('user_id', user.id);
+            console.log('ProjectContext: Fetching for user', user.id, 'with orgId', orgId);
 
-            if (error || !memberships) {
-                console.error('Error fetching projects:', error);
+            // Fetch memberships - Try with orgId if available, otherwise just userId
+            let query = supabase
+                .from('project_members')
+                .select('id, role, project_id, projects(id, name, status)');
+            
+            if (orgId) {
+                query = query.eq('org_id', orgId);
+            }
+            
+            const { data: memberships, error } = await query.eq('user_id', user.id);
+
+            if (error) {
+                console.error('Error fetching project memberships:', error);
                 setLoading(false);
                 return;
             }
 
+            console.log('ProjectContext: Found memberships:', memberships?.length || 0);
+
             // Map to simplified project objects
-            const projects = memberships
+            const projects = (memberships || [])
                 .filter(m => m.projects)
                 .map(m => ({
                     id: m.projects.id,
@@ -58,6 +66,7 @@ export const ProjectProvider = ({ children }) => {
                     membershipId: m.id
                 }));
 
+            console.log('ProjectContext: Valid projects after join:', projects.length);
             setUserProjects(projects);
 
             // Update current project reference if it exists
@@ -116,7 +125,7 @@ export const ProjectProvider = ({ children }) => {
     // Initial Fetch
     useEffect(() => {
         fetchUserProjects();
-    }, [fetchUserProjects]);
+    }, [fetchUserProjects, orgId]);
 
     // Memoize switch function
     const switchProject = useMemo(() => (projectId) => {

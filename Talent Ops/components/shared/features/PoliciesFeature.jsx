@@ -1,0 +1,289 @@
+import React, { useState } from 'react';
+import { Eye, Download, Edit, Trash2, FileCheck } from 'lucide-react';
+import DataTable from '../../manager/components/UI/DataTable'; // Or the correct shared path for DataTable
+import { supabase } from '../../../lib/supabaseClient';
+import { useToast } from '../../manager/context/ToastContext'; 
+import DocumentViewer from '../DocumentViewer';
+
+const PoliciesFeature = ({ 
+    policies, 
+    isLoadingPolicies, 
+    policyError,
+    userRole,
+    onDeletePolicy,
+    onEditPolicy,
+    onAddPolicy,
+}) => {
+    const { addToast } = useToast();
+    
+    // Viewer State
+    const [showPolicyPreview, setShowPolicyPreview] = useState(false);
+    const [policyPreviewUrl, setPolicyPreviewUrl] = useState('');
+    const [policyPreviewFileName, setPolicyPreviewFileName] = useState('');
+
+    const handlePolicyView = async (policy) => {
+        try {
+            if (!policy.file_url) {
+                addToast('No document available to view', 'error');
+                return;
+            }
+
+            addToast('Opening document...', 'info');
+
+            let filePath;
+            if (policy.file_url.includes('/policies/')) {
+                filePath = policy.file_url.split('/policies/')[1];
+            } else {
+                filePath = policy.file_url.split('/').pop();
+            }
+
+            // Valid for 1 hour to give enough time to view and download
+            const { data, error } = await supabase.storage
+                .from('policies')
+                .createSignedUrl(filePath, 3600);
+
+            if (error) throw error;
+            
+            if (data?.signedUrl) {
+                setPolicyPreviewUrl(data.signedUrl);
+                setPolicyPreviewFileName(policy.name || 'Document');
+                setShowPolicyPreview(true);
+            } else {
+                throw new Error('No signed URL returned');
+            }
+        } catch (error) {
+            console.error('View error:', error);
+            addToast(`Could not view document: ${error.message}`, 'error');
+        }
+    };
+
+    const handlePolicyDownload = async (policy) => {
+        try {
+            if (!policy.file_url) {
+                addToast('No document available to download', 'error');
+                return;
+            }
+
+            addToast('Preparing download...', 'info');
+
+            let filePath;
+            if (policy.file_url.includes('/policies/')) {
+                filePath = policy.file_url.split('/policies/')[1];
+            } else {
+                filePath = policy.file_url.split('/').pop();
+            }
+
+            const { data, error } = await supabase.storage
+                .from('policies')
+                .download(filePath);
+
+            if (error) throw error;
+
+            if (data) {
+                const url = window.URL.createObjectURL(data);
+                const a = document.createElement('a');
+                a.href = url;
+                const fileName = policy.name ? `${policy.name}.pdf` : filePath.split('/').pop() || 'policy-document';
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                addToast('Download started', 'success');
+            }
+        } catch (error) {
+            console.error('Download error:', error);
+            addToast(`Could not download document: ${error.message}`, 'error');
+        }
+    };
+
+    const policiesColumns = [
+        { header: 'Title', accessor: 'name', sortable: true },
+        { header: 'Category', accessor: 'category', sortable: true },
+        { header: 'Effective Date', accessor: 'effectiveDate', sortable: true },
+        {
+            header: 'Status',
+            accessor: 'status',
+            render: (row) => (
+                <span style={{
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    backgroundColor: row.status === 'Active' ? '#dcfce7' : '#fee2e2',
+                    color: row.status === 'Active' ? '#15803d' : '#b91c1c',
+                    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
+                }}>
+                    {row.status}
+                </span>
+            )
+        },
+        {
+            header: 'View',
+            accessor: 'view',
+            render: (row) => (
+                <button
+                    onClick={() => handlePolicyView(row)}
+                    style={{
+                        padding: '8px 16px', borderRadius: '8px', fontSize: '0.875rem', fontWeight: 600,
+                        backgroundColor: '#e0f2fe', color: '#0369a1', border: 'none', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s',
+                        boxShadow: 'var(--shadow-sm)'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#bae6fd'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#e0f2fe'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                >
+                    <Eye size={16} /> View
+                </button>
+            )
+        },
+        {
+            header: 'Download',
+            accessor: 'download',
+            render: (row) => (
+                <button
+                    onClick={() => handlePolicyDownload(row)}
+                    style={{
+                        padding: '8px 16px', borderRadius: '8px', fontSize: '0.875rem', fontWeight: 600,
+                        backgroundColor: '#7c3aed', color: 'white', border: 'none', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s',
+                        boxShadow: 'var(--shadow-sm)'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#6d28d9'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#7c3aed'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                >
+                    <Download size={16} /> Download
+                </button>
+            )
+        }
+    ];
+
+    // Conditionally Add Edit/Delete based on Role
+    if (userRole === 'executive' || userRole === 'manager') {
+        policiesColumns.push({
+            header: 'Edit',
+            accessor: 'edit',
+            render: (row) => (
+                <button
+                    onClick={() => onEditPolicy && onEditPolicy(row.raw)}
+                    style={{
+                        padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600,
+                        backgroundColor: '#fef3c7', color: '#b45309', border: '1px solid #fde68a',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fde68a'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fef3c7'; }}
+                >
+                    <Edit size={14} /> Edit
+                </button>
+            )
+        });
+        
+        policiesColumns.push({
+            header: 'Delete',
+            accessor: 'delete',
+            render: (row) => (
+                <button
+                    onClick={() => onDeletePolicy && onDeletePolicy(row)}
+                    style={{
+                        padding: '6px 12px', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 600,
+                        backgroundColor: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca',
+                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fecaca'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#fee2e2'; }}
+                >
+                    <Trash2 size={14} /> Delete
+                </button>
+            )
+        });
+    }
+
+    return (
+        <div style={{
+            backgroundColor: 'white', borderRadius: '24px', padding: '32px',
+            boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.05)',
+            display: 'flex', flexDirection: 'column', gap: '24px', minHeight: '600px'
+        }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{
+                        padding: '16px', borderRadius: '20px', background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                        color: '#15803d', boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.5)'
+                    }}>
+                        <FileCheck size={32} />
+                    </div>
+                    <div>
+                        <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>Company Policies</h2>
+                        <p style={{ margin: '8px 0 0 0', color: '#64748b', fontSize: '1.05rem' }}>View and download organizational guidelines</p>
+                    </div>
+                </div>
+
+                {onAddPolicy && (userRole === 'executive' || userRole === 'hr') && (
+                    <button
+                        onClick={() => onAddPolicy()}
+                        style={{
+                            padding: '12px 24px',
+                            borderRadius: '12px',
+                            fontSize: '0.95rem',
+                            fontWeight: 700,
+                            backgroundColor: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#2563eb';
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = '#3b82f6';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+                        }}
+                    >
+                        + Add Policy
+                    </button>
+                )}
+            </div>
+
+            {policyError && (
+                <div style={{ padding: '16px', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '12px', fontSize: '14px' }}>
+                    Error loading policies: {policyError}
+                </div>
+            )}
+
+            {isLoadingPolicies ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+                    <div className="spinner">Loading policies...</div>
+                </div>
+            ) : (
+                <DataTable data={policies} columns={policiesColumns} itemsPerPage={8} hoverable striped />
+            )}
+
+            {/* Document Viewer Modal */}
+            {showPolicyPreview && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)', zIndex: 9999,
+                    display: 'flex', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(10px)'
+                }}>
+                    <div style={{ width: '95vw', height: '95vh' }}>
+                        <DocumentViewer
+                            files={[{ url: policyPreviewUrl, name: policyPreviewFileName }]}
+                            onClose={() => {
+                                setShowPolicyPreview(false);
+                                setPolicyPreviewUrl('');
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default PoliciesFeature;

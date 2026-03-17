@@ -33,9 +33,14 @@ const AttendanceTracker = () => {
                     setCurrentTask(data.current_task || '');
 
                     if (data.clock_in) {
-                        const [h, m, s] = data.clock_in.split(':');
-                        const inTime = new Date();
-                        inTime.setHours(h, m, s || 0);
+                        let inTime;
+                        if (String(data.clock_in).includes('T') || String(data.clock_in).includes('-')) {
+                            inTime = new Date(data.clock_in);
+                        } else {
+                            const [h, m, s] = String(data.clock_in).split(':');
+                            inTime = new Date();
+                            inTime.setHours(parseInt(h, 10), parseInt(m, 10), parseInt(s, 10) || 0);
+                        }
                         setCheckInTime(inTime);
 
                         if (!data.clock_out) {
@@ -47,9 +52,14 @@ const AttendanceTracker = () => {
                             const diff = Math.floor((now - inTime) / 1000);
                             setElapsedTime(diff > 0 ? diff : 0);
                         } else {
-                            const [oh, om, os] = data.clock_out.split(':');
-                            const outTime = new Date();
-                            outTime.setHours(oh, om, os || 0);
+                            let outTime;
+                            if (String(data.clock_out).includes('T') || String(data.clock_out).includes('-')) {
+                                outTime = new Date(data.clock_out);
+                            } else {
+                                const [oh, om, os] = String(data.clock_out).split(':');
+                                outTime = new Date();
+                                outTime.setHours(parseInt(oh, 10), parseInt(om, 10), parseInt(os, 10) || 0);
+                            }
                             setCheckOutTime(outTime);
                             setStatus('checked-out');
                             setUserStatus('Offline');

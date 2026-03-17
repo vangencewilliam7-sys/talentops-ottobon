@@ -90,7 +90,12 @@ const MyLeavesPage = () => {
                         duration_weekdays: diffDays
                     };
                 });
-                mappedLeaves.sort((a, b) => b.id - a.id);
+                // Sort by status (Pending first) then by created_at descending (fixing UUID sort bug)
+                mappedLeaves.sort((a, b) => {
+                    if (a.status === 'Pending' && b.status !== 'Pending') return -1;
+                    if (a.status !== 'Pending' && b.status === 'Pending') return 1;
+                    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+                });
                 setLeaveRequests(mappedLeaves);
             }
         };

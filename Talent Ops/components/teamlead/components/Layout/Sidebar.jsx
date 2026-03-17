@@ -49,44 +49,48 @@ const Sidebar = ({ isCollapsed, toggleSidebar, onMouseEnter, onMouseLeave }) => 
         const fetchProjects = async () => {
             if (!userId) return;
             try {
-                // 1. Get Project IDs
-                const { data: members } = await supabase
+                // 1. Get Project IDs from project_members
+                const { data: members, error: memberError } = await supabase
                     .from('project_members')
-                    .select('project_id')
+                    .select('project_id, org_id')
                     .eq('user_id', userId);
 
+                if (memberError) console.error('Sidebar: Member fetch error', memberError);
+
+                let projectsData = [];
                 if (members && members.length > 0) {
                     const ids = members.map(m => m.project_id);
                     // 2. Get Project Details
-                    const { data: projectsData } = await supabase
+                    const { data: pData, error: pError } = await supabase
                         .from('projects')
-                        .select('id, name')
+                        .select('id, name, org_id')
                         .in('id', ids);
+                    
+                    if (pError) console.error('Sidebar: Projects fetch error', pError);
+                    if (pData) projectsData = pData;
+                }
 
-                    if (projectsData) {
-                        setUserProjects(projectsData);
-                        // Update current project name logic
-                        const current = projectsData.find(p => p.id === teamId);
-                        if (current) setProjectName(current.name);
-                        else if (projectsData.length > 0 && !teamId) {
-                            // Auto-select first if none selected
-                            setTeamId(projectsData[0].id);
-                            setProjectName(projectsData[0].name);
-                        }
-                    }
-                } else {
-                    // Fallback to profile check if project_members is empty
-                    const { data: profile } = await supabase.from('profiles').select('team_id').eq('id', userId).single();
-                    if (profile && profile.team_id) {
-                        const { data: pData } = await supabase.from('projects').select('id, name').eq('id', profile.team_id).single();
-                        if (pData) {
-                            setUserProjects([pData]);
-                            setProjectName(pData.name);
-                            if (!teamId) setTeamId(pData.id);
-                        }
+                // fallback to profile team_id if we still have no projects
+                if (projectsData.length === 0) {
+                    const { data: profile } = await supabase.from('profiles').select('team_id, org_id').eq('id', userId).single();
+                    if (profile?.team_id) {
+                        const { data: fallbackP } = await supabase.from('projects').select('id, name, org_id').eq('id', profile.team_id).single();
+                        if (fallbackP) projectsData = [fallbackP];
                     }
                 }
-            } catch (e) { console.error('Error fetching projects', e); }
+
+                if (projectsData.length > 0) {
+                    setUserProjects(projectsData);
+                    const current = projectsData.find(p => p.id === teamId) || projectsData[0];
+                    setProjectName(current.name);
+                    if (!teamId) setTeamId(current.id);
+                } else {
+                    console.warn('Sidebar: No projects found for user', userId);
+                    setUserProjects([]);
+                }
+            } catch (e) { 
+                console.error('Error in Sidebar fetchProjects', e); 
+            }
         };
         fetchProjects();
     }, [userId, teamId, setTeamId]);
@@ -123,12 +127,12 @@ const Sidebar = ({ isCollapsed, toggleSidebar, onMouseEnter, onMouseLeave }) => 
 
     // Project-level menu items
     const projectMenuItems = [
+        { icon: FileText, label: 'Project Documents', path: '/teamlead-dashboard/documents' },
         { icon: Users, label: 'Team Members', path: '/teamlead-dashboard/employees' },
         { icon: ListTodo, label: 'Tasks', path: '/teamlead-dashboard/tasks' },
         { icon: ClipboardList, label: 'Team Tasks', path: '/teamlead-dashboard/team-tasks' },
         { icon: BarChart2, label: 'Analytics', path: '/teamlead-dashboard/analytics' },
         { icon: Network, label: 'Project Hierarchy', path: '/teamlead-dashboard/project-hierarchy' },
-        { icon: FileText, label: 'Documents', path: '/teamlead-dashboard/documents' },
     ];
 
     // Menu item renderer

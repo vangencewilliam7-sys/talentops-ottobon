@@ -9,9 +9,9 @@ import ModulePage from '../executive/pages/ModulePage';
 // @ts-ignore
 import MessagingHub from '../shared/MessagingHub';
 // @ts-ignore
-import { ToastProvider, useToast } from '../executive/context/ToastContext';
+import { ToastProvider, useToast } from '../shared/context/ToastContext';
 // @ts-ignore
-import { UserProvider } from '../executive/context/UserContext';
+import { UserProvider } from '../shared/context/UserContext';
 
 // @ts-ignore
 import { ATSDataProvider } from '../executive/context/ATSDataContext';

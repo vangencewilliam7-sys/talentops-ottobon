@@ -100,22 +100,22 @@ const Sidebar = ({ isCollapsed, toggleSidebar, onMouseEnter, onMouseLeave }) => 
             { icon: Network, label: 'Hierarchy', path: '/manager-dashboard/project-hierarchy' },
         ],
         team_lead: [
+            { icon: FileText, label: 'Project Documents', path: '/manager-dashboard/documents' },
             { icon: Users, label: 'Team Members', path: '/manager-dashboard/project-members' },
             { icon: ListTodo, label: 'All Project Tasks', path: '/manager-dashboard/tasks' },
             { icon: User, label: 'My Tasks', path: '/manager-dashboard/personal-tasks' },
 
             { icon: BarChart2, label: 'Analytics', path: '/manager-dashboard/analytics' },
             { icon: Network, label: 'Hierarchy', path: '/manager-dashboard/project-hierarchy' },
-            { icon: FileText, label: 'Documents', path: '/manager-dashboard/documents' },
         ],
         manager: [
+            { icon: FileText, label: 'Project Documents', path: '/manager-dashboard/documents' },
             { icon: Users, label: 'Team Members', path: '/manager-dashboard/project-members' },
             { icon: ListTodo, label: 'All Project Tasks', path: '/manager-dashboard/tasks' },
             { icon: User, label: 'My Tasks', path: '/manager-dashboard/personal-tasks' },
 
             { icon: BarChart2, label: 'Analytics', path: '/manager-dashboard/analytics' },
             { icon: Network, label: 'Project Hierarchy', path: '/manager-dashboard/project-hierarchy' },
-            { icon: FileText, label: 'Documents', path: '/manager-dashboard/documents' },
         ]
     };
 

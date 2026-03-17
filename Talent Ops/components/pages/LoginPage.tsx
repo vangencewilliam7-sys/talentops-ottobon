@@ -34,33 +34,44 @@ export const LoginPage = () => {
             console.log('✅ Authentication successful');
 
             if (data.user) {
-                // Check if user profile exists in the database
-                const { data: profile, error: profileError } = await supabase
+                // 1. Check if user profile exists
+                let { data: profile, error: profileError } = await supabase
                     .from('profiles')
                     .select('*')
                     .eq('id', data.user.id)
                     .single();
 
-                if (profileError || !profile) {
-                    console.error('❌ No profile found for user');
+                // 2. SELF-HEALING: If no profile but we have metadata (from manual/legacy creation)
+                if (!profile && data.user.user_metadata) {
+                    console.log('Detected ghost user, creating profile from metadata...');
+                    const meta = data.user.user_metadata;
+                    const { data: newProfile, error: createError } = await supabase
+                        .from('profiles')
+                        .insert([{
+                            id: data.user.id,
+                            email: data.user.email,
+                            full_name: meta.full_name || data.user.email?.split('@')[0],
+                            role: meta.role || 'employee',
+                            org_id: meta.org_id
+                        }])
+                        .select()
+                        .single();
+                    
+                    if (!createError) profile = newProfile;
+                }
+
+                if (!profile) {
+                    console.error('❌ No profile found and auto-creation failed');
                     await supabase.auth.signOut();
-                    setError('Your account is not registered in the system. Please contact your administrator.');
+                    setError('Your account is missing a profile. Please contact support.');
                     return;
                 }
 
-                // Get role from profile
-                let role = profile.role;
+                // 3. Navigation based on validated profile
+                const role = (profile.role || 'employee').toLowerCase().trim();
+                console.log('Navigating with role:', role);
 
-                if (!role) {
-                    console.error('❌ No role assigned to profile');
-                    await supabase.auth.signOut();
-                    setError('Your account does not have a role assigned. Please contact your administrator.');
-                    return;
-                }
-
-                const normalizedRole = role.toLowerCase().trim();
-
-                switch (normalizedRole) {
+                switch (role) {
                     case 'executive':
                     case 'admin':
                         navigate('/executive-dashboard');
@@ -78,9 +89,7 @@ export const LoginPage = () => {
                         navigate('/employee-dashboard');
                         break;
                     default:
-                        console.error('❌ Invalid role:', normalizedRole);
-                        await supabase.auth.signOut();
-                        setError(`Invalid role assigned to your account: "${role}". Please contact your administrator.`);
+                        navigate('/employee-dashboard');
                 }
             }
         } catch (err) {
@@ -90,118 +99,80 @@ export const LoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#fdfbf7] flex items-center justify-center p-4 relative overflow-hidden font-sans">
-            {/* Background Decorative SVGs to match the vibe */}
-            <div className="absolute left-[8%] top-[50%] -translate-y-[50%] hidden lg:block pointer-events-none">
-                {/* Dotted yellowish box */}
-                <div className="w-28 h-56 bg-[#fde6a2] rounded-sm relative shadow-sm border-[1.5px] border-gray-900" style={{ backgroundImage: 'radial-gradient(circle, #111827 2px, transparent 2px)', backgroundSize: '24px 24px', backgroundPosition: 'center' }}></div>
-
-                {/* SVGs & small details */}
-                <svg className="absolute -top-24 -left-12 w-48 h-48 text-gray-800" fill="none" viewBox="0 0 100 100" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M10,80 Q30,10 60,50 T90,20" />
-                    <circle cx="85" cy="15" r="2" fill="none" />
-                    <rect x="30" y="60" width="40" height="30" fill="none" />
-                    <path d="M40,70 h20 M40,80 h15" fill="none" strokeWidth="1" />
-                </svg>
-
-                <div className="absolute top-1/2 -right-36 w-24 h-28 bg-white border-[1.5px] border-gray-900 flex items-center justify-center rounded-sm">
-                    <svg className="w-10 h-10 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                    </svg>
-                </div>
-
-                <svg className="absolute -bottom-10 -right-20 w-32 h-32 text-gray-800" fill="none" viewBox="0 0 100 100" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M10,10 Q20,30 40,20 T70,50" />
-                </svg>
-            </div>
-
-            {/* Right side background elements */}
-            <div className="absolute right-[12%] top-[45%] hidden lg:block pointer-events-none">
-                <div className="w-24 h-48 bg-[#fbc485] rounded-sm relative shadow-sm border-[1.5px] border-gray-900 mt-20" style={{ backgroundImage: 'radial-gradient(circle, #111827 2px, transparent 2px)', backgroundSize: '20px 20px', backgroundPosition: 'center' }}></div>
-                <svg className="absolute -top-32 -right-16 w-56 h-56 text-gray-800" fill="none" viewBox="0 0 100 100" stroke="currentColor" strokeWidth="1.5">
-                    <path d="M0,50 Q20,80 50,40 T90,60" />
-                    <circle cx="95" cy="55" r="2" fill="none" />
-                    <rect x="10" y="10" width="35" height="25" fill="none" />
-                    <path d="M15,20 h20 M15,28 h12" fill="none" strokeWidth="1" />
-                </svg>
-
-                {/* Additional floating cube */}
-                <div className="absolute top-0 -left-20 w-32 h-32 bg-white border-[1.5px] border-gray-900 rounded-sm"></div>
-            </div>
-
-            <svg className="absolute top-16 right-1/4 w-32 h-32 text-gray-800 hidden lg:block pointer-events-none" fill="none" viewBox="0 0 100 100" stroke="currentColor" strokeWidth="1.5">
-                <path d="M10,50 Q20,30 30,50 T50,50 T70,50" />
-            </svg>
-
+        <div className="min-h-screen flex items-center justify-center p-4 relative font-sans" style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #ffffff 50%, #f0f9ff 100%)' }}>
             {/* Main Login Card */}
             <div className="w-full max-w-[420px] relative z-10 mx-auto">
-                <div className="bg-white rounded-[32px] p-10 md:p-12 shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-gray-100">
-                    <div className="text-center mb-8">
-                        <h2 className="text-[28px] font-bold text-gray-900 tracking-tight mb-2">TalentOps</h2>
-                        <p className="text-[15px] text-gray-600 px-2 leading-relaxed">Hey, Enter your details to get sign in to your account</p>
+                <div className="bg-white rounded-2xl p-10 md:p-12 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-gray-50 flex flex-col items-center">
+                    
+                    {/* Logo & Title */}
+                    <div className="text-center mb-10 flex flex-col items-center">
+                        <div className="text-[32px] font-serif text-[#8b5cf6] font-bold mb-2">T</div>
+                        <h2 className="text-[26px] font-serif font-bold text-gray-900 tracking-tight mb-2">Talent Ops</h2>
+                        <p className="text-[14px] text-gray-400 italic font-serif">Enter the Zone</p>
                     </div>
 
-                    <form onSubmit={handleLogin} className="space-y-4">
+                    <form onSubmit={handleLogin} className="space-y-4 w-full">
                         <div className="relative">
                             <input
                                 type="text"
-                                className="w-full bg-white border border-gray-200 rounded-xl px-5 py-[14px] text-gray-900 text-[15px] placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 transition-all font-medium"
-                                placeholder="Enter Email / Phone No"
+                                className="w-full bg-[#f8fafc] border border-transparent rounded-[8px] px-4 py-[14px] text-gray-900 text-[14px] placeholder:text-gray-400 focus:outline-none focus:border-gray-200 focus:bg-white transition-all font-medium"
+                                placeholder="Email"
                                 autoFocus
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                             />
-                            <div className="absolute right-5 top-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-full border border-gray-300"></div>
                         </div>
 
-                        <div className="relative">
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                className="w-full bg-white border border-gray-200 rounded-xl px-5 py-[14px] text-gray-900 text-[15px] placeholder:text-gray-400 focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-400 transition-all font-medium pr-16"
-                                placeholder="Passcode"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                            />
-                            <button
-                                type="button"
-                                className="absolute right-5 top-1/2 -translate-y-1/2 text-[13px] font-bold text-gray-500 hover:text-gray-800 transition-colors tracking-wide"
-                                onClick={() => setShowPassword(!showPassword)}
-                            >
-                                {showPassword ? "Show" : "Hide"}
-                            </button>
+                        <div className="relative flex flex-col gap-2">
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    className="w-full bg-[#f8fafc] border border-transparent rounded-[8px] px-4 py-[14px] text-gray-900 text-[14px] placeholder:text-gray-400 focus:outline-none focus:border-gray-200 focus:bg-white transition-all font-medium pr-12"
+                                    placeholder="Password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
+                            </div>
                         </div>
 
-                        <div className="pt-2 pb-1">
+                        <div className="pt-1 pb-3 flex justify-end">
                             <Link
                                 to="/forgot-password"
-                                className="text-[14px] font-bold text-gray-700 hover:text-gray-900 transition-colors"
+                                className="text-[10px] font-bold text-gray-500 hover:text-gray-900 transition-colors uppercase tracking-[0.05em]"
                             >
-                                Having trouble in sign in?
+                                FORGOT PASSWORD?
                             </Link>
                         </div>
 
                         {error && (
-                            <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-500 text-xs text-center font-medium">
+                            <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-500 text-xs text-center font-medium mb-4">
                                 {error}
                             </div>
                         )}
 
-                        <div className="pt-3">
+                        <div className="pt-2">
                             <button
                                 type="submit"
-                                className="w-full bg-[#facb8e] hover:bg-[#f6bd74] active:bg-[#eeb164] text-gray-900 font-bold text-[16px] py-[14px] rounded-xl transition-all duration-200"
+                                className="w-full bg-[#0a0a0a] hover:bg-black text-white font-bold text-[12px] py-[16px] rounded-[6px] transition-all duration-200 tracking-widest uppercase"
                             >
-                                Sign in
+                                LOGIN
                             </button>
                         </div>
                     </form>
 
-                    <div className="mt-8 pt-6 border-t border-gray-100/60 text-center">
+                    <div className="mt-8 pt-4 w-full text-center">
                         <Link
                             to="/"
-                            className="text-[13px] font-bold text-gray-500 hover:text-gray-900 transition-colors tracking-wide"
+                            className="text-[11px] font-semibold text-gray-400 hover:text-gray-900 transition-colors tracking-wide uppercase"
                         >
-                            ← Back to Home
+                            ← BACK TO HOME
                         </Link>
                     </div>
                 </div>

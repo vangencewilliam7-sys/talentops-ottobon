@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
 import {
     Ticket,
@@ -18,6 +18,7 @@ import {
     ChevronRight,
     Eye
 } from 'lucide-react';
+import DocumentViewer from '../DocumentViewer';
 
 const RaiseTicketPage = () => {
     const [loading, setLoading] = useState(false);
@@ -31,6 +32,10 @@ const RaiseTicketPage = () => {
     const [reviewTab, setReviewTab] = useState('open_issues'); // 'open_issues', 'enhancements', 'closed'
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [userProfile, setUserProfile] = useState(null);
+
+    // Document Viewer state
+    const [previewUrl, setPreviewUrl] = useState('');
+    const [showPreview, setShowPreview] = useState(false);
 
     const [formData, setFormData] = useState({
         subject: '',
@@ -987,9 +992,17 @@ const RaiseTicketPage = () => {
                                 <p style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600', marginBottom: '12px', textTransform: 'uppercase' }}>Attachments</p>
                                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                                     {selectedTicket.attachments.map((url, i) => (
-                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={{ padding: '8px 16px', backgroundColor: '#f1f5f9', borderRadius: '8px', fontSize: '0.85rem', color: '#3b82f6', textDecoration: 'none', fontWeight: '600' }}>
+                                        <div 
+                                            key={i} 
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                setPreviewUrl(url);
+                                                setShowPreview(true);
+                                            }}
+                                            style={{ padding: '8px 16px', backgroundColor: '#f1f5f9', borderRadius: '8px', fontSize: '0.85rem', color: '#3b82f6', cursor: 'pointer', textDecoration: 'underline', fontWeight: '600' }}
+                                        >
                                             View Attachment {i + 1}
-                                        </a>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
@@ -1014,6 +1027,17 @@ const RaiseTicketPage = () => {
                     </div>
                 </div>
             )}
+
+            {/* Document Preview Modal */}
+            {
+                showPreview && previewUrl && (
+                    <DocumentViewer
+                        url={previewUrl}
+                        fileName="Attachment"
+                        onClose={() => { setShowPreview(false); setPreviewUrl(''); }}
+                    />
+                )
+            }
         </div>
     );
 };

@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Upload, FileText, Download, Eye, RotateCw } from 'lucide-react';
 import { useToast } from '../../../../context/ToastContext';
 import { useATSData } from '../../../../context/ATSDataContext';
+import DocumentViewer from '../../../../../shared/DocumentViewer';
 
 const ResumeCard = ({ candidate }) => {
     const { uploadResume } = useATSData();
@@ -9,6 +10,10 @@ const ResumeCard = ({ candidate }) => {
     const fileInputRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+
+    // Document Viewer state
+    const [previewUrl, setPreviewUrl] = useState('');
+    const [showPreview, setShowPreview] = useState(false);
 
     const handleFileSelect = (e) => {
         const file = e.target.files[0];
@@ -107,14 +112,15 @@ const ResumeCard = ({ candidate }) => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
-                        <a
-                            href={candidate.resumeUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-[var(--text-primary)] bg-[var(--bg-tertiary)] rounded-lg hover:bg-[var(--bg-tertiary)]/80 transition-colors"
+                        <button
+                            onClick={() => {
+                                setPreviewUrl(candidate.resumeUrl);
+                                setShowPreview(true);
+                            }}
+                            className="flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-[var(--text-primary)] bg-[var(--bg-tertiary)] rounded-lg hover:bg-[var(--bg-tertiary)]/80 transition-colors w-full"
                         >
                             <Eye size={16} /> View
-                        </a>
+                        </button>
                         <a
                             href={candidate.resumeUrl}
                             download
@@ -152,6 +158,17 @@ const ResumeCard = ({ candidate }) => {
                     )}
                 </div>
             )}
+
+            {/* Document Preview Modal */}
+            {
+                showPreview && previewUrl && (
+                    <DocumentViewer
+                        url={previewUrl}
+                        fileName={candidate.resumeName || 'Resume'}
+                        onClose={() => { setShowPreview(false); setPreviewUrl(''); }}
+                    />
+                )
+            }
         </div>
     );
 };

@@ -13,9 +13,9 @@ import MessagingHub from '../shared/MessagingHub';
 // @ts-ignore
 import RaiseTicketPage from '../shared/pages/RaiseTicketPage';
 // @ts-ignore
-import { ToastProvider } from '../employee/context/ToastContext';
+import { ToastProvider } from '../shared/context/ToastContext';
 // @ts-ignore
-import { UserProvider } from '../employee/context/UserContext';
+import { UserProvider } from '../shared/context/UserContext';
 // @ts-ignore
 import { ProjectProvider } from '../employee/context/ProjectContext';
 // @ts-ignore

@@ -12,7 +12,7 @@ import { supabase } from '../../../lib/supabaseClient';
 
 const DashboardHome = () => {
     const { addToast } = useToast();
-    const { userName, currentTeam } = useUser();
+    const { userName, currentTeam, orgId } = useUser();
     const navigate = useNavigate();
 
     // Helper to format date as YYYY-MM-DD for comparison (Local Time)
@@ -64,6 +64,7 @@ const DashboardHome = () => {
         const fetchData = async () => {
             setLoading(true);
             try {
+                if (!orgId) return;
                 const { data: { user } } = await supabase.auth.getUser();
 
                 if (user) {
@@ -79,6 +80,7 @@ const DashboardHome = () => {
                     const { data: profileData } = await supabase
                         .from('profiles')
                         .select('total_leaves_balance, monthly_leave_quota, team_id')
+                        .eq('org_id', orgId)
                         .eq('id', user.id)
                         .single();
 
@@ -88,7 +90,7 @@ const DashboardHome = () => {
                     }
 
                     // 4. Fetch All Employees & Team Members
-                    const { data: allEmps, error: empError } = await supabase.from('profiles').select('id, full_name, team_id');
+                    const { data: allEmps, error: empError } = await supabase.from('profiles').select('id, full_name, team_id').eq('org_id', orgId);
 
                     if (empError) console.error("Error fetching employees:", empError);
 
@@ -123,6 +125,7 @@ const DashboardHome = () => {
                     const { data: orgHolidays } = await supabase
                         .from('organization_holidays')
                         .select('*')
+                        .eq('org_id', orgId)
                         .gte('holiday_date', new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]);
 
                     if (orgHolidays) {
@@ -173,7 +176,7 @@ const DashboardHome = () => {
         };
 
         fetchData();
-    }, [refreshTrigger]);
+    }, [refreshTrigger, orgId]);
 
     // REAL-TIME SUBSCRIPTION
     useEffect(() => {

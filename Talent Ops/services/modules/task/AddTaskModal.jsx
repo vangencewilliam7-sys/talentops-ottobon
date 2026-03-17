@@ -311,7 +311,7 @@ const AddTaskModal = ({
                                 <div>
                                     <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 600, color: '#334155' }}>Priority</label>
                                     <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                                        {['Low', 'Medium', 'High', 'Critical'].map(p => (
+                                        {['Low', 'Medium', 'High'].map(p => (
                                             <label key={p} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                                                 <input
                                                     type="radio"
@@ -323,7 +323,7 @@ const AddTaskModal = ({
                                                 />
                                                 <span style={{
                                                     fontSize: '0.9rem',
-                                                    color: p === 'Critical' ? '#ef4444' : p === 'High' ? '#f59e0b' : '#334155',
+                                                    color: p === 'High' ? '#f59e0b' : '#334155',
                                                     fontWeight: newTask.priority === p ? 600 : 400
                                                 }}>{p}</span>
                                             </label>

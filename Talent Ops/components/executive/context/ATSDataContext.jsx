@@ -24,9 +24,9 @@ export const useATSData = () => {
 
 export const ATSDataProvider = ({ children }) => {
 
-    const { userId } = useUser();
+    const { userId, orgId } = useUser();
     // Simulate user object for compatibility with existing logic
-    const user = userId ? { id: userId } : null;
+    const user = userId ? { id: userId, orgId } : null;
 
     const [jobs, setJobs] = useState([]);
     const [candidates, setCandidates] = useState([]);
@@ -37,14 +37,15 @@ export const ATSDataProvider = ({ children }) => {
     const [isConnected, setIsConnected] = useState(true);
 
     const refreshData = useCallback(async () => {
+        if (!orgId) return; // Wait for orgId
         setLoading(true);
         try {
             const [fetchedJobs, fetchedCandidates, fetchedInterviews, fetchedFeedback, fetchedOffers] = await Promise.all([
-                getItems('jobs'),
-                getItems('candidates'),
-                getItems('interviews'),
-                getItems('feedback'),
-                getItems('offers')
+                getItems('jobs', orgId),
+                getItems('candidates', orgId),
+                getItems('interviews', orgId),
+                getItems('feedback', orgId),
+                getItems('offers', orgId)
             ]);
 
             setJobs(fetchedJobs);
@@ -57,17 +58,17 @@ export const ATSDataProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [orgId]);
 
     useEffect(() => {
         refreshData();
     }, [refreshData]);
 
     const createJob = useCallback(async (jobData) => {
-        const newJob = await addItem('jobs', { ...jobData, applicants: 0 }, user?.id);
+        const newJob = await addItem('jobs', { ...jobData, applicants: 0 }, user?.id, orgId);
         setJobs(prev => [newJob, ...prev]);
         return newJob;
-    }, [user]);
+    }, [user, orgId]);
 
     const updateJob = useCallback(async (jobId, updates) => {
         const updated = await updateItem('jobs', jobId, updates, user?.id);
@@ -76,16 +77,16 @@ export const ATSDataProvider = ({ children }) => {
     }, [user]);
 
     const deleteJob = useCallback(async (jobId) => {
-        await deleteItem('jobs', jobId, user?.id);
+        await deleteItem('jobs', jobId, user?.id, orgId);
         setJobs(prev => prev.filter(j => j.id !== jobId));
-    }, [user]);
+    }, [user, orgId]);
 
     const getJobById = useCallback((jobId) => {
         return jobs.find(j => j.id === jobId);
     }, [jobs]);
 
     const createCandidate = useCallback(async (candidateData) => {
-        const newCandidate = await addItem('candidates', candidateData, user?.id);
+        const newCandidate = await addItem('candidates', candidateData, user?.id, orgId);
         setCandidates(prev => [newCandidate, ...prev]);
         if (candidateData.jobId) {
             const job = jobs.find(j => j.id === candidateData.jobId);
@@ -94,7 +95,7 @@ export const ATSDataProvider = ({ children }) => {
             }
         }
         return newCandidate;
-    }, [user, jobs, updateJob]);
+    }, [user, jobs, updateJob, orgId]);
 
     const updateCandidate = useCallback(async (candidateId, updates) => {
         const updated = await updateItem('candidates', candidateId, updates, user?.id);
@@ -104,7 +105,7 @@ export const ATSDataProvider = ({ children }) => {
 
     const deleteCandidate = useCallback(async (candidateId) => {
         const candidate = candidates.find(c => c.id === candidateId);
-        await deleteItem('candidates', candidateId, user?.id);
+        await deleteItem('candidates', candidateId, user?.id, orgId);
         setCandidates(prev => prev.filter(c => c.id !== candidateId));
         if (candidate?.jobId) {
             const job = jobs.find(j => j.id === candidate.jobId);
@@ -112,7 +113,7 @@ export const ATSDataProvider = ({ children }) => {
                 await updateJob(job.id, { applicants: job.applicants - 1 });
             }
         }
-    }, [user, candidates, jobs, updateJob]);
+    }, [user, candidates, jobs, updateJob, orgId]);
 
     const getCandidateById = useCallback((candidateId) => {
         return candidates.find(c => c.id === candidateId);
@@ -136,7 +137,7 @@ export const ATSDataProvider = ({ children }) => {
         const packedNotes = (notes || '') + '\n\n__METADATA__\n' + JSON.stringify(metadata);
         const dbData = { ...rest, notes: packedNotes };
 
-        const newInterview = await addItem('interviews', dbData, user?.id);
+        const newInterview = await addItem('interviews', dbData, user?.id, orgId);
 
         const enrichedInterview = {
             ...newInterview,
@@ -148,7 +149,7 @@ export const ATSDataProvider = ({ children }) => {
 
         setInterviews(prev => [enrichedInterview, ...prev]);
         return enrichedInterview;
-    }, [user]);
+    }, [user, orgId]);
 
     const updateInterview = useCallback(async (interviewId, updates) => {
         const { mode, interviewers, notes, ...rest } = updates;
@@ -171,9 +172,9 @@ export const ATSDataProvider = ({ children }) => {
     }, [user, interviews]);
 
     const deleteInterview = useCallback(async (interviewId) => {
-        await deleteItem('interviews', interviewId, user?.id);
+        await deleteItem('interviews', interviewId, user?.id, orgId);
         setInterviews(prev => prev.filter(i => i.id !== interviewId));
-    }, [user]);
+    }, [user, orgId]);
 
     const getInterviewById = useCallback((interviewId) => {
         return interviews.find(i => i.id === interviewId);
@@ -195,10 +196,10 @@ export const ATSDataProvider = ({ children }) => {
     }, [interviews]);
 
     const createFeedback = useCallback(async (feedbackData) => {
-        const newFeedback = await addItem('feedback', feedbackData, user?.id);
+        const newFeedback = await addItem('feedback', feedbackData, user?.id, orgId);
         setFeedback(prev => [newFeedback, ...prev]);
         return newFeedback;
-    }, [user]);
+    }, [user, orgId]);
 
     const updateFeedback = useCallback(async (feedbackId, updates) => {
         const updated = await updateItem('feedback', feedbackId, updates, user?.id);
@@ -245,10 +246,10 @@ export const ATSDataProvider = ({ children }) => {
     }, [getFeedbackByCandidate]);
 
     const createOffer = useCallback(async (offerData) => {
-        const newOffer = await addItem('offers', offerData, user?.id);
+        const newOffer = await addItem('offers', offerData, user?.id, orgId);
         setOffers(prev => [newOffer, ...prev]);
         return newOffer;
-    }, [user]);
+    }, [user, orgId]);
 
     const updateOffer = useCallback(async (offerId, updates) => {
         const updated = await updateItem('offers', offerId, updates, user?.id);
@@ -257,9 +258,9 @@ export const ATSDataProvider = ({ children }) => {
     }, [user]);
 
     const deleteOffer = useCallback(async (offerId) => {
-        await deleteItem('offers', offerId, user?.id);
+        await deleteItem('offers', offerId, user?.id, orgId);
         setOffers(prev => prev.filter(o => o.id !== offerId));
-    }, [user]);
+    }, [user, orgId]);
 
     const getOfferById = useCallback((offerId) => {
         return offers.find(o => o.id === offerId);
@@ -298,8 +299,12 @@ export const ATSDataProvider = ({ children }) => {
     }, [jobs, candidates, interviews, offers]);
 
     const fetchAuditLog = useCallback(async (filters) => {
-        return await getAuditLog(filters);
-    }, []);
+        return await getAuditLog(filters, orgId);
+    }, [orgId]);
+
+    const handleUploadResume = useCallback(async (file, candidateId) => {
+        return await uploadResume(file, candidateId, orgId);
+    }, [orgId]);
 
     const value = {
         jobs,
@@ -340,7 +345,7 @@ export const ATSDataProvider = ({ children }) => {
         getAnalytics,
         fetchAuditLog,
         isConnected,
-        uploadResume
+        uploadResume: handleUploadResume
     };
 
     return (

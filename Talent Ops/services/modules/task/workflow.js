@@ -144,7 +144,7 @@ export const submitTaskProof = async ({
 
         onProgress?.(75);
 
-        const { error } = await supabase.from('tasks').update(updates).eq('id', task.id);
+        const { error } = await supabase.from('tasks').update(updates).eq('id', task.id).eq('org_id', orgId);
         if (error) throw error;
 
         // ── 7. Record Submission ──
@@ -155,6 +155,7 @@ export const submitTaskProof = async ({
                 .select('id')
                 .eq('task_id', task.id)
                 .eq('user_id', user.id)
+                .eq('org_id', orgId)
                 .maybeSingle();
 
             if (existingSub) {
@@ -219,6 +220,7 @@ export const submitTaskProof = async ({
                 .select('final_points, bonus_points, penalty_points')
                 .eq('task_id', task.id)
                 .eq('user_id', user.id)
+                .eq('org_id', orgId)
                 .maybeSingle();
             pointData = data;
         } catch {

@@ -75,9 +75,9 @@ export const sendBulkNotifications = async (receiverIds, senderId, senderName, m
  * @param {string} taskTitle - Title of the task
  * @returns {Promise<void>}
  */
-export const sendTaskAssignedNotification = async (assignedToId, assignerId, assignerName, taskTitle) => {
+export const sendTaskAssignedNotification = async (assignedToId, assignerId, assignerName, taskTitle, orgId = null) => {
     const message = `You have been assigned a new task: ${taskTitle}`;
-    await sendNotification(assignedToId, assignerId, assignerName, message, 'task_assigned');
+    await sendNotification(assignedToId, assignerId, assignerName, message, 'task_assigned', orgId);
 };
 
 /**
@@ -88,7 +88,7 @@ export const sendTaskAssignedNotification = async (assignedToId, assignerId, ass
  * @param {string} announcementTitle - Title of the announcement
  * @returns {Promise<void>}
  */
-export const sendAnnouncementNotification = async (recipientIds, creatorId, creatorName, announcementTitle) => {
+export const sendAnnouncementNotification = async (recipientIds, creatorId, creatorName, announcementTitle, orgId = null) => {
     const message = `${announcementTitle}`;
-    await sendBulkNotifications(recipientIds, creatorId, creatorName, message, 'announcement');
+    await sendBulkNotifications(recipientIds, creatorId, creatorName, message, 'announcement', orgId);
 };

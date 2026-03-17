@@ -101,12 +101,12 @@ const StatusDemo = () => {
 
                 // --- SELF-HEALING LOGIC ---
                 // Fix stale records strictly from BEFORE today (Local Time)
-                const staleRecords = attendance?.filter(a => a.date < todayLocalStr && !a.clock_out) || [];
+                const staleRecords = attendance?.filter(a => a.date < todayLocalStr && !a.check_out) || [];
 
                 if (staleRecords.length > 0) {
                     await Promise.all(staleRecords.map(async (record) => {
                         const clockOutTime = '23:59:00';
-                        const start = new Date(`${record.date}T${record.clock_in}`);
+                        const start = new Date(`${record.date}T${record.check_in}`);
                         const end = new Date(`${record.date}T${clockOutTime}`);
                         const diffMs = end - start;
                         const totalHours = (diffMs / (1000 * 60 * 60)).toFixed(2);
@@ -114,7 +114,7 @@ const StatusDemo = () => {
                         await supabase
                             .from('attendance')
                             .update({
-                                clock_out: clockOutTime,
+                                check_out: clockOutTime,
                                 total_hours: totalHours,
                                 status: 'present'
                             })
@@ -146,17 +146,16 @@ const StatusDemo = () => {
                     let totalHours = 0;
                     let isAnyActive = false;
                     let firstClockIn = null;
-
                     dayRecords.forEach(att => {
-                        if (att.clock_in && (!firstClockIn || att.clock_in < firstClockIn)) {
-                            firstClockIn = att.clock_in;
+                        if (att.check_in && (!firstClockIn || att.check_in < firstClockIn)) {
+                            firstClockIn = att.check_in;
                         }
-                        if (att.clock_out && att.total_hours) {
+                        if (att.check_out && att.total_hours) {
                             totalHours += parseFloat(att.total_hours);
-                        } else if (att.clock_in && !att.clock_out) {
+                        } else if (att.check_in && !att.check_out) {
                             // Active Session
                             const isToday = dateStr === todayLocalStr;
-                            const start = new Date(`${dateStr}T${att.clock_in}`);
+                            const start = new Date(`${dateStr}T${att.check_in}`);
 
                             if (isToday) {
                                 isAnyActive = true;
@@ -185,7 +184,7 @@ const StatusDemo = () => {
                         if (isAnyActive) {
                             tooltipStatus = 'Active Now';
                         } else {
-                            const hasStale = dayRecords.some(r => !r.clock_out && dateStr !== todayLocalStr);
+                            const hasStale = dayRecords.some(r => !r.check_out && dateStr !== todayLocalStr);
                             tooltipStatus = hasStale ? 'Auto-closing...' : 'Present';
                         }
                     } else if (leave) {

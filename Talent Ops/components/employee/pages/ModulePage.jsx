@@ -16,8 +16,9 @@ import PayslipsPage from '../../shared/PayslipsPage';
 import AnnouncementsPage from '../../shared/AnnouncementsPage';
 import ProjectHierarchyDemo from '../../shared/ProjectHierarchyDemo';
 import ProjectDocuments from './ProjectDocuments';
-
-
+import DocumentViewer from '../../shared/DocumentViewer';
+import { usePolicies } from '../../shared/hooks/usePolicies';
+import PoliciesFeature from '../../shared/features/PoliciesFeature';
 
 
 const ModulePage = ({ title, type }) => {
@@ -47,12 +48,7 @@ const ModulePage = ({ title, type }) => {
 
     // State for Realtime Updates
     const [refreshTrigger, setRefreshTrigger] = useState(0);
-
-    // State for Policies
-    const [policies, setPolicies] = useState([]);
-    const [isLoadingPolicies, setIsLoadingPolicies] = useState(false);
-    const [policyError, setPolicyError] = useState(null);
-
+    // Shared Policies Hook
 
     // Fetch leaves from Supabase
     useEffect(() => {
@@ -336,52 +332,12 @@ const ModulePage = ({ title, type }) => {
         };
     }, []);
 
-    // Fetch Policies from Supabase
-    useEffect(() => {
-        const fetchPolicies = async () => {
-            if (type === 'policies' && orgId) {
-                try {
-                    console.log('Fetching policies from Supabase...');
-                    setIsLoadingPolicies(true);
-                    setPolicyError(null);
-
-                    const { data, error } = await supabase
-                        .from('policies')
-                        .select('*')
-                        .eq('status', 'Active')
-                        .eq('org_id', orgId)
-                        .order('created_at', { ascending: false });
-
-                    if (error) {
-                        console.error('Error fetching policies:', error);
-                        setPolicyError(error.message);
-                        return;
-                    }
-
-                    if (data) {
-                        const transformedPolicies = data.map(policy => ({
-                            id: policy.id,
-                            name: policy.title || 'Untitled Policy',
-                            category: policy.category || 'General',
-                            effectiveDate: policy.effective_date ? new Date(policy.effective_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'N/A',
-                            status: policy.status || 'Active',
-                            file_url: policy.file_url
-                        }));
-                        setPolicies(transformedPolicies);
-                    }
-                } catch (err) {
-                    console.error('Unexpected error fetching policies:', err);
-                    setPolicyError(err.message);
-                } finally {
-                    setIsLoadingPolicies(false);
-                }
-            }
-        };
-
-        fetchPolicies();
-    }, [type, refreshTrigger, orgId]);
-
-
+    // Shared Policies Data
+    const { 
+        policies: sharedPolicies, 
+        isLoadingPolicies: sharedIsLoadingPolicies, 
+        policyError: sharedPolicyError 
+    } = usePolicies(orgId);
     // State for Apply Leave modal
     const [showApplyLeaveModal, setShowApplyLeaveModal] = useState(false);
     const [showConfirmationModal, setShowConfirmationModal] = useState(false); // New confirmation state
@@ -419,6 +375,8 @@ const ModulePage = ({ title, type }) => {
     // State for Candidate Details modal
     const [selectedCandidate, setSelectedCandidate] = useState(null);
     const [showCandidateModal, setShowCandidateModal] = useState(false);
+
+
 
     const fetchEmployeeTasks = async (employeeId, startDate, endDate) => {
         // Log parameters for debugging
@@ -540,107 +498,6 @@ const ModulePage = ({ title, type }) => {
         }
     };
 
-    const handlePolicyView = async (policy) => {
-        try {
-            console.log('Attempting to view policy:', policy);
-
-            if (!policy.file_url) {
-                console.error('No file_url found in policy object');
-                addToast('No document available to view', 'error');
-                return;
-            }
-
-            addToast('Opening document...', 'info');
-
-            // Extract file path from the storage URL
-            let filePath;
-            if (policy.file_url.includes('/policies/')) {
-                filePath = policy.file_url.split('/policies/')[1];
-            } else {
-                filePath = policy.file_url.split('/').pop();
-            }
-
-            console.log('Viewing path:', filePath);
-
-            // Create a signed URL valid for 60 seconds
-            const { data, error } = await supabase.storage
-                .from('policies')
-                .createSignedUrl(filePath, 60);
-
-            if (error) {
-                console.error('Error creating signed URL:', error);
-                throw error;
-            }
-
-            if (data?.signedUrl) {
-                window.open(data.signedUrl, '_blank');
-            } else {
-                throw new Error('No signed URL returned');
-            }
-
-        } catch (error) {
-            console.error('View error:', error);
-            addToast(`Could not view document: ${error.message}`, 'error');
-        }
-    };
-
-    const handlePolicyDownload = async (policy) => {
-        try {
-            console.log('Attempting to download policy:', policy);
-            console.log('File URL:', policy.file_url);
-
-            if (!policy.file_url) {
-                console.error('No file_url found in policy object');
-                addToast('No document available for this policy', 'error');
-                return;
-            }
-
-            addToast('Downloading policy...', 'info');
-
-            let filePath;
-            if (policy.file_url.includes('/policies/')) {
-                filePath = policy.file_url.split('/policies/')[1];
-            } else {
-                filePath = policy.file_url.split('/').pop();
-            }
-
-            console.log('Downloading from path:', filePath);
-
-            const { data, error } = await supabase.storage
-                .from('policies')
-                .download(filePath);
-
-            if (error) {
-                console.error('Download error:', error);
-                throw error;
-            }
-
-            if (!data) {
-                throw new Error('No data returned from download');
-            }
-
-            console.log('Download successful, creating blob URL...');
-
-            const pdfBlob = new Blob([data], { type: 'application/pdf' });
-            const url = window.URL.createObjectURL(pdfBlob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${policy.name}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-
-            setTimeout(() => {
-                document.body.removeChild(link);
-                window.URL.revokeObjectURL(url);
-            }, 100);
-
-            addToast(`${policy.name} downloaded successfully`, 'success');
-
-        } catch (error) {
-            console.error('Download error:', error);
-            addToast(`Could not download: ${error.message || 'File missing'}`, 'error');
-        }
-    };
 
     const initiatHandover = (member) => {
         setSelectedMemberForHandover(member);
@@ -1367,93 +1224,6 @@ const ModulePage = ({ title, type }) => {
             ],
             data: [].filter(item => item.name === userName)
         },
-        policies: {
-            columns: [
-                { header: 'Policy Name', accessor: 'name' },
-                { header: 'Category', accessor: 'category' },
-                { header: 'Effective Date', accessor: 'effectiveDate' },
-                {
-                    header: 'Status', accessor: 'status', render: (row) => (
-                        <span style={{ color: row.status === 'Active' ? 'var(--success)' : 'var(--text-secondary)', fontWeight: 600 }}>{row.status}</span>
-                    )
-                },
-                {
-                    header: 'View',
-                    accessor: 'view',
-                    render: (row) => (
-                        <button
-                            onClick={() => handlePolicyView(row)}
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '8px',
-                                fontSize: '0.875rem',
-                                fontWeight: 600,
-                                backgroundColor: '#e0f2fe',
-                                color: '#0369a1',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                transition: 'all 0.2s',
-                                boxShadow: 'var(--shadow-sm)'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#bae6fd';
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#e0f2fe';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                            }}
-                        >
-                            <Eye size={16} />
-                            View
-                        </button>
-                    )
-                },
-                {
-                    header: 'Download',
-                    accessor: 'download',
-                    render: (row) => (
-                        <button
-                            onClick={() => handlePolicyDownload(row)}
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '8px',
-                                fontSize: '0.875rem',
-                                fontWeight: 600,
-                                backgroundColor: '#7c3aed',
-                                color: 'white',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                transition: 'all 0.2s',
-                                boxShadow: 'var(--shadow-sm)'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#6d28d9';
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.boxShadow = 'var(--shadow-md)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = '#7c3aed';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
-                            }}
-                        >
-                            <Download size={16} />
-                            Download
-                        </button>
-                    )
-                }
-            ],
-            data: policies
-        },
         // Default fallback for other modules
         default: {
             columns: [
@@ -1465,8 +1235,18 @@ const ModulePage = ({ title, type }) => {
             data: []
         }
     };
-
     const config = configs[type] || configs.default;
+
+    if (type === 'policies') {
+        return (
+            <PoliciesFeature 
+                policies={sharedPolicies}
+                isLoadingPolicies={sharedIsLoadingPolicies}
+                policyError={sharedPolicyError}
+                userRole={userRole}
+            />
+        );
+    }
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -2470,6 +2250,7 @@ const ModulePage = ({ title, type }) => {
                     </div>
                 </div>
             )}
+
         </div>
     );
 };

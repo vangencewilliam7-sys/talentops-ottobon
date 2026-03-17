@@ -37,7 +37,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
     const [loading, setLoading] = useState(true);
     const [employees, setEmployees] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilters, setStatusFilters] = useState(['pending', 'in_progress', 'on_hold']); // Default active statuses
+    const [statusFilters, setStatusFilters] = useState(['pending', 'in_progress', 'on_hold', 'completed']); // Default active statuses
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
     const [dateFilter, setDateFilter] = useState('');
 
@@ -250,7 +250,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
 
     const handleUpdateTask = async (taskId, updates) => {
         try {
-            await taskService.updateTask(taskId, updates);
+            await taskService.updateTask(taskId, updates, orgId);
             fetchData();
         } catch (error) {
             addToast?.('Update failed', 'error');
@@ -261,7 +261,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
     const handleDeleteTask = async (taskId) => {
         if (!window.confirm('Are you sure you want to delete this task?')) return;
         try {
-            await taskService.deleteTask(taskId);
+            await taskService.deleteTask(taskId, orgId);
             addToast?.('Task deleted', 'success');
             fetchData();
         } catch (error) {
@@ -271,7 +271,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
 
     const handleArchiveTask = async (taskId) => {
         try {
-            await taskService.archiveTask(taskId);
+            await taskService.archiveTask(taskId, orgId);
             addToast?.('Task archived', 'success');
             fetchData();
         } catch (error) {
@@ -307,7 +307,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
         // Fetch Steps
         setLoadingSteps(true);
         try {
-            const steps = await taskService.getTaskSteps(task.id);
+            const steps = await taskService.getTaskSteps(task.id, orgId);
             setEditTaskSteps(steps || []);
         } catch (err) {
             console.error('Error fetching steps:', err);
@@ -332,7 +332,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                 created_by_role: userRole,
                 estimated_hours: parseFloat(input.hours) || 2
             };
-            const added = await taskService.addTaskStep(newStep);
+            const added = await taskService.addTaskStep(newStep, orgId);
             setEditTaskSteps([...editTaskSteps, added]);
             setNewStepInputs({ ...newStepInputs, [phaseKey]: { title: '', hours: 2 } });
             addToast?.('Step added', 'success');
@@ -344,7 +344,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
     const handleDeleteStep = async (stepId) => {
         if (!window.confirm('Delete this step?')) return;
         try {
-            await taskService.deleteTaskStep(stepId);
+            await taskService.deleteTaskStep(stepId, orgId);
             setEditTaskSteps(prev => prev.filter(s => s.id !== stepId));
             addToast?.('Step deleted', 'success');
         } catch (error) {
@@ -354,7 +354,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
 
     const handleUpdateStepInline = async (stepId, updates) => {
         try {
-            const updated = await taskService.updateTaskStep(stepId, updates);
+            const updated = await taskService.updateTaskStep(stepId, updates, orgId);
             setEditTaskSteps(prev => prev.map(s => s.id === stepId ? updated : s));
         } catch (error) {
             addToast?.('Failed to update step', 'error');
@@ -728,9 +728,15 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
     const filteredTasks = tasks.filter(task => {
         const matchesSearch = (task.title?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
             (task.assignee_name?.toLowerCase() || '').includes(searchQuery.toLowerCase());
-        // Hide archived tasks unless 'archived' filter is explicitly selected
-        if (task.status?.toLowerCase() === 'archived' && !statusFilters.includes('archived')) return false;
-        const matchesStatus = statusFilters.includes('all') || statusFilters.includes(task.status?.toLowerCase());
+
+        const taskStatus = task.status?.toLowerCase() || '';
+
+        // "all" or no filters selected = show EVERYTHING including archived
+        let matchesStatus = statusFilters.includes('all') || statusFilters.length === 0;
+
+        if (!matchesStatus) {
+            matchesStatus = statusFilters.includes(taskStatus);
+        }
 
         // Date filter: show tasks active on selected date (start_date..due_date)
         let matchesDate = true;
@@ -1226,7 +1232,6 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                             <option value="low">Low</option>
                                             <option value="medium">Medium</option>
                                             <option value="high">High</option>
-                                            <option value="critical">Critical</option>
                                         </select>
                                     </div>
                                     <div>

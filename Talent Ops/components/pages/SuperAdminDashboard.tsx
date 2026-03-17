@@ -69,20 +69,21 @@ const SuperAdminDashboard = () => {
         e.preventDefault();
         setIsSubmitting(true);
         try {
-            // 1. Create Org via the Dual-ID RPC we just made
-            const { data, error: rpcError } = await supabase.rpc('provision_new_tenant', {
-                p_name: formData.org_name,
-                p_slug: formData.org_slug,
-                p_email: formData.exec_email,
-                p_password: formData.exec_password
+            // Call the actual Edge Function instead of a missing RPC
+            const { data, error: funcError } = await supabase.functions.invoke('create-tenant-org', {
+                body: {
+                    org_name: formData.org_name,
+                    org_slug: formData.org_slug,
+                    exec_email: formData.exec_email,
+                    exec_password: formData.exec_password
+                }
             });
 
-            if (rpcError) throw rpcError;
+            if (funcError) throw funcError;
 
-            // 2. Open the SQL Helper to finish the user creation
-            setSelectedOrg({ id: data.org_id, ...formData });
+            alert('Organization and Executive account provisioned successfully!');
             setIsModalOpen(false);
-            setShowSqlHelper(true);
+            setFormData({ org_name: '', org_slug: '', exec_email: '', exec_password: '' });
             fetchData();
         } catch (error: any) {
             console.error('Provisioning error:', error);

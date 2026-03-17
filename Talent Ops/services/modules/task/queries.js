@@ -23,21 +23,28 @@ export const getTasks = async (orgId, projectId, viewMode, userId, userRole) => 
 
         if (!orgId) return [];
 
-        let query = supabase.from('tasks').select('*, phase_validations');
+        let query = supabase.from('tasks').select('*, phase_validations, projects(name), task_submissions(final_points)');
 
-        if (userRole === 'executive' || viewMode === 'global_tasks') {
+        // Role-based filtering
+        const normalizedRole = (userRole || 'employee').toLowerCase();
+        const isPrivileged = ['manager', 'team_lead', 'executive'].includes(normalizedRole);
+
+        if (normalizedRole === 'executive' || viewMode === 'global_tasks') {
             query = query.eq('org_id', orgId);
             if (projectId) query = query.eq('project_id', projectId);
         } else {
             if (!projectId) {
-                console.warn('Service: getTasks skipped: No projectId for non-executive');
+                console.warn('Service: getTasks skipped: No projectId for non-executive role:', normalizedRole);
                 return [];
             }
 
             // Base filter for project context
             query = query.eq('project_id', projectId).eq('org_id', orgId);
 
-            if (viewMode === 'my_tasks') {
+            // SECURITY: If not a manager or lead, force 'my_tasks' view logic
+            // even if the frontend asked for a default/team view.
+            if (viewMode === 'my_tasks' || !isPrivileged) {
+                console.log('Service: Enforcing assigned_to filter for role:', normalizedRole);
                 query = query.eq('assigned_to', userId);
             }
         }
@@ -78,7 +85,10 @@ export const getTasks = async (orgId, projectId, viewMode, userId, userRole) => 
             reassigned_to_name: profileMap[task.reassigned_to]?.full_name,
             // Note: project_name needs to be handled by caller or fetched here. 
             // For now, minimizing deps, caller usually knows project name.
-            project_name: 'Project' // Placeholder, caller should override if they have context
+            project_name: task.projects?.name || 'Project',
+            final_points: Array.isArray(task.task_submissions) 
+                ? task.task_submissions[0]?.final_points 
+                : task.task_submissions?.final_points
         }));
 
         return enhanced;
@@ -89,23 +99,21 @@ export const getTasks = async (orgId, projectId, viewMode, userId, userRole) => 
     }
 };
 
-export const getTaskById = async (taskId) => {
-    const { data, error } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('id', taskId)
-        .single();
+export const getTaskById = async (taskId, orgId) => {
+    let query = supabase.from('tasks').select('*').eq('id', taskId);
+    if (orgId) query = query.eq('org_id', orgId);
+    
+    const { data, error } = await query.single();
 
     if (error) throw error;
     return data;
 };
 
-export const getTaskSteps = async (taskId) => {
-    const { data, error } = await supabase
-        .from('task_steps')
-        .select('*')
-        .eq('task_id', taskId)
-        .order('order_index', { ascending: true }); // Better order
+export const getTaskSteps = async (taskId, orgId) => {
+    let query = supabase.from('task_steps').select('*').eq('task_id', taskId);
+    if (orgId) query = query.eq('org_id', orgId);
+    
+    const { data, error } = await query.order('order_index', { ascending: true });
 
     if (error) throw error;
     return data;

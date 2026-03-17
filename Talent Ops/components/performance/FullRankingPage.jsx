@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { Trophy, Search, TrendingUp, Medal, Download, Filter, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useUser } from '../shared/context/UserContext';
 
 const FullRankingPage = () => {
+    const { orgId } = useUser();
     const [rankings, setRankings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -12,8 +14,10 @@ const FullRankingPage = () => {
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
     useEffect(() => {
-        fetchRankings();
-    }, [selectedMonth, selectedYear]);
+        if (orgId) {
+            fetchRankings();
+        }
+    }, [selectedMonth, selectedYear, orgId]);
 
     const fetchRankings = async () => {
         try {
@@ -25,6 +29,7 @@ const FullRankingPage = () => {
                 .select('*')
                 .eq('review_month', selectedMonth)
                 .eq('review_year', selectedYear)
+                .eq('org_id', orgId)
                 .order('manager_score_total', { ascending: false });
 
             if (reviewsError) throw reviewsError;
@@ -39,6 +44,7 @@ const FullRankingPage = () => {
             const { data: profiles, error: profilesError } = await supabase
                 .from('profiles')
                 .select('id, full_name, job_title, department, avatar_url')
+                .eq('org_id', orgId)
                 .in('id', userIds);
 
             if (profilesError) throw profilesError;
@@ -46,7 +52,8 @@ const FullRankingPage = () => {
             // 3. Fetch departments for mapping
             const { data: departmentsData, error: deptError } = await supabase
                 .from('departments')
-                .select('id, department_name');
+                .select('id, department_name')
+                .eq('org_id', orgId);
 
             if (deptError) console.error('Error fetching departments:', deptError); // Log but continue
 

@@ -192,7 +192,25 @@ const SettingsDemo = () => {
         }
 
         try {
-            // Update password using Supabase Auth
+            // 1. Get current user's email
+            const { data: { user }, error: userError } = await supabase.auth.getUser();
+            if (userError || !user?.email) {
+                setMessage({ type: 'error', text: 'User session not found. Please log in again.' });
+                return;
+            }
+
+            // 2. Verify current password by attempting to sign in
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+                email: user.email,
+                password: passwordData.currentPassword,
+            });
+
+            if (signInError) {
+                setMessage({ type: 'error', text: 'Current password is incorrect!' });
+                return;
+            }
+
+            // 3. Update password using Supabase Auth (now with fresh session)
             const { error } = await supabase.auth.updateUser({
                 password: passwordData.newPassword
             });
@@ -209,7 +227,7 @@ const SettingsDemo = () => {
                 setShowPasswordForm(false);
             }
         } catch (err) {
-            setMessage({ type: 'error', text: 'Failed to update password' });
+            setMessage({ type: 'error', text: err.message || 'Failed to update password' });
         }
     };
 

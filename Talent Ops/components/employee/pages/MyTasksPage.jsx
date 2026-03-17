@@ -31,7 +31,7 @@ const MyTasksPage = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [dateFilter, setDateFilter] = useState('');
-    const [statusFilters, setStatusFilters] = useState(['in_progress', 'pending']); // Default to In Progress + Pending
+    const [statusFilters, setStatusFilters] = useState(['in_progress', 'pending', 'completed']); // Default to In Progress + Pending + Completed
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
 
@@ -220,17 +220,8 @@ const MyTasksPage = () => {
                 return;
             }
 
-            // Fetch tasks assigned to the current user (across projects)
-            const { data, error } = await supabase
-                .from('tasks')
-                .select('*, projects(name), task_submissions(final_points)')
-                .eq('assigned_to', user.id)
-                .eq('org_id', orgId)
-                .order('id', { ascending: false });
-
-            if (error) throw error;
-            const tasksList = data || [];
-
+            // Fetch tasks using the centralized service
+            const tasksList = await taskService.getTasks(orgId, currentProject?.id, 'my_tasks', user.id, 'employee');
 
             setTasks(tasksList);
 
@@ -638,7 +629,7 @@ const MyTasksPage = () => {
     ];
     const getPhaseIndex = (phase) => LIFECYCLE_PHASES.findIndex(p => p.key === phase);
 
-    const LifecycleProgress = ({ currentPhase, subState, validations, taskStatus }) => {
+    const LifecycleProgress = ({ currentPhase, subState, validations, taskStatus, isActiveNow }) => {
         let parsedValidations = validations;
         if (typeof validations === 'string') {
             try {
@@ -692,8 +683,10 @@ const MyTasksPage = () => {
                             color = '#ef4444'; // Red
                         } else if (hasProof) {
                             color = '#f59e0b'; // Yellow = Has proof, awaiting review
-                        } else {
+                        } else if (isActiveNow) {
                             color = '#3b82f6'; // Blue = Current active phase, no proof yet
+                        } else {
+                            color = '#e5e7eb';
                         }
                     } else if (hasProof) {
                         // Future phase but has proof (e.g. reverted state)
@@ -703,6 +696,8 @@ const MyTasksPage = () => {
                     }
                     // Future phases with no proof stay grey (#e5e7eb)
 
+                    const isActiveButNotStarted = idx === currentIndex && color === '#e5e7eb';
+
                     return (
                         <React.Fragment key={phase.key}>
                             <div style={{
@@ -710,7 +705,8 @@ const MyTasksPage = () => {
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontSize: '0.6rem', fontWeight: 600,
                                 backgroundColor: color,
-                                color: color === '#e5e7eb' ? '#9ca3af' : color === '#fee2e2' ? '#991b1b' : 'white'
+                                color: color === '#e5e7eb' ? (isActiveButNotStarted ? '#3b82f6' : '#9ca3af') : color === '#fee2e2' ? '#991b1b' : 'white',
+                                border: isActiveButNotStarted ? '2px solid #3b82f6' : 'none'
                             }} title={`${phase.label} ${status ? `(${status})` : ''}`}>
                                 {color === '#10b981' ? '✓' : phase.short.charAt(0)}
                             </div>
@@ -735,10 +731,10 @@ const MyTasksPage = () => {
         const taskStatus = t.status?.toLowerCase() || '';
         const taskSubState = t.sub_state?.toLowerCase() || '';
 
-        // Hide archived tasks unless 'archived' filter is explicitly selected
-        if (taskStatus === 'archived' && !statusFilters.includes('archived')) return false;
+        // If no filters selected, show EVERYTHING (including archived if the user wants total history)
+        if (statusFilters.length === 0) return true;
 
-        const matchesStatus = statusFilters.length === 0 || statusFilters.some(f => {
+        const matchesStatus = statusFilters.some(f => {
             // Exact matching for each filter type
             // IMPORTANT: status field takes precedence over sub_state
             switch (f) {
@@ -1262,6 +1258,7 @@ const MyTasksPage = () => {
                                                 subState={task.sub_state}
                                                 validations={task.phase_validations}
                                                 taskStatus={task.status}
+                                                isActiveNow={task.is_active_now}
                                             />
                                         </td>
                                         <td style={{ padding: '16px' }}>

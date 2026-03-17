@@ -10,8 +10,12 @@ const ActiveStatusDot = ({ taskId, isActive: propIsActive, isEditable = true, si
         setIsActive(propIsActive);
     }, [propIsActive]);
 
+    const isCompleted = taskStatus?.toLowerCase() === 'completed';
+    const displayActive = isActive && !isCompleted;
+    const canToggle = isEditable && !isCompleted && !loading;
+
     const toggleStatus = async () => {
-        if (!isEditable || loading) return;
+        if (!canToggle) return;
 
         const newState = !isActive;
         setIsActive(newState); // Optimistic update
@@ -37,24 +41,28 @@ const ActiveStatusDot = ({ taskId, isActive: propIsActive, isEditable = true, si
         }
     };
 
+    const getTitle = () => {
+        if (isCompleted) return "Task is completed";
+        if (!isEditable) return displayActive ? "User is working on this" : "Not active";
+        return displayActive ? "Click to set idle" : "Click to set active";
+    };
+
     return (
         <div
             onClick={(e) => {
                 e.stopPropagation();
                 toggleStatus();
             }}
-            title={!isEditable
-                ? (isActive ? "User is working on this" : "Not active")
-                : (isActive ? "Click to set active" : "Click to set idle")}
+            title={getTitle()}
             style={{
                 width: `${size}px`,
                 height: `${size}px`,
                 borderRadius: '50%',
-                backgroundColor: isActive ? '#22c55e' : '#e2e8f0', // Green or Slate-200
-                border: isActive ? '2px solid #bbf7d0' : '1px solid #cbd5e1',
-                cursor: !isEditable ? 'default' : 'pointer',
-                boxShadow: isActive ? `0 0 ${size / 2}px #22c55e` : 'none',
-                opacity: loading ? 0.7 : 1,
+                backgroundColor: displayActive ? '#22c55e' : '#e2e8f0', // Green or Slate-200
+                border: displayActive ? '2px solid #bbf7d0' : '1px solid #cbd5e1',
+                cursor: canToggle ? 'pointer' : 'default',
+                boxShadow: displayActive ? `0 0 ${size / 2}px #22c55e` : 'none',
+                opacity: (loading || isCompleted) ? 0.7 : 1,
                 transition: 'all 0.3s ease',
                 flexShrink: 0
             }}

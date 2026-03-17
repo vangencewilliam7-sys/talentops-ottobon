@@ -21,42 +21,7 @@ import PricingPage from './landing/sections/PricingPage';
 import { StylesInjection } from './landing/styles/StylesInjection';
 
 function App() {
-    useEffect(() => {
-        const checkConnection = async () => {
-            console.log('=== Supabase Connection Check ===');
-            console.log('URL:', import.meta.env.VITE_SUPABASE_URL);
-            console.log('Key (first 20 chars):', import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20));
 
-            // Check session
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-            if (sessionError) {
-                console.error('❌ Supabase session error:', sessionError);
-            } else {
-                console.log('✅ Supabase connected successfully. Session:', sessionData);
-            }
-
-            // Test profiles table access
-            try {
-                const { data: profilesData, error: profilesError } = await supabase
-                    .from('profiles')
-                    .select('id, full_name, email')
-                    .limit(5);
-
-                if (profilesError) {
-                    console.error('❌ Error accessing profiles table:', profilesError);
-                } else {
-                    console.log('✅ Profiles table accessible. Sample data:', profilesData);
-                    console.log(`Found ${profilesData?.length || 0} profiles`);
-                }
-            } catch (err) {
-                console.error('❌ Unexpected error testing profiles:', err);
-            }
-
-            console.log('=== End Connection Check ===');
-        };
-
-        checkConnection();
-    }, []);
 
     return (
         <Router>
@@ -76,7 +41,6 @@ function App() {
                     <Route path="/super-admin/*" element={<SuperAdminDashboard />} />
                     <Route path="/audit-logs" element={<AuditLogViewer />} />
                     <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-                    <Route path="/reset-password" element={<ResetPasswordPage />} />
                     <Route path="/reset-password" element={<ResetPasswordPage />} />
                 </Route>
             </Routes>

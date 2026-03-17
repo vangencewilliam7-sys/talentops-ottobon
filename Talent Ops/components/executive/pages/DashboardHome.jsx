@@ -13,7 +13,7 @@ import EmployeeRecognitionBoard from '../../shared/EmployeeRecognitionBoard';
 
 const DashboardHome = () => {
     const { addToast } = useToast();
-    const { userName } = useUser();
+    const { userName, orgId } = useUser();
     const navigate = useNavigate();
 
     // Helper to format date as YYYY-MM-DD for comparison (Local Time)
@@ -71,22 +71,27 @@ const DashboardHome = () => {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
+                if (!orgId) return;
+
                 // Fetch profiles
                 const { data: employees } = await supabase
                     .from('profiles')
-                    .select('id, full_name, role, team_id');
+                    .select('id, full_name, role, team_id')
+                    .eq('org_id', orgId);
 
                 // Fetch real attendance data (Today)
                 const todayStr = new Date().toISOString().split('T')[0];
                 const { data: attendanceData } = await supabase
                     .from('attendance')
                     .select('employee_id, clock_in, clock_out')
+                    .eq('org_id', orgId)
                     .eq('date', todayStr);
 
                 // Fetch approved leaves for today (Absent)
                 const { data: leavesData } = await supabase
                     .from('leaves')
                     .select('id')
+                    .eq('org_id', orgId)
                     .eq('status', 'approved')
                     .lte('from_date', todayStr)
                     .gte('to_date', todayStr);
@@ -114,17 +119,20 @@ const DashboardHome = () => {
                 // 1. All Tasks
                 const { data: allTasks } = await supabase
                     .from('tasks')
-                    .select('id, project_id, assigned_to, status');
+                    .select('id, project_id, assigned_to, status')
+                    .eq('org_id', orgId);
 
                 // 2. All Attendance (To calculate total hours)
                 const { data: allAttendance } = await supabase
                     .from('attendance')
-                    .select('employee_id, total_hours');
+                    .select('employee_id, total_hours')
+                    .eq('org_id', orgId);
 
                 // 3. All Projects
                 const { data: projectsData } = await supabase
                     .from('projects')
-                    .select('id, name');
+                    .select('id, name')
+                    .eq('org_id', orgId);
 
                 const projectsMap = {};
                 if (projectsData) projectsData.forEach(p => projectsMap[p.id] = p.name);
@@ -168,7 +176,8 @@ const DashboardHome = () => {
                 // Fetch tasks for stats and analytics AND timeline
                 const { data: tasks } = await supabase
                     .from('tasks')
-                    .select('id, status, assigned_to, title, due_date, priority');
+                    .select('id, status, assigned_to, title, due_date, priority')
+                    .eq('org_id', orgId);
 
                 if (tasks) {
                     setTaskStats({
@@ -182,6 +191,7 @@ const DashboardHome = () => {
                 const { data: eventsData } = await supabase
                     .from('announcements')
                     .select('*')
+                    .eq('org_id', orgId)
                     .order('event_time', { ascending: true });
 
                 let combinedEvents = [];
@@ -222,6 +232,7 @@ const DashboardHome = () => {
                 const { data: orgHolidays } = await supabase
                     .from('organization_holidays')
                     .select('*')
+                    .eq('org_id', orgId)
                     .gte('holiday_date', new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]);
 
                 if (orgHolidays) {
@@ -317,7 +328,7 @@ const DashboardHome = () => {
         };
 
         fetchDashboardData();
-    }, [refreshTrigger]);
+    }, [refreshTrigger, orgId]);
 
     // Real-time Subscription
     useEffect(() => {
@@ -757,7 +768,7 @@ const DashboardHome = () => {
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             borderRadius: '12px',
-                                            backgroundColor: isSelected ? '#0f172a' : isHoliday ? '#ffedd5' : isToday ? '#e2e8f0' : 'transparent',
+                                            backgroundColor: isSelected ? '#0f172a' : isHoliday ? '#f28907ff' : isToday ? '#e2e8f0' : 'transparent',
                                             color: isSelected ? '#fff' : isHoliday ? '#ea580c' : isToday ? '#1e293b' : '#475569',
                                             cursor: 'pointer',
                                             fontWeight: isSelected || isToday || isHoliday ? '800' : '600',
@@ -767,12 +778,12 @@ const DashboardHome = () => {
                                         }}
                                         onMouseEnter={(e) => {
                                             if (!isSelected) {
-                                                e.currentTarget.style.backgroundColor = isHoliday ? '#fed7aa' : '#f8fafc';
+                                                e.currentTarget.style.backgroundColor = isHoliday ? '#ffedd5' : '#f8fafc';
                                             }
                                         }}
                                         onMouseLeave={(e) => {
                                             if (!isSelected) {
-                                                e.currentTarget.style.backgroundColor = isHoliday ? '#ffedd5' : isToday ? '#e2e8f0' : 'transparent';
+                                                e.currentTarget.style.backgroundColor = isHoliday ? '#fff7ed' : isToday ? '#e2e8f0' : 'transparent';
                                             }
                                         }}
                                     >

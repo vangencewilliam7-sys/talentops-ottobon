@@ -104,6 +104,34 @@ const DocumentViewer = ({ url, fileName, onClose }) => {
         }
     };
 
+    const handleDownloadBtnClick = async (e) => {
+        e.preventDefault();
+        try {
+            const response = await fetch(currentUrl);
+            if (!response.ok) throw new Error('Network response was not ok');
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            
+            // Make sure it has an extension
+            let downloadName = currentFileName || 'download';
+            if (!downloadName.includes('.')) {
+                const ext = fileType === 'pdf' ? '.pdf' : '';
+                downloadName = downloadName + ext;
+            }
+            a.download = downloadName;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (err) {
+            console.error('Download failed, falling back to new tab:', err);
+            window.open(currentUrl, '_blank');
+        }
+    };
+
     const renderContent = () => {
         if (error) {
             return (
@@ -129,17 +157,17 @@ const DocumentViewer = ({ url, fileName, onClose }) => {
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-                        <a href={currentUrl} download
+                        <button onClick={handleDownloadBtnClick}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: '8px',
                                 padding: '12px 24px', borderRadius: '12px',
                                 background: `linear-gradient(135deg, ${accent}, ${accent}dd)`,
                                 color: 'white', textDecoration: 'none', fontWeight: 600,
-                                fontSize: '0.9rem', transition: 'all 0.2s',
+                                fontSize: '0.9rem', transition: 'all 0.2s', border: 'none', cursor: 'pointer',
                                 boxShadow: `0 4px 14px ${accent}40`
                             }}>
                             <Download size={18} /> Download File
-                        </a>
+                        </button>
                         <a href={currentUrl} target="_blank" rel="noopener noreferrer"
                             style={{
                                 display: 'flex', alignItems: 'center', gap: '8px',
@@ -204,12 +232,14 @@ const DocumentViewer = ({ url, fileName, onClose }) => {
         }
 
         if (fileType === 'pdf') {
+            // Use Google Docs Viewer for reliable inline PDF rendering
+            const googleDocsUrl = `https://docs.google.com/gview?url=${encodeURIComponent(currentUrl)}&embedded=true`;
             return (
                 <div style={{ width: '100%', height: '100%', position: 'relative', backgroundColor: 'var(--background)' }}>
                     {loadingOverlay}
                     <iframe
                         key={currentUrl}
-                        src={`${currentUrl}#view=FitH&toolbar=1`}
+                        src={googleDocsUrl}
                         style={{ width: '100%', height: '100%', border: 'none' }}
                         title="PDF Preview"
                         onLoad={() => setLoading(false)}
@@ -265,16 +295,17 @@ const DocumentViewer = ({ url, fileName, onClose }) => {
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '12px' }}>
-                    <a href={currentUrl} download
+                    <button onClick={handleDownloadBtnClick}
                         style={{
                             display: 'flex', alignItems: 'center', gap: '8px',
                             padding: '14px 28px', borderRadius: '12px',
                             background: `linear-gradient(135deg, ${accent}, ${accent}cc)`,
                             color: 'white', textDecoration: 'none', fontWeight: 600,
-                            fontSize: '0.95rem', boxShadow: `0 4px 14px ${accent}40`
+                            fontSize: '0.95rem', boxShadow: `0 4px 14px ${accent}40`,
+                            border: 'none', cursor: 'pointer'
                         }}>
                         <Download size={18} /> Download
-                    </a>
+                    </button>
                     <a href={currentUrl} target="_blank" rel="noopener noreferrer"
                         style={{
                             display: 'flex', alignItems: 'center', gap: '8px',
@@ -452,7 +483,8 @@ const DocumentViewer = ({ url, fileName, onClose }) => {
                         </button>
 
                         {/* Download */}
-                        <a href={currentUrl} download={currentFileName}
+                        <button
+                            onClick={handleDownloadBtnClick}
                             style={{
                                 display: 'flex', alignItems: 'center', gap: '6px',
                                 padding: '8px 16px', borderRadius: '10px',
@@ -460,11 +492,11 @@ const DocumentViewer = ({ url, fileName, onClose }) => {
                                 color: 'white', textDecoration: 'none',
                                 fontSize: '0.85rem', fontWeight: 600,
                                 boxShadow: `0 2px 8px ${accent}30`,
-                                transition: 'all 0.2s', border: 'none'
+                                transition: 'all 0.2s', border: 'none', cursor: 'pointer'
                             }}
                         >
                             <Download size={16} /> Download
-                        </a>
+                        </button>
 
                         {/* Close */}
                         <button

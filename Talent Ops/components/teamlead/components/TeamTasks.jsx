@@ -3,7 +3,7 @@ import { MoreHorizontal, Plus, X, User, Users, Filter, Search, Calendar, CheckCi
 import { useToast } from '../context/ToastContext';
 import { useUser } from '../context/UserContext';
 import { supabase } from '../../../lib/supabaseClient';
-
+import DocumentViewer from '../../shared/DocumentViewer';
 
 const TeamTasks = ({ orgId }) => {
     // Add styles for dropdown options
@@ -36,6 +36,10 @@ const TeamTasks = ({ orgId }) => {
     // Dropdown Data
     const [employeesList, setEmployeesList] = useState([]);
     const [myTeamName, setMyTeamName] = useState('');
+
+    // Document Viewer state
+    const [proofPreviewUrl, setProofPreviewUrl] = useState('');
+    const [showProofPreview, setShowProofPreview] = useState(false);
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -99,6 +103,7 @@ const TeamTasks = ({ orgId }) => {
                 .from('task_submissions')
                 .select('id')
                 .eq('task_id', selectedTask.id)
+                .eq('org_id', orgId)
                 .maybeSingle();
 
             if (!existingSub) {
@@ -107,6 +112,7 @@ const TeamTasks = ({ orgId }) => {
                 await supabase.from('task_submissions').insert({
                     task_id: selectedTask.id,
                     user_id: selectedTask.assigned_to,
+                    org_id: orgId,
                     actual_hours: selectedTask.allocated_hours || 0,
                     submitted_at: new Date().toISOString(),
                     status: 'approved'
@@ -801,7 +807,6 @@ const TeamTasks = ({ orgId }) => {
                                         >
                                             <option value="standard">Standard Impact</option>
                                             <option value="high">High Revenue Impact</option>
-                                            <option value="critical">Critical Compliance</option>
                                         </select>
                                     </div>
                                     <div>
@@ -1025,16 +1030,18 @@ const TeamTasks = ({ orgId }) => {
                                                 {taskReview.evidence && taskReview.evidence.length > 0 ? (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                                         {taskReview.evidence.map((file, i) => (
-                                                            <a
+                                                            <div
                                                                 key={i}
-                                                                href={file.file_url}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    setProofPreviewUrl(file.file_url);
+                                                                    setShowProofPreview(true);
+                                                                }}
                                                                 style={{
                                                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                                                     padding: '8px 12px', backgroundColor: '#f1f5f9', borderRadius: '6px',
                                                                     textDecoration: 'none', color: '#334155', fontSize: '0.85rem',
-                                                                    border: '1px solid #e2e8f0', transition: 'background 0.2s'
+                                                                    border: '1px solid #e2e8f0', transition: 'background 0.2s', cursor: 'pointer'
                                                                 }}
                                                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e2e8f0'}
                                                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
@@ -1043,7 +1050,7 @@ const TeamTasks = ({ orgId }) => {
                                                                     <FileText size={16} /> File {i + 1} ({file.file_type || 'Unknown'})
                                                                 </span>
                                                                 <ExternalLink size={14} />
-                                                            </a>
+                                                            </div>
                                                         ))}
                                                     </div>
                                                 ) : (
@@ -1136,6 +1143,17 @@ const TeamTasks = ({ orgId }) => {
                     </div>
                 </div>
             )}
+
+            {/* Proof Preview Modal */}
+            {
+                showProofPreview && proofPreviewUrl && (
+                    <DocumentViewer
+                        url={proofPreviewUrl}
+                        fileName="Proof Document"
+                        onClose={() => { setShowProofPreview(false); setProofPreviewUrl(''); }}
+                    />
+                )
+            }
         </div>
     );
 };

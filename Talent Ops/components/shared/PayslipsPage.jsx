@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { Download, FileText, Calendar, DollarSign, Plus, Eye } from 'lucide-react';
 import DataTable from '../employee/components/UI/DataTable';
 import PayslipFormModal from './payslip/PayslipFormModal';
+import DocumentViewer from './DocumentViewer';
 
 const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
     const [payslips, setPayslips] = useState([]);
@@ -11,6 +12,11 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [savedCompanies, setSavedCompanies] = useState([]); // Lifted state for company details
     const [employees, setEmployees] = useState([]); // Lifted state for employee dropdown
+
+    // Document Viewer state
+    const [previewUrl, setPreviewUrl] = useState('');
+    const [previewFileName, setPreviewFileName] = useState('');
+    const [showPreview, setShowPreview] = useState(false);
 
     // Safe toast function
     const showToast = (message, type) => {
@@ -206,7 +212,9 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
 
     const handleView = (payslip) => {
         if (payslip.storage_url) {
-            window.open(payslip.storage_url, '_blank');
+            setPreviewUrl(payslip.storage_url);
+            setPreviewFileName(`Payslip_${payslip.month || 'doc'}_${payslip.name || 'employee'}.pdf`);
+            setShowPreview(true);
         } else {
             showToast('Payslip URL not found', 'error');
         }
@@ -514,6 +522,17 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
                 employeesProp={employees}
                 onRefreshCompanies={fetchSavedCompanies}
             />
+
+            {/* Document Preview Modal */}
+            {
+                showPreview && previewUrl && (
+                    <DocumentViewer
+                        url={previewUrl}
+                        fileName={previewFileName || "Payslip"}
+                        onClose={() => { setShowPreview(false); setPreviewUrl(''); setPreviewFileName(''); }}
+                    />
+                )
+            }
 
         </div>
     );

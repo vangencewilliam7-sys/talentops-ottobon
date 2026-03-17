@@ -9,9 +9,9 @@ import ModulePage from '../teamlead/pages/ModulePage';
 // @ts-ignore
 import MessagingHub from '../shared/MessagingHub';
 // @ts-ignore
-import { ToastProvider } from '../teamlead/context/ToastContext';
+import { ToastProvider } from '../shared/context/ToastContext';
 // @ts-ignore
-import { UserProvider } from '../teamlead/context/UserContext';
+import { UserProvider } from '../shared/context/UserContext';
 // @ts-ignore
 import RaiseTicketPage from '../shared/pages/RaiseTicketPage';
 // @ts-ignore

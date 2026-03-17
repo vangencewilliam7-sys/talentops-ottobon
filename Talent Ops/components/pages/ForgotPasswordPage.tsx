@@ -16,18 +16,15 @@ export const ForgotPasswordPage = () => {
         setMessage('');
 
         try {
-            // Use Magic Link OTP instead of password reset
-            const { error: otpError } = await supabase.auth.signInWithOtp({
-                email: email,
-                options: {
-                    emailRedirectTo: `${window.location.origin}/reset-password`,
-                }
+            // Use the correct Reset Password API
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/reset-password`,
             });
 
-            if (otpError) {
-                setError(otpError.message);
+            if (resetError) {
+                setError(resetError.message);
             } else {
-                setMessage('Check your email for the magic link to reset your password. The link will expire in 1 hour.');
+                setMessage('Check your email for the password reset link. The link will expire in 1 hour.');
             }
         } catch (err) {
             setError('An unexpected error occurred');

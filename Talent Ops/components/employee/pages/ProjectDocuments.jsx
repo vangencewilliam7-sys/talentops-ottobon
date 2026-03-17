@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { FileText, Plus, Trash2, Edit3, Save, X, Code, FileQuestion, ListTodo, Loader2, Download, Upload, Eye } from 'lucide-react';
 import { supabase } from '../../../lib/supabaseClient';
 import { useProject } from '../context/ProjectContext';
+import { useUser } from '../context/UserContext';
 import { useToast } from '../context/ToastContext';
 import DocumentViewer from '../../shared/DocumentViewer';
 
 const ProjectDocuments = ({ userRole, addToast: parentAddToast = null }) => {
     const { currentProject, projectRole } = useProject();
+    const { orgId } = useUser();
     const toastContext = useToast() || {};
     const addToast = parentAddToast || toastContext.addToast || ((msg) => console.log('Toast:', msg));
     const [documents, setDocuments] = useState([]);
@@ -36,11 +38,17 @@ const ProjectDocuments = ({ userRole, addToast: parentAddToast = null }) => {
             let projectMap = {};
 
             if (userRole === 'executive') {
-                // Fetch ALL documents for executives
-                const result = await supabase
+                // Fetch ALL documents for executives within my org
+                let query = supabase
                     .from('project_documents')
                     .select('*')
                     .order('created_at', { ascending: false });
+                
+                if (orgId) {
+                    query = query.eq('org_id', orgId);
+                }
+                
+                const result = await query;
                 data = result.data;
                 error = result.error;
 
@@ -141,7 +149,8 @@ const ProjectDocuments = ({ userRole, addToast: parentAddToast = null }) => {
 
             if (file) {
                 const fileExt = file.name.split('.').pop();
-                const fileName = `${currentProject.id}/${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const pathPrefix = orgId ? `${orgId}/${currentProject.id}` : `${currentProject.id}`;
+                const fileName = `${pathPrefix}/${Math.random().toString(36).substring(7)}.${fileExt}`;
 
                 const { error: uploadError } = await supabase.storage
                     .from('project-docs')
@@ -158,6 +167,7 @@ const ProjectDocuments = ({ userRole, addToast: parentAddToast = null }) => {
 
             const { data: docData, error } = await supabase.from('project_documents').insert({
                 project_id: currentProject.id,
+                org_id: orgId,
                 title: newDoc.title,
                 content: newDoc.content,
                 doc_type: newDoc.doc_type,

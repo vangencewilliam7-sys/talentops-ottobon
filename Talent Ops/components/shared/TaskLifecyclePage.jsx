@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Calendar, Clock, Eye, X, CheckCircle, XCircle, Send, History, ChevronRight, AlertCircle, Upload, FileText, Paperclip, Plus, Users } from 'lucide-react';
+import { Search, Calendar, Clock, Eye, X, CheckCircle, XCircle, Send, History, ChevronRight, AlertCircle, Upload, FileText, Plus, Users } from 'lucide-react';
+import { useUser } from './context/UserContext';
 import { supabase } from '../../lib/supabaseClient';
+import DocumentViewer from './DocumentViewer';
 import { calculateDueDateTime } from '../../lib/businessHoursUtils';
 
 
@@ -27,6 +29,11 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
     const [showTaskModal, setShowTaskModal] = useState(false);
     const [taskHistory, setTaskHistory] = useState([]);
     const [historyLoading, setHistoryLoading] = useState(false);
+
+    // Document Viewer state
+    const [proofPreviewUrl, setProofPreviewUrl] = useState('');
+    const [showProofPreview, setShowProofPreview] = useState(false);
+
     const [actionLoading, setActionLoading] = useState(false);
 
     // Proof upload states
@@ -780,9 +787,16 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                                     <FileText size={24} color="#16a34a" />
                                     <div>
                                         <div style={{ fontWeight: 600, color: '#166534' }}>Proof Submitted</div>
-                                        <a href={selectedTask.proof_url} target="_blank" rel="noopener noreferrer" style={{ color: '#15803d', fontSize: '0.9rem' }}>
+                                        <div 
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                setProofPreviewUrl(selectedTask.proof_url);
+                                                setShowProofPreview(true);
+                                            }}
+                                            style={{ color: '#15803d', fontSize: '0.9rem', cursor: 'pointer', textDecoration: 'underline' }}
+                                        >
                                             View uploaded proof →
-                                        </a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -926,6 +940,17 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                     </div>
                 </div>
             )}
+
+            {/* Proof Preview Modal */}
+            {
+                showProofPreview && proofPreviewUrl && (
+                    <DocumentViewer
+                        url={proofPreviewUrl}
+                        fileName="Proof Document"
+                        onClose={() => { setShowProofPreview(false); setProofPreviewUrl(''); }}
+                    />
+                )
+            }
         </div>
     );
 };

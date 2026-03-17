@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 import { Trophy, Medal, Award, Star, TrendingUp } from 'lucide-react';
+import { useUser } from './context/UserContext';
 
 const EmployeeRecognitionBoard = ({ compact = false }) => {
+    const { orgId } = useUser();
     const [topEmployees, setTopEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchTopPerformers();
-    }, []);
+        if (orgId) {
+            fetchTopPerformers();
+        }
+    }, [orgId]);
 
     const fetchTopPerformers = async () => {
         try {
@@ -21,6 +25,7 @@ const EmployeeRecognitionBoard = ({ compact = false }) => {
             const { data: tasks, error: tasksError } = await supabase
                 .from('tasks')
                 .select('id, assigned_to, status, due_date, updated_at, project_id')
+                .eq('org_id', orgId)
                 .gte('due_date', startOfMonth)
                 .lte('due_date', endOfMonth);
 
@@ -29,7 +34,8 @@ const EmployeeRecognitionBoard = ({ compact = false }) => {
             // 3. Fetch Profiles
             const { data: profiles, error: profilesError } = await supabase
                 .from('profiles')
-                .select('id, full_name, role');
+                .select('id, full_name, role')
+                .eq('org_id', orgId);
 
             if (profilesError) throw profilesError;
 

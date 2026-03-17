@@ -929,6 +929,65 @@ const TaskDetailOverlay = ({
                                             )}
                                         </div>
 
+                                        {/* Show Phase Guidance/Notes if available */}
+                                        {task.phase_validations?.[phase.key]?.description && (
+                                            <div style={{
+                                                backgroundColor: '#f8fafc',
+                                                padding: '10px 12px',
+                                                borderRadius: '8px',
+                                                marginBottom: '12px',
+                                                fontSize: '0.85rem',
+                                                color: '#334155',
+                                                whiteSpace: 'pre-wrap',
+                                                borderLeft: '3px solid #94a3b8'
+                                            }}>
+                                                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes / Requirements</div>
+                                                {linkify(task.phase_validations[phase.key].description)}
+                                            </div>
+                                        )}
+
+                                        {task.phase_validations?.[phase.key]?.guidance_doc_url && (
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                backgroundColor: '#eff6ff',
+                                                padding: '10px 12px',
+                                                borderRadius: '8px',
+                                                border: '1px solid #bfdbfe',
+                                                marginBottom: '12px'
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                                                    <FileText size={16} color="#3b82f6" />
+                                                    <span style={{ fontSize: '0.85rem', color: '#1e40af', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {task.phase_validations[phase.key].guidance_doc_name || 'Guidance Document'}
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        setPreviewUrl(task.phase_validations[phase.key].guidance_doc_url);
+                                                        setPreviewTitle(`${phase.label} Guidance`);
+                                                        setShowPreview(true);
+                                                    }}
+                                                    style={{
+                                                        fontSize: '0.8rem',
+                                                        color: '#2563eb',
+                                                        fontWeight: 600,
+                                                        background: 'none',
+                                                        border: 'none',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                    }}
+                                                    onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                                                    onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                                                >
+                                                    View Spec <Eye size={14} />
+                                                </button>
+                                            </div>
+                                        )}
+
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             {phaseSteps.length > 0 ? (
                                                 phaseSteps.map((step, idx) => (
