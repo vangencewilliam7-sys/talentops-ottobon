@@ -39,6 +39,19 @@ const MessageNotificationStack = () => {
         navigate(getDashboardPath());
     };
 
+    const audioRef = React.useRef(null);
+    const prevQueueLengthRef = React.useRef(notificationQueue.length);
+
+    React.useEffect(() => {
+        if (notificationQueue.length > prevQueueLengthRef.current) {
+            if (audioRef.current) {
+                audioRef.current.currentTime = 0;
+                audioRef.current.play().catch(() => {});
+            }
+        }
+        prevQueueLengthRef.current = notificationQueue.length;
+    }, [notificationQueue]);
+
     return (
         <div className="notification-stack">
             {notificationQueue.slice(0, 3).map((notification, index) => (

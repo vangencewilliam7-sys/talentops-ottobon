@@ -79,6 +79,20 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                 throw new Error('You must be logged in to add employees');
             }
 
+            // PRE-CHECK: See if a profile with this email already exists
+            const { data: existingProfiles } = await supabase
+                .from('profiles')
+                .select('id, email, org_id')
+                .eq('email', formData.email);
+
+            if (existingProfiles && existingProfiles.length > 0) {
+                // Check if any belong to this org
+                const inThisOrg = existingProfiles.find(p => p.org_id === orgId);
+                if (inThisOrg) {
+                    throw new Error(`An employee with email "${formData.email}" already exists in your organization.`);
+                }
+            }
+
             // Call the Supabase Edge Function to add employee
             console.log('Sending data to Edge Function:', {
                 full_name: formData.full_name,
@@ -122,14 +136,42 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
 
             console.log('Edge Function response:', result);
 
+            // Track whether we should proceed with profile setup
+            let proceedWithSetup = response.ok;
+
             if (!response.ok) {
                 console.error('Edge Function error:', result);
-                throw new Error(result.error || result.message || `Server error: ${response.status}`);
+                
+                // Workaround: If there is a "duplicate key" violation on profiles, it means a Supabase DB Trigger 
+                // already created the profile automatically before the edge function could insert it. 
+                // We shouldn't fail completely. We should check if the user actually exists!
+                const errorStr = `${result.error || ''} ${result.message || ''}`;
+                const isDuplicateProfileError = errorStr.includes('duplicate key value violates unique constraint') || errorStr.includes('profiles_pkey');
+                
+                if (isDuplicateProfileError) {
+                    console.log('Recovering from profiles_pkey error... checking if user was actually created by trigger.');
+                    // Use .limit(1) instead of .single() to avoid errors when duplicate profiles exist
+                    const { data: profileMatches } = await supabase
+                        .from('profiles')
+                        .select('id')
+                        .eq('email', formData.email)
+                        .limit(1);
+                        
+                    if (profileMatches && profileMatches.length > 0) {
+                        console.log('User profile successfully recovered!', profileMatches[0].id);
+                        result.user_id = profileMatches[0].id;
+                        proceedWithSetup = true; // Allow the rest of the flow to continue
+                    }
+                }
+                
+                if (!proceedWithSetup) {
+                    throw new Error(result.error || result.message || `Server error: ${response.status}`);
+                }
             }
 
-            // If a project was selected, add the user to project_members
-            if (response.ok) {
-                console.log('Adding user to project_members...');
+            // Proceed with profile update and project assignments
+            if (proceedWithSetup) {
+                console.log('Setting up employee profile and assignments...');
 
                 // Get the user_id - either from the response or by querying
                 let userId = result.user_id;
@@ -171,7 +213,8 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
 
                         if (updateError) {
                             console.error('FAILED to update profile:', updateError);
-                            setError(`Failed to update profile details: ${updateError.message}`);
+                            // Don't show this as a blocking error — user was created successfully
+                            console.warn('Profile update failed but user was created. Details:', updateError.message);
                         } else {
                             console.log('Profile updated successfully:', updateResult);
                         }
@@ -191,22 +234,24 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                     }
 
                     // Add to all selected projects
-                    const projectAssignments = selectedProjects.map(projectId => ({
-                        project_id: projectId,
-                        user_id: userId,
-                        role: projectRole,
-                        org_id: orgId
-                    }));
+                    if (selectedProjects.length > 0) {
+                        const projectAssignments = selectedProjects.map(projectId => ({
+                            project_id: projectId,
+                            user_id: userId,
+                            role: projectRole,
+                            org_id: orgId
+                        }));
 
-                    const { error: projectMemberError } = await supabase
-                        .from('project_members')
-                        .insert(projectAssignments);
+                        const { error: projectMemberError } = await supabase
+                            .from('project_members')
+                            .insert(projectAssignments);
 
-                    if (projectMemberError) {
-                        console.error('Error adding to project_members:', projectMemberError);
-                        // Don't throw, just log - user was created successfully
-                    } else {
-                        console.log('Successfully added to project_members');
+                        if (projectMemberError) {
+                            console.error('Error adding to project_members:', projectMemberError);
+                            // Don't throw, just log - user was created successfully
+                        } else {
+                            console.log('Successfully added to project_members');
+                        }
                     }
 
                 } else {

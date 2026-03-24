@@ -12,7 +12,7 @@ import MessagingHub from '../shared/MessagingHub';
 import { ToastProvider } from '../shared/context/ToastContext';
 // @ts-ignore
 import { UserProvider } from '../shared/context/UserContext';
-// @ts-ignore
+import { ProjectProvider } from '../employee/context/ProjectContext';
 import RaiseTicketPage from '../shared/pages/RaiseTicketPage';
 // @ts-ignore
 import ManagerReviewPage from '../performance/ManagerReviewPage';
@@ -26,7 +26,8 @@ export const TeamLeadDashboard = () => {
         <RoleGuard allowedRoles={['team_lead']}>
             <UserProvider>
                 <ToastProvider>
-                    <Layout>
+                    <ProjectProvider>
+                        <Layout>
                         <Routes>
                             <Route path="/" element={<Navigate to="dashboard" replace />} />
                             <Route path="dashboard" element={<DashboardHome />} />
@@ -48,6 +49,7 @@ export const TeamLeadDashboard = () => {
                             <Route path="settings" element={<ModulePage title="Settings" type="default" />} />
                         </Routes>
                     </Layout>
+                    </ProjectProvider>
                 </ToastProvider>
             </UserProvider>
         </RoleGuard>

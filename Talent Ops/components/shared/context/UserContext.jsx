@@ -62,40 +62,20 @@ export const UserProvider = ({ children }) => {
                         }
                     }
 
-                    // 3. Attendance Monitoring (Stale Session Cleanup)
-                    const today = new Date().toISOString().split('T')[0];
-                    const { data: openSessions } = await supabase
-                        .from('attendance')
-                        .select('*')
-                        .eq('employee_id', user.id)
-                        .is('check_out', null);
+                    // 3. Attendance Monitoring (via RPC instead of direct table access)
+                    const { data: attendanceData, error: attendanceError } = await supabase.rpc('get_my_attendance_status');
 
-                    let activeSessionFound = false;
-                    if (openSessions && openSessions.length > 0) {
-                        for (const session of openSessions) {
-                            if (session.date === today) {
-                                setUserStatus(session.status === 'break' ? 'Away' : 'Online');
-                                if (session.current_task) setUserTask(session.current_task);
-                                activeSessionFound = true;
-                            } else if (session.date < today) {
-                                // Auto Checkout stale sessions
-                                const clockOutTime = '23:59:00';
-                                const start = new Date(`${session.date}T${session.check_in}`);
-                                const end = new Date(`${session.date}T${clockOutTime}`);
-                                const totalHours = ((end - start) / (1000 * 60 * 60)).toFixed(2);
-                                
-                                await supabase
-                                    .from('attendance')
-                                    .update({ 
-                                        check_out: clockOutTime, 
-                                        total_hours: totalHours, 
-                                        status: 'present' 
-                                    })
-                                    .eq('id', session.id);
-                            }
+                    if (!attendanceError && attendanceData) {
+                        const attData = Array.isArray(attendanceData) ? attendanceData[0] : attendanceData;
+                        if (attData && attData.clock_in && !attData.clock_out) {
+                            setUserStatus(attData.status === 'break' ? 'Away' : 'Online');
+                            if (attData.current_task) setUserTask(attData.current_task);
+                        } else {
+                            setUserStatus('Offline');
                         }
+                    } else {
+                        setUserStatus('Offline');
                     }
-                    if (!activeSessionFound) setUserStatus('Offline');
 
                 } else {
                     // No user logged in

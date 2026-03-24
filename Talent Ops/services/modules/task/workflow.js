@@ -235,7 +235,8 @@ export const submitTaskProof = async ({
                 user.id,
                 senderName,
                 `Proof submitted for task: ${task.title} (Phase: ${currentPhase})`,
-                'task_proof_submitted'
+                'task_proof_submitted',
+                orgId
             );
         }
 

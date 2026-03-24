@@ -34,16 +34,73 @@ export const LoginPage = () => {
             console.log('✅ Authentication successful');
 
             if (data.user) {
-                // 1. Check if user profile exists
+                // 1. Check if user profile exists by auth user ID
                 let { data: profile, error: profileError } = await supabase
                     .from('profiles')
                     .select('*')
                     .eq('id', data.user.id)
                     .single();
 
-                // 2. SELF-HEALING: If no profile but we have metadata (from manual/legacy creation)
+                // 2. If no profile found by ID, check if one exists by email (common when manually added with wrong ID)
+                if (!profile && data.user.email) {
+                    console.log('No profile found by auth ID, searching by email...');
+                    const { data: emailProfiles } = await supabase
+                        .from('profiles')
+                        .select('*')
+                        .eq('email', data.user.email);
+
+                    if (emailProfiles && emailProfiles.length > 0) {
+                        console.log(`Found ${emailProfiles.length} profile(s) by email. Fixing ID mismatch...`);
+                        
+                        // Use the first profile found and update its ID to match the auth user ID
+                        const targetProfile = emailProfiles[0];
+                        
+                        // Delete any extra duplicate profiles for this email (keep only one)
+                        if (emailProfiles.length > 1) {
+                            const idsToDelete = emailProfiles.slice(1).map(p => p.id);
+                            console.log('Cleaning up duplicate profiles:', idsToDelete);
+                            await supabase
+                                .from('profiles')
+                                .delete()
+                                .in('id', idsToDelete);
+                        }
+
+                        // Update the remaining profile's ID to match the auth user ID
+                        if (targetProfile.id !== data.user.id) {
+                            console.log(`Updating profile ID from ${targetProfile.id} to ${data.user.id}`);
+                            
+                            // Delete the old profile and re-insert with correct ID
+                            const { error: deleteError } = await supabase
+                                .from('profiles')
+                                .delete()
+                                .eq('id', targetProfile.id);
+
+                            if (!deleteError) {
+                                const { data: fixedProfile, error: insertError } = await supabase
+                                    .from('profiles')
+                                    .insert([{
+                                        ...targetProfile,
+                                        id: data.user.id,
+                                    }])
+                                    .select()
+                                    .single();
+
+                                if (!insertError && fixedProfile) {
+                                    console.log('Profile ID fixed successfully!');
+                                    profile = fixedProfile;
+                                } else {
+                                    console.error('Failed to re-insert profile with correct ID:', insertError);
+                                }
+                            }
+                        } else {
+                            profile = targetProfile;
+                        }
+                    }
+                }
+
+                // 3. SELF-HEALING: If still no profile, create from auth metadata
                 if (!profile && data.user.user_metadata) {
-                    console.log('Detected ghost user, creating profile from metadata...');
+                    console.log('Creating profile from auth metadata...');
                     const meta = data.user.user_metadata;
                     const { data: newProfile, error: createError } = await supabase
                         .from('profiles')

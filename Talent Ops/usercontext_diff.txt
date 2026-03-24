@@ -1,0 +1,148 @@
+﻿commit a9bb21f1a3114eda60c87785538900e0828d9e2e
+Author: Vyntage <vangencewilliam7@gmail.com>
+Date:   Tue Mar 17 14:29:54 2026 +0530
+
+    refactor(policies): consolidate dashboard policies feature into shared module across all roles
+
+diff --git a/Talent Ops/components/shared/context/UserContext.jsx b/Talent Ops/components/shared/context/UserContext.jsx
+new file mode 100644
+index 0000000..4b585aa
+--- /dev/null
++++ b/Talent Ops/components/shared/context/UserContext.jsx	
+@@ -0,0 +1,136 @@
++import React, { createContext, useContext, useState, useEffect } from 'react';
++import { supabase } from '../../../lib/supabaseClient';
++
++const UserContext = createContext();
++
++export const useUser = () => {
++    const context = useContext(UserContext);
++    if (!context) {
++        throw new Error('useUser must be used within a UserProvider');
++    }
++    return context;
++};
++
++export const UserProvider = ({ children }) => {
++    const [userName, setUserName] = useState('Loading...');
++    const [userRole, setUserRole] = useState('User');
++    const [userStatus, setUserStatus] = useState('Offline');
++    const [userTask, setUserTask] = useState('');
++    const [lastActive, setLastActive] = useState('Now');
++    const [userId, setUserId] = useState(null);
++    const [orgId, setOrgId] = useState(null);
++    const [teamId, setTeamId] = useState(null); // Project ID
++    const [currentTeam, setCurrentTeam] = useState('All'); // For filtering
++    const [loading, setLoading] = useState(true);
++
++    useEffect(() => {
++        const fetchUserData = async () => {
++            setLoading(true);
++            try {
++                // 1. Get current auth user
++                const { data: { user } } = await supabase.auth.getUser();
++
++                if (user) {
++                    setUserId(user.id);
++
++                    // 2. Fetch profile (Name, Role, Org)
++                    const { data: profile, error: profileError } = await supabase
++                        .from('profiles')
++                        .select('full_name, email, role, org_id, team_id')
++                        .eq('id', user.id)
++                        .single();
++
++                    if (profileError) {
++                        console.error('Error fetching user profile:', profileError);
++                        setUserName(user.email || 'User');
++                        setUserRole('User');
++                    } else if (profile) {
++                        setUserName(profile.full_name || profile.email || 'User');
++                        setUserRole(profile.role || 'User');
++                        setOrgId(profile.org_id);
++                        
++                        // Use team_id if available, otherwise check project_members
++                        if (profile.team_id) {
++                            setTeamId(profile.team_id);
++                        } else {
++                            const { data: projectMember } = await supabase
++                                .from('project_members')
++                                .select('project_id')
++                                .eq('user_id', user.id)
++                                .maybeSingle();
++                            setTeamId(projectMember?.project_id || null);
++                        }
++                    }
++
++                    // 3. Attendance Monitoring (Stale Session Cleanup)
++                    const today = new Date().toISOString().split('T')[0];
++                    const { data: openSessions } = await supabase
++                        .from('attendance')
++                        .select('*')
++                        .eq('employee_id', user.id)
++                        .is('check_out', null);
++
++                    let activeSessionFound = false;
++                    if (openSessions && openSessions.length > 0) {
++                        for (const session of openSessions) {
++                            if (session.date === today) {
++                                setUserStatus(session.status === 'break' ? 'Away' : 'Online');
++                                if (session.current_task) setUserTask(session.current_task);
++                                activeSessionFound = true;
++                            } else if (session.date < today) {
++                                // Auto Checkout stale sessions
++                                const clockOutTime = '23:59:00';
++                                const start = new Date(`${session.date}T${session.check_in}`);
++                                const end = new Date(`${session.date}T${clockOutTime}`);
++                                const totalHours = ((end - start) / (1000 * 60 * 60)).toFixed(2);
++                                
++                                await supabase
++                                    .from('attendance')
++                                    .update({ 
++                                        check_out: clockOutTime, 
++                                        total_hours: totalHours, 
++                                        status: 'present' 
++                                    })
++                                    .eq('id', session.id);
++                            }
++                        }
++                    }
++                    if (!activeSessionFound) setUserStatus('Offline');
++
++                } else {
++                    // No user logged in
++                    setUserName('Guest');
++                    setUserRole('Guest');
++                    setUserId(null);
++                    setOrgId(null);
++                    setTeamId(null);
++                }
++            } catch (err) {
++                console.error('CRITICAL: Error in fetchUserData:', err);
++            } finally {
++                setLoading(false);
++            }
++        };
++
++        fetchUserData();
++    }, []);
++
++    const value = {
++        userName, setUserName,
++        userRole, setUserRole,
++        userStatus, setUserStatus,
++        userTask, setUserTask,
++        lastActive, setLastActive,
++        userId,
++        orgId,
++        teamId, setTeamId,
++        currentTeam, setCurrentTeam,
++        loading
++    };
++
++    return (
++        <UserContext.Provider value={value}>
++            {children}
++        </UserContext.Provider>
++    );
++};

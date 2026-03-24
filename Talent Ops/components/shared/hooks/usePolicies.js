@@ -1,12 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
-import { useToast } from '../../manager/context/ToastContext'; 
 
-export const usePolicies = (orgId) => {
+export const usePolicies = (orgId, addToast) => {
     const [policies, setPolicies] = useState([]);
     const [isLoadingPolicies, setIsLoadingPolicies] = useState(false);
     const [policyError, setPolicyError] = useState(null);
-    const { addToast } = useToast();
 
     const fetchPolicies = useCallback(async () => {
         if (!orgId) return;

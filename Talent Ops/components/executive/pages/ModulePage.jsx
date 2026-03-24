@@ -21,25 +21,18 @@ import InvoiceGenerator from '../components/Invoice/InvoiceGenerator';
 import { AddPolicyModal } from '../../shared/AddPolicyModal';
 import { EditPolicyModal } from '../../shared/EditPolicyModal';
 import { useUser } from '../context/UserContext';
+import EmployeeDetailsModal from '../../shared/EmployeeDetailsModal';
+import CandidateDetailsModal from '../../shared/CandidateDetailsModal';
+import ApplyLeaveModal from '../../shared/Leaves/ApplyLeaveModal';
+import LeaveDetailsModal from '../../shared/Leaves/LeaveDetailsModal';
 import ProjectAnalytics from '../../shared/ProjectAnalytics/ProjectAnalytics';
 import DocumentViewer from '../../shared/DocumentViewer';
 import { usePolicies } from '../../shared/hooks/usePolicies';
 import PoliciesFeature from '../../shared/features/PoliciesFeature';
-
-
-const APPLIER_RESPONSIBILITIES = [
-    "Complete high-priority current tasks",
-    "Handover pending tasks to a teammate",
-    "Update status/progress on all active tasks",
-    "Ensure relevant documentation is accessible"
-];
-
-const APPROVER_RESPONSIBILITIES = [
-    "Review applier's workload during leave period",
-    "Check own pending tasks for bottlenecks",
-    "Coordinate task reallocation with team",
-    "Ensure project deadlines are not compromised"
-];
+import { useEmployees } from '../../shared/hooks/useEmployees';
+import EmployeesFeature from '../../shared/features/EmployeesFeature';
+import { useLeaves } from '../../shared/hooks/useLeaves';
+import LeavesFeature from '../../shared/features/LeavesFeature';
 
 
 const ModulePage = ({ title, type }) => {
@@ -47,46 +40,16 @@ const ModulePage = ({ title, type }) => {
     const { addToast } = useToast();
     const { userId, orgId, userRole } = useUser();
     const [searchTerm, setSearchTerm] = useState('');
-    const [viewType, setViewType] = useState('grid'); // 'grid' or 'list'
-    const [availabilityFilter, setAvailabilityFilter] = useState('all');
 
-    // State for leave requests
-    const [leaveRequests, setLeaveRequests] = useState([]);
+    // Shared Leaves Data
+    const { leaves: sharedLeaves, leaveStats: sharedLeaveStats, remainingLeaves: sharedRemainingLeaves, refetch: refetchLeaves } = useLeaves(orgId, userId, type === 'my-leaves' ? 'personal' : type === 'employee-leave-info' ? 'org' : 'manager');
 
     // State for Leave Details modal
     const [selectedLeaveRequest, setSelectedLeaveRequest] = useState(null);
     const [showLeaveDetailsModal, setShowLeaveDetailsModal] = useState(false);
-    const [employeeTasks, setEmployeeTasks] = useState([]);
-    const [pendingTasks, setPendingTasks] = useState([]);
-    const [remainingLeaves, setRemainingLeaves] = useState(0);
-
-    const [evalBalance, setEvalBalance] = useState(0);
-    const [evalPendingPaid, setEvalPendingPaid] = useState(0);
 
     // State for Apply Leave modal
     const [showApplyLeaveModal, setShowApplyLeaveModal] = useState(false);
-    const [leaveFormData, setLeaveFormData] = useState({
-        leaveType: 'Casual Leave',
-        startDate: '',
-        endDate: '',
-        reason: ''
-    });
-    const [selectedDates, setSelectedDates] = useState([]);
-    const [dateToAdd, setDateToAdd] = useState('');
-
-    const addSelectedDate = (date) => {
-        if (!date) return;
-        setSelectedDates(prev => {
-            const set = new Set(prev);
-            if (set.has(date)) return prev;
-            set.add(date);
-            return Array.from(set).sort();
-        });
-    };
-
-    const removeSelectedDate = (date) => {
-        setSelectedDates(prev => prev.filter(d => d !== date));
-    };
 
     // State for Employee Details modal
     const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -99,6 +62,15 @@ const ModulePage = ({ title, type }) => {
 
     // State for Candidates
     const [candidates, setCandidates] = useState([]);
+
+    // Temporary variables to prevent ReferenceErrors in unremoved legacy JSX
+    const [employeeTasks, setEmployeeTasks] = useState([]);
+    const [pendingTasks, setPendingTasks] = useState([]);
+    const [evalBalance, setEvalBalance] = useState(0);
+    const [evalPendingPaid, setEvalPendingPaid] = useState(0);
+    const [leaveFormData, setLeaveFormData] = useState({ leaveType: 'Casual Leave', startDate: '', endDate: '', reason: '' });
+    const [selectedDates, setSelectedDates] = useState([]);
+    const [dateToAdd, setDateToAdd] = useState('');
 
     const [showCandidateFormModal, setShowCandidateFormModal] = useState(false);
     const [isEditingCandidate, setIsEditingCandidate] = useState(false);
@@ -120,11 +92,15 @@ const ModulePage = ({ title, type }) => {
         notes: ''
     });
 
-    // State for Employees
-    const [employees, setEmployees] = useState([]);
-    const [teamOptions, setTeamOptions] = useState([]); // Store fetched teams
-    const [projects, setProjects] = useState([]); // Store fetched projects
-    const [departments, setDepartments] = useState([]); // Store fetched departments
+    // Shared Employees Hook
+    const { 
+        employees: sharedEmployees, 
+        departments, 
+        projects, 
+        teams: teamOptions, 
+        refetch: refetchEmployees 
+    } = useEmployees(orgId);
+
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const [showEditEmployeeModal, setShowEditEmployeeModal] = useState(false);
     const [selectedEmployeeForEdit, setSelectedEmployeeForEdit] = useState(null);
@@ -152,357 +128,7 @@ const ModulePage = ({ title, type }) => {
 
 
 
-    // Fetch projects and departments from Supabase
-    useEffect(() => {
-        const fetchMetadata = async () => {
-            try {
-                // Fetch Projects
-                const { data: projData } = await supabase.from('projects').select('id, name').eq('org_id', orgId).order('name');
-                setProjects(projData || []);
 
-                // Fetch Departments
-                const { data: deptData } = await supabase.from('departments').select('id, department_name').eq('org_id', orgId);
-                setDepartments(deptData || []);
-            } catch (err) {
-                console.error('Error fetching metadata:', err);
-            }
-        };
-
-        fetchMetadata();
-    }, []);
-
-    // Fetch employees from Supabase
-    useEffect(() => {
-        const fetchEmployees = async () => {
-            if (orgId && (type === 'workforce' || type === 'status')) {
-                try {
-                    console.log(`Fetching employees for ${type} from Supabase...`);
-
-                    // 1. Fetch employees with team details
-                    const { data: profilesData, error: profilesError } = await supabase
-                        .from('profiles')
-                        .select(`
-                            id, 
-                            full_name, 
-                            email, 
-                            role, 
-                            department,
-                            job_title,
-                            join_date,
-                            avatar_url
-                        `)
-                        .eq('org_id', orgId);
-
-                    if (profilesError) {
-                        console.error('Error fetching employees:', profilesError);
-                        addToast('Failed to load employees', 'error');
-                        return;
-                    }
-
-                    // 2. Fetch project assignments from project_members table
-                    const { data: teamMembersData, error: teamMembersError } = await supabase
-                        .from('project_members')
-                        .select(`
-                            user_id,
-                            project_id,
-                            role,
-                            projects:project_id (
-                                name
-                            )
-                        `)
-                        .eq('org_id', orgId);
-
-                    if (teamMembersError) {
-                        console.error('Error fetching team members:', teamMembersError);
-                    }
-
-                    const projectMap = {};
-                    if (teamMembersData) {
-                        teamMembersData.forEach(member => {
-                            if (!projectMap[member.user_id]) projectMap[member.user_id] = [];
-                            if (member.projects?.name) {
-                                // Format role for display
-                                let roleDisplay = member.role || 'Member';
-                                if (roleDisplay === 'team_lead') roleDisplay = 'Team Lead';
-                                else if (roleDisplay === 'employee') roleDisplay = 'Employee';
-                                else roleDisplay = roleDisplay.charAt(0).toUpperCase() + roleDisplay.slice(1);
-
-                                projectMap[member.user_id].push({
-                                    name: member.projects.name,
-                                    role: roleDisplay
-                                });
-                            }
-                        });
-                    }
-
-                    // 3. Fetch TODAY'S attendance records
-                    const today = new Date().toISOString().split('T')[0];
-                    const { data: attendanceData, error: attendanceError } = await supabase
-                        .from('attendance')
-                        .select('employee_id, clock_in, clock_out, date, current_task')
-                        .eq('date', today)
-                        .eq('org_id', orgId);
-
-                    // Fetch TODAY'S leaves for "On Leave" status
-                    const { data: leavesData } = await supabase
-                        .from('leaves')
-                        .select('employee_id')
-                        .eq('status', 'approved')
-                        .eq('org_id', orgId)
-                        .lte('from_date', today)
-                        .gte('to_date', today);
-
-                    const leaveSet = new Set(leavesData?.map(l => l.employee_id));
-
-                    if (attendanceError) {
-                        console.error('Error fetching attendance:', attendanceError);
-                        // We continue even if attendance fails, considering everyone offline as fallback
-                    }
-
-                    // Create a map of employee_id -> attendance record for quick lookup
-                    const attendanceMap = {};
-                    if (attendanceData) {
-                        attendanceData.forEach(record => {
-                            attendanceMap[record.employee_id] = record;
-                        });
-                    }
-
-                    // 4. Fetch Teams for Dropdown
-                    const { data: teamsData, error: teamsError } = await supabase.from('teams').select('id, team_name').eq('org_id', orgId);
-                    if (teamsData) {
-                        setTeamOptions(teamsData);
-                    } else if (teamsError) {
-                        console.error("Error fetching teams:", teamsError);
-                    }
-
-                    if (profilesData) {
-                        console.log('Fetched profiles:', profilesData);
-                        console.log('Fetched attendance for today:', attendanceData);
-                        console.log('Project assignments:', projectMap);
-
-                        // Transform data to match the expected format
-                        const transformedEmployees = profilesData.map(emp => {
-                            // Determine real status from attendance
-                            const attendance = attendanceMap[emp.id];
-                            let availability = 'Offline';
-                            let lastActive = 'N/A';
-
-                            if (attendance) {
-                                if (attendance.clock_in && !attendance.clock_out) {
-                                    availability = 'Online';
-                                    lastActive = `Clocked in at ${attendance.clock_in.slice(0, 5)}`;
-                                } else if (attendance.clock_out) {
-                                    availability = 'Offline';
-                                    lastActive = `Left at ${attendance.clock_out.slice(0, 5)}`;
-                                }
-                            }
-
-                            // Check Leave Status (Override Offline if on leave)
-                            if (availability === 'Offline' && leaveSet.has(emp.id)) {
-                                availability = 'On Leave';
-                            }
-
-                            // Determine Current Task from Attendance (from user input)
-                            const currentTask = (availability === 'Online' && attendance?.current_task) ? attendance.current_task :
-                                (availability === 'Online') ? 'Available' : '-';
-
-                            let teamName;
-                            if (Array.isArray(projectMap[emp.id]) && projectMap[emp.id].length > 0) {
-                                // Multiple projects - render each on a new line with role
-                                teamName = (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        {projectMap[emp.id].map((proj, index) => (
-                                            <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <span>{proj.name}</span>
-                                                <span style={{
-                                                    fontSize: '0.7rem',
-                                                    color: '#94a3b8',
-                                                    background: 'rgba(255,255,255,0.05)',
-                                                    padding: '1px 6px',
-                                                    borderRadius: '4px',
-                                                    whiteSpace: 'nowrap'
-                                                }}>
-                                                    {proj.role}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                );
-                            } else {
-                                teamName = 'Unassigned';
-                            }
-
-                            // Determine Department Display (Name matched by ID or the ID itself/legacy name)
-                            const matchedDept = departments.find(d => d.id === emp.department);
-                            const departmentNameDisplay = matchedDept ? matchedDept.department_name : (emp.department || 'N/A');
-
-                            return {
-                                id: emp.id,
-                                name: emp.full_name || 'N/A',
-                                email: emp.email || 'N/A',
-                                role: emp.role || 'N/A',
-                                job_title: emp.job_title,
-                                employment_type: emp.employment_type || 'Full-Time',
-                                team_id: emp.team_id,
-                                dept: teamName, // Shows Project/Team
-                                department_display: departmentNameDisplay,
-                                status: 'Active',
-                                availability: availability, // Real status from DB
-                                task: currentTask, // Real task from DB
-
-                                lastActive: lastActive, // Real clock time
-                                joinDate: emp.join_date ? new Date(emp.join_date).toLocaleDateString() : (emp.created_at ? new Date(emp.created_at).toLocaleDateString() : 'N/A'),
-                                performance: 'N/A',
-                                projects: projectMap[emp.id]?.length || 0,
-                                tasksCompleted: 0,
-                                avatar_url: emp.avatar_url
-                            };
-                        });
-
-                        console.log('Transformed employees with real attendance:', transformedEmployees);
-                        setEmployees(transformedEmployees);
-
-                        if (transformedEmployees.length === 0) {
-                            addToast('No employees found in database', 'info');
-                        }
-                    }
-                } catch (err) {
-                    console.error('Unexpected error fetching employees:', err);
-                    addToast('An unexpected error occurred while loading employees', 'error');
-                }
-            } else if (type === 'leaves') {
-                if (!orgId) return;
-                try {
-                    console.log('Fetching leave requests for Executive...');
-
-                    // Get current user ID to filter out their own requests
-                    const { data: { user } } = await supabase.auth.getUser();
-                    const currentUserId = user?.id;
-
-                    // Fetch all leaves
-                    const { data: leavesData, error: leavesError } = await supabase
-                        .from('leaves')
-                        .select('*')
-                        .eq('org_id', orgId);
-
-                    if (leavesError) {
-                        console.error('Error fetching leaves:', leavesError);
-                        return;
-                    }
-
-                    console.log('Executive Leaves Data RAW:', leavesData);
-
-                    // Fetch profiles for name mapping
-                    const { data: profilesData, error: profilesError } = await supabase
-                        .from('profiles')
-                        .select('id, full_name')
-                        .eq('org_id', orgId);
-
-                    if (profilesError) console.error('Error fetching profiles:', profilesError);
-
-                    if (leavesData) {
-                        // Create a map of id -> name for quick lookup
-                        const profileMap = {};
-                        if (profilesData) {
-                            profilesData.forEach(p => {
-                                profileMap[p.id] = p.full_name;
-                            });
-                        }
-
-                        // Map leaves and profiles
-                        const filteredLeaves = leavesData
-                            .map(leave => {
-                                const start = new Date(leave.from_date);
-                                const end = new Date(leave.to_date);
-                                const diffTime = Math.abs(end - start);
-                                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-                                let type = 'Leave';
-                                let reason = leave.reason || '';
-                                if (reason.includes(':')) {
-                                    type = reason.split(':')[0];
-                                } else if (leave.leave_type) {
-                                    type = leave.leave_type;
-                                }
-
-                                // Use map to find name, or fallback
-                                const name = profileMap[leave.employee_id] || 'Unknown';
-
-                                return {
-                                    id: leave.id,
-                                    employee_id: leave.employee_id,
-                                    name: name,
-                                    type: type,
-                                    reason: leave.reason || 'No reason provided', // Include full reason from DB
-                                    startDate: leave.from_date,
-                                    endDate: leave.to_date,
-                                    duration: `${diffDays} Days`,
-                                    duration_weekdays: leave.duration_weekdays, // Critical for approval calculation
-                                    lop_days: leave.lop_days, // Critical for approval calculation
-                                    dates: `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`,
-                                    status: leave.status ? leave.status.charAt(0).toUpperCase() + leave.status.slice(1).toLowerCase() : 'Pending'
-                                };
-                            });
-
-                        // Sort by status (Pending first) then by created_at descending
-                        filteredLeaves.sort((a, b) => {
-                            if (a.status === 'Pending' && b.status !== 'Pending') return -1;
-                            if (a.status !== 'Pending' && b.status === 'Pending') return 1;
-                            return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-                        });
-
-                        setLeaveRequests(filteredLeaves);
-                    }
-                } catch (err) {
-                    console.error('Error fetching leave requests:', err);
-                }
-            } else if (type === 'employee-leave-info') {
-                if (!orgId) return;
-                try {
-                    console.log('Fetching aggregated leave info...');
-                    // Fetch all profiles
-                    const { data: profiles, error: pError } = await supabase
-                        .from('profiles')
-                        .select('id, full_name, total_leaves_balance')
-                        .eq('org_id', orgId);
-
-                    if (pError) throw pError;
-
-                    // Fetch all approved leaves
-                    const { data: leaves, error: lError } = await supabase
-                        .from('leaves')
-                        .select('employee_id, duration_weekdays, lop_days')
-                        .eq('org_id', orgId)
-                        .eq('status', 'approved');
-
-                    if (lError) throw lError;
-
-                    if (profiles) {
-                        const stats = profiles.map(profile => {
-                            const empLeaves = leaves?.filter(l => l.employee_id === profile.id) || [];
-                            const paidDays = empLeaves.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0);
-                            const lopDays = empLeaves.reduce((sum, l) => sum + (l.lop_days || 0), 0);
-                            const totalTaken = paidDays + lopDays;
-
-                            return {
-                                id: profile.id,
-                                name: profile.full_name,
-                                total_taken: `${totalTaken} Days`,
-                                paid_leaves: `${paidDays} Days`,
-                                lop_days: `${lopDays} Days`,
-                                leaves_left: `${profile.total_leaves_balance || 0} Days`
-                            };
-                        });
-                        setLeaveRequests(stats);
-                    }
-                } catch (err) {
-                    console.error(err);
-                }
-            }
-        };
-
-        fetchEmployees();
-    }, [type, refreshTrigger, departments, orgId]);
 
     // Shared Policies Hook
     const { 
@@ -511,7 +137,7 @@ const ModulePage = ({ title, type }) => {
         policyError: sharedPolicyError,
         fetchPolicies,
         handleDeletePolicy 
-    } = usePolicies(orgId);
+    } = usePolicies(orgId, addToast);
 
 
     // Real-time Subscription for Live Status
@@ -757,41 +383,8 @@ const ModulePage = ({ title, type }) => {
         }
     };
 
-    const handleViewLeave = async (leaveRequest) => {
+    const handleViewLeave = (leaveRequest) => {
         setSelectedLeaveRequest(leaveRequest);
-
-
-        // Fetch tasks for the employee during leave dates
-        const tasks = await fetchEmployeeTasks(
-            leaveRequest.employee_id,
-            leaveRequest.startDate, // Use standardized camelCase keys from transformation
-            leaveRequest.endDate
-        );
-        setEmployeeTasks(tasks);
-
-        // Fetch pending tasks (Backlog) for the EMPLOYEE
-        const pTasks = await fetchPendingTasks(leaveRequest.employee_id, leaveRequest.startDate);
-        setPendingTasks(pTasks);
-
-        // Fetch live balance and other pending requests for re-evaluation preview
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('total_leaves_balance')
-            .eq('id', leaveRequest.employee_id)
-            .single();
-
-        const { data: pending } = await supabase
-            .from('leaves')
-            .select('duration_weekdays')
-            .eq('employee_id', leaveRequest.employee_id)
-            .eq('status', 'pending')
-            .neq('id', leaveRequest.id);
-
-        setEvalBalance(profile?.total_leaves_balance || 0);
-        setEvalPendingPaid(pending?.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0) || 0);
-
-
-
         setShowLeaveDetailsModal(true);
     };
 
@@ -847,71 +440,75 @@ const ModulePage = ({ title, type }) => {
                 skills: item.skills ? item.skills.join(', ') : ''
             });
             setShowCandidateFormModal(true);
+        } else if (action === 'View Leave') {
+            handleViewLeave(item);
         } else if (type === 'leaves' && (action === 'Approve' || action === 'Reject')) {
-            const newStatus = action === 'Approve' ? 'Approved' : 'Rejected';
-
-            // Optimistic update
-            setLeaveRequests(prevRequests =>
-                prevRequests.map(request =>
-                    request.id === item.id
-                        ? { ...request, status: newStatus }
-                        : request
-                )
-            );
-
             try {
-                // Database update (lowercase for DB)
                 const dbStatus = action === 'Approve' ? 'approved' : 'rejected';
+
+                const { data: profileData, error: profileFetchError } = await supabase
+                    .from('profiles')
+                    .select('leaves_taken_this_month, total_leaves_balance')
+                    .eq('id', item.employee_id)
+                    .eq('org_id', orgId)
+                    .single();
+
+                if (profileFetchError) throw profileFetchError;
+
                 let finalPaid = item.duration_weekdays || 0;
                 let finalLop = item.lop_days || 0;
 
                 if (action === 'Approve') {
-                    // Fetch latest balance for re-evaluation
-                    const { data: profileData } = await supabase
+                    const totalRequestedWeekdays = (item.duration_weekdays || 0) + (item.lop_days || 0);
+                    const currentBalance = profileData.total_leaves_balance || 0;
+
+                    finalPaid = Math.max(0, Math.min(totalRequestedWeekdays, currentBalance));
+                    finalLop = totalRequestedWeekdays - finalPaid;
+
+                    const { error: leaveUpdateError } = await supabase
+                        .from('leaves')
+                        .update({
+                            status: dbStatus,
+                            duration_weekdays: finalPaid,
+                            lop_days: finalLop
+                        })
+                        .eq('id', item.id)
+                        .eq('org_id', orgId);
+
+                    if (leaveUpdateError) throw leaveUpdateError;
+
+                    const newTaken = (profileData.leaves_taken_this_month || 0) + finalPaid;
+                    const newBalance = currentBalance - finalPaid;
+
+                    const { error: profileUpdateError } = await supabase
                         .from('profiles')
-                        .select('total_leaves_balance')
+                        .update({
+                            leaves_taken_this_month: newTaken,
+                            total_leaves_balance: newBalance
+                        })
                         .eq('id', item.employee_id)
-                        .single();
+                        .eq('org_id', orgId);
 
-                    if (profileData) {
-                        const currentBalance = profileData.total_leaves_balance || 0;
-                        const totalRequested = (item.duration_weekdays || 0) + (item.lop_days || 0);
+                    if (profileUpdateError) throw profileUpdateError;
 
-                        // Dynamic Re-evaluation: Use all available balance
-                        finalPaid = Math.min(totalRequested, currentBalance);
-                        finalLop = totalRequested - finalPaid;
+                } else {
+                    const { error: rejectError } = await supabase
+                        .from('leaves')
+                        .update({ status: dbStatus })
+                        .eq('id', item.id)
+                        .eq('org_id', orgId);
 
-                        if (finalPaid > 0) {
-                            const { error: profileError } = await supabase
-                                .from('profiles')
-                                .update({
-                                    total_leaves_balance: currentBalance - finalPaid
-                                })
-                                .eq('id', item.employee_id);
-
-                            if (profileError) throw profileError;
-                        }
-                    }
+                    if (rejectError) throw rejectError;
                 }
-
-                const { error } = await supabase
-                    .from('leaves')
-                    .update({
-                        status: dbStatus,
-                        duration_weekdays: finalPaid,
-                        lop_days: finalLop
-                    })
-                    .eq('id', item.id)
-                    .eq('org_id', orgId);
-
-                if (error) throw error;
 
                 // Send Notification to the Employee
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user && item.employee_id) {
-                    let notificationMessage = `Your leave request for ${item.dates} has been ${action === 'Approve' ? 'Approved' : 'Rejected'}.`;
+                    const actionWord = action === 'Approve' ? 'Approved' : 'Rejected';
+                    let notificationMessage = `Your leave request for ${item.dates} has been ${actionWord}.`;
+
                     if (action === 'Approve' && finalLop > 0) {
-                        notificationMessage += ` Note: ${finalLop} days were processed as Loss of Pay due to insufficient balance.`;
+                        notificationMessage += ` (Partial LOP: ${finalLop} days)`;
                     }
 
                     await supabase.from('notifications').insert({
@@ -920,14 +517,14 @@ const ModulePage = ({ title, type }) => {
                         org_id: orgId,
                         sender_name: 'Management',
                         message: notificationMessage,
-                        type: 'leave_status', // specific type
+                        type: 'leave_status',
                         is_read: false,
                         created_at: new Date().toISOString()
                     });
                 }
 
                 addToast(`Leave request ${action.toLowerCase()}d for ${item.name}`, 'success');
-                setRefreshTrigger(prev => prev + 1); // Refresh list
+                refetchLeaves();
             } catch (error) {
                 console.error('Error updating leave request:', error);
                 addToast(`Failed to ${action.toLowerCase()} leave request`, 'error');
@@ -1246,7 +843,7 @@ const ModulePage = ({ title, type }) => {
                     )
                 },
             ],
-            data: employees
+            data: sharedEmployees
         },
         status: {
             columns: [
@@ -1271,7 +868,7 @@ const ModulePage = ({ title, type }) => {
                 { header: 'Current Task', accessor: 'task' },
                 { header: 'Last Active', accessor: 'lastActive' },
             ],
-            data: employees
+            data: sharedEmployees
         },
         recruitment: {
             columns: [
@@ -1467,7 +1064,7 @@ const ModulePage = ({ title, type }) => {
                     )
                 },
             ],
-            data: leaveRequests
+            data: sharedLeaves
         },
         'employee-leave-info': {
             columns: [
@@ -1477,7 +1074,7 @@ const ModulePage = ({ title, type }) => {
                 { header: 'Loss of Pay Days', accessor: 'lop_days' },
                 { header: 'Leaves Left', accessor: 'leaves_left' }
             ],
-            data: leaveRequests
+            data: sharedLeaves
         },
         payroll: {
             columns: [
@@ -1581,7 +1178,7 @@ const ModulePage = ({ title, type }) => {
                             {title.split(' ').map((word, i) => i === title.split(' ').length - 1 ? <span key={i} style={{ background: 'linear-gradient(to right, #38bdf8, #818cf8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{word}</span> : word + ' ')}
                         </h1>
                         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem', maxWidth: '600px', fontWeight: '500', lineHeight: 1.4 }}>
-                            {type === 'workforce' ? `Managing and scaling your talent network. ${employees.length} active profiles monitored.` :
+                            {type === 'workforce' ? `Managing and scaling your talent network. ${sharedEmployees.length} active profiles monitored.` :
                                 type === 'status' ? `Real-time visibility into peak performance and workforce engagement.` :
                                     `Systematic overview of organizational ${title.toLowerCase()} and operational assets.`}
                         </p>
@@ -1774,9 +1371,9 @@ const ModulePage = ({ title, type }) => {
                     marginBottom: '8px'
                 }}>
                     {[
-                        { label: 'Total Workforce', value: employees.length, icon: <Users size={20} />, color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.1)' },
-                        { label: 'Active Now', value: employees.filter(e => e.availability === 'Online').length, icon: <CheckCircle size={20} />, color: '#22c55e', bg: 'rgba(34, 197, 94, 0.1)' },
-                        { label: 'On Leave', value: employees.filter(e => e.availability === 'On Leave').length, icon: <Clock size={20} />, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' },
+                        { label: 'Total Workforce', value: sharedEmployees.length, icon: <Users size={20} />, color: '#38bdf8', bg: 'rgba(56, 189, 248, 0.1)' },
+                        { label: 'Active Now', value: sharedEmployees.filter(e => e.availability === 'Online').length, icon: <CheckCircle size={20} />, color: '#22c55e', bg: 'rgba(34, 197, 94, 0.1)' },
+                        { label: 'On Leave', value: sharedEmployees.filter(e => e.availability === 'On Leave').length, icon: <Clock size={20} />, color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)' },
                         { label: 'Peak Engagement', value: '92%', icon: <Activity size={20} />, color: '#818cf8', bg: 'rgba(129, 140, 248, 0.1)' }
                     ].map((stat, i) => (
                         <div key={i} style={{
@@ -1810,440 +1407,23 @@ const ModulePage = ({ title, type }) => {
                 </div>
             )}
 
-            {/* Search and Filters Bar */}
-            {(type === 'workforce' || type === 'status') && (
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '24px',
-                    marginBottom: '8px'
-                }}>
-                    <div style={{
-                        position: 'relative',
-                        flex: 1,
-                        maxWidth: '500px'
-                    }}>
-                        <Search style={{
-                            position: 'absolute',
-                            left: '20px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            color: '#94a3b8'
-                        }} size={20} />
-                        <input
-                            type="text"
-                            placeholder={`Search ${title.toLowerCase()}...`}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '12px 16px 12px 50px',
-                                borderRadius: '16px',
-                                border: '1px solid #f1f5f9',
-                                backgroundColor: '#ffffff',
-                                fontSize: '0.9rem',
-                                color: '#0f172a',
-                                outline: 'none',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.02)'
-                            }}
-                            onFocus={(e) => {
-                                e.target.style.borderColor = '#38bdf8';
-                                e.target.style.boxShadow = '0 10px 20px rgba(56, 189, 248, 0.05)';
-                            }}
-                            onBlur={(e) => {
-                                e.target.style.borderColor = '#f1f5f9';
-                                e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02)';
-                            }}
-                        />
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '12px' }}>
-                        {/* Availability Filter */}
-                        <select
-                            value={availabilityFilter}
-                            onChange={(e) => setAvailabilityFilter(e.target.value)}
-                            style={{
-                                padding: '8px 16px',
-                                borderRadius: '12px',
-                                backgroundColor: '#ffffff',
-                                color: '#0f172a',
-                                fontWeight: '600',
-                                fontSize: '0.85rem',
-                                border: '1px solid #e2e8f0',
-                                cursor: 'pointer',
-                                outline: 'none',
-                                transition: 'all 0.2s',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                            }}
-                        >
-                            <option value="all">All Employees</option>
-                            <option value="online">Online Only</option>
-                            <option value="offline">Offline Only</option>
-                            <option value="on-leave">On Leave</option>
-                        </select>
-
-                        <div style={{ display: 'flex', backgroundColor: '#f1f5f9', padding: '4px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                            <button
-                                onClick={() => setViewType('grid')}
-                                style={{
-                                    padding: '6px 14px',
-                                    borderRadius: '10px',
-                                    backgroundColor: viewType === 'grid' ? '#ffffff' : 'transparent',
-                                    color: viewType === 'grid' ? '#0f172a' : '#64748b',
-                                    fontWeight: viewType === 'grid' ? '700' : '600',
-                                    fontSize: '0.8rem',
-                                    border: 'none',
-                                    boxShadow: viewType === 'grid' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                <LayoutGrid size={16} /> Grid
-                            </button>
-                            <button
-                                onClick={() => setViewType('list')}
-                                style={{
-                                    padding: '8px 16px',
-                                    borderRadius: '10px',
-                                    backgroundColor: viewType === 'list' ? '#ffffff' : 'transparent',
-                                    color: viewType === 'list' ? '#0f172a' : '#64748b',
-                                    fontWeight: viewType === 'list' ? '700' : '600',
-                                    fontSize: '0.85rem',
-                                    border: 'none',
-                                    boxShadow: viewType === 'list' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                }}
-                            >
-                                <List size={16} /> List
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Premium Representation for Workforce/Status */}
-            {(type === 'workforce' || type === 'status') ? (
-                viewType === 'grid' ? (
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: type === 'status' ? 'repeat(auto-fill, minmax(320px, 1fr))' : 'repeat(auto-fill, minmax(280px, 1fr))',
-                        gap: '16px',
-                        marginTop: '8px'
-                    }}>
-                        {employees.filter(emp => {
-                            // Search filter
-                            const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                emp.job_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                emp.department_display?.toLowerCase().includes(searchTerm.toLowerCase());
-
-                            // Availability filter
-                            const matchesAvailability =
-                                availabilityFilter === 'all' ||
-                                (availabilityFilter === 'online' && emp.availability === 'Online') ||
-                                (availabilityFilter === 'offline' && emp.availability === 'Offline') ||
-                                (availabilityFilter === 'on-leave' && emp.availability === 'On Leave');
-
-                            return matchesSearch && matchesAvailability;
-                        }).map((emp) => (
-                            <div
-                                key={emp.id}
-                                style={{
-                                    backgroundColor: '#ffffff',
-                                    borderRadius: '16px',
-                                    padding: '16px',
-                                    border: (type === 'status' && emp.availability === 'Online') ? '2px solid #22c55e' : '1px solid #f1f5f9',
-                                    boxShadow: '0 4px 24px rgba(0,0,0,0.02)',
-                                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    position: 'relative',
-                                    overflow: 'hidden',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '12px'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform = 'translateY(-8px)';
-                                    e.currentTarget.style.borderColor = (type === 'status' && emp.availability === 'Online') ? '#22c55e' : '#e2e8f0';
-                                    e.currentTarget.style.boxShadow = '0 20px 40px rgba(0,0,0,0.06)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.borderColor = (type === 'status' && emp.availability === 'Online') ? '#22c55e' : '#f1f5f9';
-                                    e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.02)';
-                                }}
-                                onClick={() => type === 'workforce' ? handleAction('View Employee', emp) : handleAction('View Status', emp)}
-                            >
-
-
-                                {/* Profile Header */}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', minWidth: 0, flex: 1 }}>
-                                        <div style={{ width: '56px', height: '56px', borderRadius: '18px', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', border: '1px solid #e2e8f0', flexShrink: 0 }}>
-                                            {emp.avatar_url ? (
-                                                <img src={emp.avatar_url} alt={emp.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <span style={{ fontSize: '1.2rem', fontWeight: '800', color: '#64748b' }}>{emp.name.charAt(0)}</span>
-                                            )}
-                                        </div>
-                                        <div style={{ minWidth: 0, flex: 1 }}>
-                                            <h3 style={{ fontSize: '1.15rem', fontWeight: '800', color: '#0f172a', marginBottom: '2px', letterSpacing: '-0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.name}</h3>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.department_display}</span>
-                                                <span style={{ color: '#cbd5e1', flexShrink: 0 }}>•</span>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                                                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: emp.availability === 'Online' ? '#22c55e' : emp.availability === 'On Leave' ? '#ef4444' : '#94a3b8' }}></span>
-                                                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: emp.availability === 'Online' ? '#16a34a' : emp.availability === 'On Leave' ? '#dc2626' : '#64748b' }}>{emp.availability}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: '8px', position: 'relative', zIndex: 10, flexShrink: 0, marginLeft: 'auto' }}>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleAction(type === 'workforce' ? 'View Employee' : 'View Status', emp); }}
-                                            style={{ width: '36px', height: '36px', borderRadius: '12px', border: '1px solid #f1f5f9', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', transition: 'all 0.2s', cursor: 'pointer' }}
-                                        >
-                                            <Eye size={18} />
-                                        </button>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleAction('Edit Employee', emp); }}
-                                            style={{ width: '36px', height: '36px', borderRadius: '12px', border: '1px solid #f1f5f9', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', transition: 'all 0.2s', cursor: 'pointer' }}
-                                        >
-                                            <Edit size={18} />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {type === 'status' ? (
-                                    <>
-                                        {/* Activity Pulse Section */}
-                                        <div style={{
-                                            backgroundColor: '#f8fafc',
-                                            borderRadius: '16px',
-                                            padding: '16px',
-                                            border: '1px solid #f1f5f9'
-                                        }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <Activity size={14} style={{ color: '#38bdf8' }} />
-                                                    <span style={{ fontSize: '0.75rem', fontWeight: '800', color: '#475569', textTransform: 'uppercase' }}>Active Intent</span>
-                                                </div>
-                                                <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b' }}>{emp.lastActive}</span>
-                                            </div>
-                                            <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#1e293b', marginBottom: '4px' }}>
-                                                {emp.task !== '-' ? emp.task : 'System Idle / Standby'}
-                                            </div>
-                                            <div style={{ width: '100%', height: '4px', backgroundColor: '#e2e8f0', borderRadius: '2px', marginTop: '12px', overflow: 'hidden' }}>
-                                                <div style={{
-                                                    width: emp.availability === 'Online' ? '100%' : '0%',
-                                                    height: '100%',
-                                                    backgroundColor: '#38bdf8',
-                                                    borderRadius: '2px',
-                                                    boxShadow: '0 0 8px rgba(56, 189, 248, 0.5)'
-                                                }}></div>
-                                            </div>
-                                        </div>
-
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                <span style={{ padding: '4px 10px', borderRadius: '8px', backgroundColor: '#eff6ff', color: '#1d4ed8', fontSize: '0.7rem', fontWeight: '700' }}>
-                                                    {emp.role}
-                                                </span>
-                                                <span style={{ padding: '4px 10px', borderRadius: '8px', backgroundColor: '#f5f3ff', color: '#6d28d9', fontSize: '0.7rem', fontWeight: '700' }}>
-                                                    {emp.job_title}
-                                                </span>
-                                            </div>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleAction('View Status', emp); }}
-                                                style={{ color: '#3182ce', fontSize: '0.8rem', fontWeight: '700', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                            >
-                                                Live Intel <ChevronRight size={14} />
-                                            </button>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <>
-                                        {/* Info Grid for Workforce */}
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                            <div style={{ padding: '16px', borderRadius: '20px', backgroundColor: '#f8fafc', border: '1px solid #f1f5f9', minWidth: 0 }}>
-                                                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    <Briefcase size={12} /> Job Title
-                                                </div>
-                                                <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.job_title || 'N/A'}</div>
-                                            </div>
-                                            <div style={{ padding: '16px', borderRadius: '20px', backgroundColor: '#f8fafc', border: '1px solid #f1f5f9', minWidth: 0 }}>
-                                                <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                    <Users size={12} /> Department
-                                                </div>
-                                                <div style={{ fontSize: '0.95rem', fontWeight: '700', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.department_display || 'N/A'}</div>
-                                            </div>
-                                        </div>
-
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                            {emp.projects > 0 ? (
-                                                <span style={{ padding: '6px 12px', borderRadius: '10px', backgroundColor: '#ecfdf5', color: '#059669', fontSize: '0.75rem', fontWeight: '700', border: '1px solid #d1fae5' }}>
-                                                    Active on {emp.projects} Projects
-                                                </span>
-                                            ) : (
-                                                <span style={{ padding: '6px 12px', borderRadius: '10px', backgroundColor: '#fff7ed', color: '#d97706', fontSize: '0.75rem', fontWeight: '700', border: '1px solid #ffedd5' }}>
-                                                    Awaiting Project
-                                                </span>
-                                            )}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        {/* Premium List View Header */}
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: type === 'status' ? 'minmax(300px, 1.5fr) 1fr 1.5fr 1fr 120px' : 'minmax(300px, 1.5fr) 1fr 1fr 1fr 120px',
-                            padding: '12px 32px',
-                            color: '#64748b',
-                            fontSize: '0.75rem',
-                            fontWeight: '800',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em'
-                        }}>
-                            <div>{type === 'status' ? 'Live Operator' : 'Employee Details'}</div>
-                            <div>{type === 'status' ? 'Department' : 'Designation'}</div>
-                            <div>{type === 'status' ? 'Live Activity / Presence' : 'Organization / Team'}</div>
-                            <div>{type === 'status' ? 'Last Signal' : 'Employment Status'}</div>
-                            <div style={{ textAlign: 'right' }}>Actions</div>
-                        </div>
-
-                        {/* Premium List Rows */}
-                        {employees.filter(emp => {
-                            // Search filter
-                            const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                emp.job_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                emp.department_display?.toLowerCase().includes(searchTerm.toLowerCase());
-
-                            // Availability filter
-                            const matchesAvailability =
-                                availabilityFilter === 'all' ||
-                                (availabilityFilter === 'online' && emp.availability === 'Online') ||
-                                (availabilityFilter === 'offline' && emp.availability === 'Offline') ||
-                                (availabilityFilter === 'on-leave' && emp.availability === 'On Leave');
-
-                            return matchesSearch && matchesAvailability;
-                        }).map((emp) => (
-                            <div
-                                key={emp.id}
-                                style={{
-                                    backgroundColor: '#ffffff',
-                                    borderRadius: '20px',
-                                    padding: '16px 32px',
-                                    border: '1px solid #f1f5f9',
-                                    display: 'grid',
-                                    gridTemplateColumns: type === 'status' ? 'minmax(300px, 1.5fr) 1fr 1.5fr 1fr 120px' : 'minmax(300px, 1.5fr) 1fr 1fr 1fr 120px',
-                                    alignItems: 'center',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    cursor: 'pointer',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.borderColor = '#e2e8f0';
-                                    e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.04)';
-                                    e.currentTarget.style.transform = 'scale(1.005)';
-                                    e.currentTarget.style.zIndex = 10;
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.borderColor = '#f1f5f9';
-                                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.01)';
-                                    e.currentTarget.style.transform = 'scale(1)';
-                                    e.currentTarget.style.zIndex = 1;
-                                }}
-                                onClick={() => type === 'workforce' ? handleAction('View Employee', emp) : handleAction('View Status', emp)}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                    <div style={{
-                                        width: '44px',
-                                        height: '44px',
-                                        borderRadius: '14px',
-                                        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        overflow: 'hidden',
-                                        border: '1px solid #e2e8f0',
-                                        position: 'relative'
-                                    }}>
-                                        {emp.avatar_url ? (
-                                            <img src={emp.avatar_url} alt={emp.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                            <span style={{ fontSize: '1rem', fontWeight: '800', color: '#64748b' }}>{emp.name.charAt(0)}</span>
-                                        )}
-                                        {type === 'status' && (
-                                            <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', borderRadius: '50%', backgroundColor: emp.availability === 'Online' ? '#22c55e' : '#cbd5e1', border: '2px solid white' }}></div>
-                                        )}
-                                    </div>
-                                    <div style={{ overflow: 'hidden' }}>
-                                        <h4 style={{ fontSize: '1rem', fontWeight: '700', color: '#0f172a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.name}</h4>
-                                        <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>{emp.job_title}</p>
-                                    </div>
-                                </div>
-
-                                <div style={{ color: '#334155', fontWeight: '600', fontSize: '0.9rem' }}>
-                                    {emp.department_display || 'Main Office'}
-                                </div>
-
-                                {type === 'status' ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#1e293b' }}>{emp.task !== '-' ? emp.task : 'Active Standby'}</div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                                                <div style={{ width: '60px', height: '4px', backgroundColor: '#f1f5f9', borderRadius: '2px', overflow: 'hidden' }}>
-                                                    <div style={{ width: emp.availability === 'Online' ? '80%' : '0%', height: '100%', backgroundColor: '#22c55e' }}></div>
-                                                </div>
-                                                <span style={{ fontSize: '0.65rem', fontWeight: '800', color: '#94a3b8' }}>LIVE</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div style={{ color: '#64748b', fontWeight: '500', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#cbd5e1' }}></div>
-                                        {emp.role}
-                                    </div>
-                                )}
-
-                                <div>
-                                    <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#475569' }}>{type === 'status' ? emp.lastActive : emp.availability}</div>
-                                    {type === 'status' && (
-                                        <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>Session Lock</div>
-                                    )}
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleAction(type === 'status' ? 'View Status' : 'View Employee', emp); }}
-                                        style={{ width: '36px', height: '36px', borderRadius: '10px', border: '1px solid #f1f5f9', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', transition: 'all 0.2s', cursor: 'pointer' }}
-                                    >
-                                        <Eye size={18} />
-                                    </button>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleAction('Edit Employee', emp); }}
-                                        style={{ width: '36px', height: '36px', borderRadius: '10px', border: '1px solid #f1f5f9', backgroundColor: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', transition: 'all 0.2s', cursor: 'pointer' }}
-                                    >
-                                        <Edit size={18} />
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )
+            {/* Premium Representation for Workforce/Status/Leaves */}
+            {(type === 'leaves' || type === 'employee-leave-info' || type === 'my-leaves') ? (
+                <LeavesFeature 
+                    leaves={sharedLeaves} 
+                    type={type} 
+                    title={title} 
+                    onAction={handleAction} 
+                    userId={userId} 
+                    projectRole={userRole}
+                />
+            ) : (type === 'workforce' || type === 'status') ? (
+                <EmployeesFeature 
+                    employees={sharedEmployees} 
+                    type={type} 
+                    title={title} 
+                    onAction={handleAction} 
+                />
             ) : (
                 <DataTable
                     title={`${title} List`}
@@ -2261,762 +1441,59 @@ const ModulePage = ({ title, type }) => {
                 />
             )}
 
-            {
-                showApplyLeaveModal && (
-                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
-                        <div className="no-scrollbar" style={{ backgroundColor: 'var(--surface)', padding: '40px', borderRadius: '32px', width: '1000px', maxWidth: '95%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', border: '1px solid var(--border)', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
-                            {/* Modal Close Button */}
-                            <button
-                                onClick={() => setShowApplyLeaveModal(false)}
-                                style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--background)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-secondary)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', zIndex: 10 }}
-                            >
-                                <X size={20} />
-                            </button>
+            {showApplyLeaveModal && (
+                <ApplyLeaveModal
+                    onClose={() => setShowApplyLeaveModal(false)}
+                    userId={userId}
+                    orgId={orgId}
+                    teamId={null} // Executive usually doesn't have a single teamId for this context
+                    remainingLeaves={sharedRemainingLeaves}
+                    onSuccess={() => {
+                        setShowApplyLeaveModal(false);
+                        refetchLeaves();
+                    }}
+                />
+            )}
 
-                            <div style={{ marginBottom: '32px' }}>
-                                <h3 style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: '8px' }}>Request Leave</h3>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', fontWeight: '500' }}>Submit your leave details for approval</p>
-                            </div>
+            {showLeaveDetailsModal && (
+                <LeaveDetailsModal
+                    selectedLeaveRequest={selectedLeaveRequest}
+                    onClose={() => setShowLeaveDetailsModal(false)}
+                    onApprove={['leaves', 'employee-leave-info'].includes(type) ? handleAction.bind(null, 'Approve') : null}
+                    onReject={['leaves', 'employee-leave-info'].includes(type) ? handleAction.bind(null, 'Reject') : null}
+                    orgId={orgId}
+                />
+            )}
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '48px' }}>
-                                <form onSubmit={handleApplyLeave} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Leave Type</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <select
-                                                value={leaveFormData.leaveType}
-                                                onChange={(e) => setLeaveFormData({ ...leaveFormData, leaveType: e.target.value })}
-                                                style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', transition: 'all 0.2s', outline: 'none', appearance: 'none' }}
-                                                required
-                                            >
-                                                <option value="Casual Leave">Casual Leave</option>
-                                                <option value="Sick Leave">Sick Leave</option>
-                                                <option value="Vacation">Vacation</option>
-                                                <option value="Personal Leave">Personal Leave</option>
-                                            </select>
-                                            <div style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', opacity: 0.5 }}>
-                                                <Briefcase size={18} />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Start Date</label>
-                                            <input
-                                                type="date"
-                                                value={leaveFormData.startDate}
-                                                onChange={(e) => {
-                                                    const nextStart = e.target.value;
-                                                    setLeaveFormData(prev => ({
-                                                        ...prev,
-                                                        startDate: nextStart,
-                                                        endDate: prev.endDate && prev.endDate >= nextStart ? prev.endDate : nextStart
-                                                    }));
-                                                }}
-                                                style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', outline: 'none' }}
-                                                required={selectedDates.length === 0}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>End Date</label>
-                                            <input
-                                                type="date"
-                                                value={leaveFormData.endDate}
-                                                onChange={(e) => setLeaveFormData({ ...leaveFormData, endDate: e.target.value })}
-                                                min={leaveFormData.startDate}
-                                                style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', outline: 'none' }}
-                                                required={selectedDates.length === 0}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Specific Dates (Optional)</label>
-                                        <div style={{ display: 'flex', gap: '12px' }}>
-                                            <input
-                                                type="date"
-                                                value={dateToAdd}
-                                                onChange={(e) => setDateToAdd(e.target.value)}
-                                                style={{ flex: 1, padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', outline: 'none' }}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => { addSelectedDate(dateToAdd); setDateToAdd(''); }}
-                                                style={{ padding: '0 24px', borderRadius: '12px', border: 'none', backgroundColor: '#0f172a', color: 'white', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}
-                                            >
-                                                Add
-                                            </button>
-                                        </div>
-                                        {selectedDates.length > 0 && (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '12px' }}>
-                                                {selectedDates.map(date => (
-                                                    <div key={date} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '8px', backgroundColor: 'var(--background)', border: '1px solid var(--border)', fontSize: '0.85rem', fontWeight: '700' }}>
-                                                        {date}
-                                                        <X size={14} style={{ cursor: 'pointer' }} onClick={() => removeSelectedDate(date)} />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: '800', marginBottom: '8px', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reason</label>
-                                        <textarea
-                                            value={leaveFormData.reason}
-                                            onChange={(e) => setLeaveFormData({ ...leaveFormData, reason: e.target.value })}
-                                            placeholder="Please provide a valid reason for your leave request..."
-                                            rows="4"
-                                            style={{ width: '100%', padding: '14px 16px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', resize: 'none', outline: 'none', lineHeight: '1.5' }}
-                                            required
-                                        />
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowApplyLeaveModal(false)}
-                                            style={{ flex: 1, padding: '16px', borderRadius: '12px', fontWeight: '700', border: '1px solid var(--border)', backgroundColor: 'var(--background)', color: 'var(--text-primary)', cursor: 'pointer' }}
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            style={{ flex: 1, padding: '16px', borderRadius: '12px', fontWeight: '700', backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 10px 15px -3px rgba(56, 189, 248, 0.4)' }}
-                                        >
-                                            Submit Request
-                                        </button>
-                                    </div>
-                                </form>
-
-                                {/* Right Side - Tasks & Responsibilities */}
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                                    <div>
-                                        <h4 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '20px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <Briefcase size={22} color="var(--primary)" /> Your Pending Tasks
-                                        </h4>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                            {pendingTasks.length > 0 ? pendingTasks.map(task => (
-                                                <div key={task.id} style={{ padding: '16px', borderRadius: '16px', background: 'var(--background)', border: '1px solid var(--border)', transition: 'all 0.2s' }}>
-                                                    <div style={{ fontWeight: '800', fontSize: '0.95rem', marginBottom: '8px', color: 'var(--text-primary)' }}>{task.title}</div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <span style={{ fontSize: '0.8rem', fontWeight: '600', color: 'var(--text-secondary)' }}>Due: {new Date(task.due_date).toLocaleDateString()}</span>
-                                                        <span style={{ fontSize: '0.75rem', fontWeight: '800', color: task.priority === 'High' ? '#ef4444' : 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{task.priority || 'Medium'}</span>
-                                                    </div>
-                                                </div>
-                                            )) : (
-                                                <div style={{ padding: '32px', textAlign: 'center', borderRadius: '16px', background: 'var(--background)', border: '1px dashed var(--border)', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-                                                    No pending tasks!
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <h4 style={{ fontSize: '1.25rem', fontWeight: '800', marginBottom: '20px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                            <Calendar size={22} color="var(--primary)" /> Pre-Leave Responsibilities
-                                        </h4>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                            {APPLIER_RESPONSIBILITIES.map((resp, idx) => (
-                                                <div key={idx} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                                                    <div style={{ marginTop: '2px', minWidth: '20px', height: '20px', borderRadius: '6px', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'white' }}></div>
-                                                    </div>
-                                                    <span style={{ fontSize: '0.95rem', fontWeight: '600', color: 'var(--text-secondary)', lineHeight: '1.5' }}>{resp}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
 
             {/* Employee Details Modal */}
-            {
-                showEmployeeModal && selectedEmployee && (
-                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                        <div className="no-scrollbar" style={{ backgroundColor: 'var(--surface)', borderRadius: '16px', width: '600px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' }}>
-                            {/* Header */}
-                            <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Employee Details</h3>
-                                <button onClick={() => setShowEmployeeModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                                    <X size={24} />
-                                </button>
-                            </div>
-
-                            {/* Employee Info */}
-                            <div style={{ padding: '32px' }}>
-                                {/* Profile Section */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '32px' }}>
-                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 'bold', color: '#075985', overflow: 'hidden' }}>
-                                        {selectedEmployee.avatar_url ? (
-                                            <img src={selectedEmployee.avatar_url} alt={selectedEmployee.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                            selectedEmployee.name.charAt(0)
-                                        )}
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <h4 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '4px' }}>{selectedEmployee.name}</h4>
-                                        <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '8px' }}>
-                                            {selectedEmployee.job_title ? `${selectedEmployee.job_title} (${selectedEmployee.role})` : selectedEmployee.role}
-                                        </p>
-                                        <span style={{
-                                            padding: '4px 12px',
-                                            borderRadius: '12px',
-                                            fontSize: '0.75rem',
-                                            fontWeight: 600,
-                                            backgroundColor: selectedEmployee.status === 'Active' ? '#dcfce7' : '#fee2e2',
-                                            color: selectedEmployee.status === 'Active' ? '#166534' : '#991b1b'
-                                        }}>
-                                            {selectedEmployee.status}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                {/* Contact Information */}
-                                <div style={{ marginBottom: '32px' }}>
-                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Contact Information</h5>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Mail size={18} color="#075985" />
-                                            </div>
-                                            <div>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Email</p>
-                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.email}</p>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Phone size={18} color="#075985" />
-                                            </div>
-                                            <div>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Phone</p>
-                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.phone || 'N/A'}</p>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <MapPin size={18} color="#075985" />
-                                            </div>
-                                            <div>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Location</p>
-                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.location || 'N/A'}</p>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Calendar size={18} color="#075985" />
-                                            </div>
-                                            <div>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Join Date</p>
-                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.joinDate}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Work Information */}
-                                <div style={{ marginBottom: '32px' }}>
-                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Work Information</h5>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Job Title</p>
-                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.job_title || 'N/A'}</p>
-                                        </div>
-                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Employment Type</p>
-                                            <p style={{ fontSize: '1.1rem', fontWeight: 600, textTransform: 'capitalize' }}>
-                                                {selectedEmployee.employment_type ? selectedEmployee.employment_type.replace('_', ' ') : 'N/A'}
-                                            </p>
-                                        </div>
-                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Department</p>
-                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.department_display || 'N/A'}</p>
-                                        </div>
-                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Project</p>
-                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.dept}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Compensation Details - Role-based visibility */}
-                                {(userRole === 'executive' || userRole === 'manager') && employeeSalary && (
-                                    <div style={{ marginTop: '32px', paddingTop: '32px', borderTop: '2px solid var(--border)' }}>
-                                        <h5 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '20px', color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Compensation Details</h5>
-
-                                        {/* Salary Breakdown */}
-                                        <div style={{ backgroundColor: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
-                                                <span style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: 500 }}>Basic Salary</span>
-                                                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#111827' }}>₹{employeeSalary.basic_salary?.toLocaleString()}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
-                                                <span style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: 500 }}>House Rent Allowance</span>
-                                                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#111827' }}>₹{employeeSalary.hra?.toLocaleString()}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}>
-                                                <span style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: 500 }}>Other Allowances</span>
-                                                <span style={{ fontSize: '0.9rem', fontWeight: 500, color: '#111827' }}>₹{employeeSalary.allowances?.toLocaleString() || '0'}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f3f4f6' }}>
-                                                <span style={{ fontSize: '1.05rem', color: '#111827', fontWeight: 700 }}>Gross Salary</span>
-                                                <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#6366f1' }}>
-                                                    ₹{((employeeSalary.basic_salary || 0) + (employeeSalary.hra || 0) + (employeeSalary.allowances || 0)).toLocaleString()}
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '2px solid #e5e7eb', backgroundColor: '#fef2f2' }}>
-                                                <span style={{ fontSize: '0.95rem', color: '#991b1b', fontWeight: 500 }}>Professional Tax (Deduction)</span>
-                                                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#991b1b' }}>-₹{employeeSalary.professional_tax?.toLocaleString() || '0'}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '24px', backgroundColor: '#ecfdf5' }}>
-                                                <span style={{ fontSize: '1.05rem', color: '#065f46', fontWeight: 700 }}>Net Salary</span>
-                                                <span style={{ fontSize: '1.1rem', fontWeight: 700, color: '#059669' }}>
-                                                    ₹{(((employeeSalary.basic_salary || 0) + (employeeSalary.hra || 0) + (employeeSalary.allowances || 0)) - (employeeSalary.professional_tax || 0)).toLocaleString()}
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        {/* Effective Dates */}
-                                        <div style={{ marginTop: '16px', padding: '12px 16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                <div>
-                                                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '2px' }}>Effective From</p>
-                                                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>
-                                                        {employeeSalary.effective_from ? new Date(employeeSalary.effective_from).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
-                                                    </p>
-                                                </div>
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '2px' }}>Effective To</p>
-                                                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#111827' }}>
-                                                        {employeeSalary.effective_to ? new Date(employeeSalary.effective_to).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Present'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            {employeeSalary.change_reason && (
-                                                <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
-                                                    <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '2px' }}>Reason for Change</p>
-                                                    <p style={{ fontSize: '0.85rem', fontWeight: 500, color: '#111827' }}>{employeeSalary.change_reason}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Performance Metrics */}
-                                <div style={{ marginTop: '48px' }}>
-                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Performance Metrics</h5>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                                        <div style={{ padding: '16px', backgroundColor: '#dcfce7', borderRadius: '12px', textAlign: 'center' }}>
-                                            <p style={{ fontSize: '0.75rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>PERFORMANCE</p>
-                                            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#166534' }}>{selectedEmployee.performance || 'N/A'}</p>
-                                        </div>
-                                        <div style={{ padding: '16px', backgroundColor: '#e0f2fe', borderRadius: '12px', textAlign: 'center' }}>
-                                            <p style={{ fontSize: '0.75rem', color: '#075985', marginBottom: '4px', fontWeight: 600 }}>PROJECTS</p>
-                                            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#075985' }}>{selectedEmployee.projects || 0}</p>
-                                        </div>
-                                        <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '12px', textAlign: 'center' }}>
-                                            <p style={{ fontSize: '0.75rem', color: '#b45309', marginBottom: '4px', fontWeight: 600 }}>TASKS DONE</p>
-                                            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#b45309' }}>{selectedEmployee.tasksCompleted || 0}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Footer */}
-                            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
-                                <button
-                                    onClick={() => setShowEmployeeModal(false)}
-                                    style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600, backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}
-                                >
-                                    Close
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
+            {showEmployeeModal && selectedEmployee && (
+                <EmployeeDetailsModal
+                    selectedEmployee={selectedEmployee}
+                    onClose={() => setShowEmployeeModal(false)}
+                />
+            )}
 
             {/* Candidate Details Modal */}
-            {
-                showCandidateModal && selectedCandidate && (
-                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                        <div style={{ backgroundColor: 'var(--surface)', borderRadius: '16px', width: '650px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' }}>
-                            {/* Header */}
-                            <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Candidate Details</h3>
-                                <button onClick={() => setShowCandidateModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                                    <X size={24} />
-                                </button>
-                            </div>
+            {showCandidateModal && selectedCandidate && (
+                <CandidateDetailsModal
+                    selectedCandidate={selectedCandidate}
+                    onClose={() => setShowCandidateModal(false)}
+                />
+            )}
 
-                            {/* Candidate Info */}
-                            <div style={{ padding: '32px' }}>
-                                {/* Profile Section */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '32px' }}>
-                                    <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 'bold', color: '#b45309' }}>
-                                        {selectedCandidate.name.charAt(0)}
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <h4 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '4px' }}>{selectedCandidate.name}</h4>
-                                        <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '8px' }}>Applied for: {selectedCandidate.role}</p>
-                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                            <span style={{
-                                                padding: '4px 12px',
-                                                borderRadius: '12px',
-                                                fontSize: '0.75rem',
-                                                fontWeight: 600,
-                                                backgroundColor: '#e0f2fe',
-                                                color: '#075985'
-                                            }}>
-                                                {selectedCandidate.stage}
-                                            </span>
-                                            <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                                Score: <strong style={{ color: selectedCandidate.score > 80 ? 'var(--success)' : 'var(--warning)' }}>{selectedCandidate.score}%</strong>
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Contact Information */}
-                                <div style={{ marginBottom: '32px' }}>
-                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Contact Information</h5>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Mail size={18} color="#b45309" />
-                                            </div>
-                                            <div>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Email</p>
-                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedCandidate.email}</p>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Phone size={18} color="#b45309" />
-                                            </div>
-                                            <div>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Phone</p>
-                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedCandidate.phone}</p>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <MapPin size={18} color="#b45309" />
-                                            </div>
-                                            <div>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Location</p>
-                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedCandidate.location}</p>
-                                            </div>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Calendar size={18} color="#b45309" />
-                                            </div>
-                                            <div>
-                                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Applied Date</p>
-                                                <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedCandidate.appliedDate}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Qualifications */}
-                                <div style={{ marginBottom: '32px' }}>
-                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Qualifications</h5>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Experience</p>
-                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCandidate.experience}</p>
-                                        </div>
-                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Education</p>
-                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCandidate.education}</p>
-                                        </div>
-                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Expected Salary</p>
-                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCandidate.expectedSalary}</p>
-                                        </div>
-                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Availability</p>
-                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedCandidate.availability}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Skills */}
-                                {selectedCandidate.skills && (
-                                    <div style={{ marginBottom: '32px' }}>
-                                        <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-primary)' }}>Skills</h5>
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                            {selectedCandidate.skills.map((skill, index) => (
-                                                <span key={index} style={{ padding: '6px 16px', borderRadius: '8px', backgroundColor: '#fef3c7', color: '#b45309', fontSize: '0.875rem', fontWeight: 500 }}>
-                                                    {skill}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Application Details */}
-                                <div style={{ marginBottom: '24px' }}>
-                                    <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Application Details</h5>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                                        <div style={{ padding: '16px', backgroundColor: '#e0f2fe', borderRadius: '12px', textAlign: 'center' }}>
-                                            <p style={{ fontSize: '0.75rem', color: '#075985', marginBottom: '4px', fontWeight: 600 }}>SOURCE</p>
-                                            <p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#075985' }}>{selectedCandidate.source}</p>
-                                        </div>
-                                        <div style={{ padding: '16px', backgroundColor: '#dcfce7', borderRadius: '12px', textAlign: 'center' }}>
-                                            <p style={{ fontSize: '0.75rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>INTERVIEW SCORE</p>
-                                            <p style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#166534' }}>{selectedCandidate.score}%</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Notes */}
-                                {selectedCandidate.notes && (
-                                    <div>
-                                        <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-primary)' }}>Interview Notes</h5>
-                                        <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                                            <p style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>{selectedCandidate.notes}</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Footer */}
-                            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                                <button
-                                    onClick={() => setShowCandidateModal(false)}
-                                    style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600, border: '1px solid var(--border)', backgroundColor: 'var(--background)', color: 'var(--text-primary)', cursor: 'pointer' }}
-                                >
-                                    Close
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        addToast(`Action for ${selectedCandidate.name}`, 'info');
-                                        setShowCandidateModal(false);
-                                    }}
-                                    style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600, backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}
-                                >
-                                    Schedule Interview
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
             {/* Add Employee Modal */}
             <AddEmployeeModal
                 isOpen={showAddEmployeeModal}
                 onClose={() => setShowAddEmployeeModal(false)}
                 orgId={orgId}
-                onSuccess={async () => {
+                onSuccess={() => {
                     addToast('Employee added successfully', 'success');
-                    setShowAddEmployeeModal(false);
-                    // Refresh employees list
                     if (type === 'workforce' || type === 'status') {
-                        window.location.reload();
+                        refetchEmployees();
                     }
                 }}
             />
-
-            {/* Add/Edit Candidate Modal */}
-            {
-                showCandidateFormModal && (
-                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                        <div style={{ backgroundColor: 'var(--surface)', padding: '32px', borderRadius: '16px', width: '700px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                                <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{isEditingCandidate ? 'Edit Candidate' : 'Add New Candidate'}</h3>
-                                <button onClick={() => setShowCandidateFormModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
-                                    <X size={24} />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleSaveCandidate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Full Name</label>
-                                        <input
-                                            type="text"
-                                            value={candidateFormData.name}
-                                            onChange={(e) => setCandidateFormData({ ...candidateFormData, name: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Email</label>
-                                        <input
-                                            type="email"
-                                            value={candidateFormData.email}
-                                            onChange={(e) => setCandidateFormData({ ...candidateFormData, email: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                            required
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Role Applied For</label>
-                                        <input
-                                            type="text"
-                                            value={candidateFormData.role}
-                                            onChange={(e) => setCandidateFormData({ ...candidateFormData, role: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                            required
-                                        />
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Phone</label>
-                                        <input
-                                            type="tel"
-                                            value={candidateFormData.phone}
-                                            onChange={(e) => setCandidateFormData({ ...candidateFormData, phone: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Stage</label>
-                                        <select
-                                            value={candidateFormData.stage}
-                                            onChange={(e) => setCandidateFormData({ ...candidateFormData, stage: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                        >
-                                            <option value="Screening">Screening</option>
-                                            <option value="Interview">Interview</option>
-                                            <option value="Offer">Offer</option>
-                                            <option value="Rejected">Rejected</option>
-                                            <option value="Hired">Hired</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Score (%)</label>
-                                        <input
-                                            type="number"
-                                            min="0"
-                                            max="100"
-                                            value={candidateFormData.score}
-                                            onChange={(e) => setCandidateFormData({ ...candidateFormData, score: parseInt(e.target.value) || 0 })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Source</label>
-                                        <input
-                                            type="text"
-                                            value={candidateFormData.source}
-                                            onChange={(e) => setCandidateFormData({ ...candidateFormData, source: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Applied Date</label>
-                                        <input
-                                            type="date"
-                                            value={candidateFormData.appliedDate}
-                                            onChange={(e) => setCandidateFormData({ ...candidateFormData, appliedDate: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Experience</label>
-                                        <input
-                                            type="text"
-                                            value={candidateFormData.experience}
-                                            onChange={(e) => setCandidateFormData({ ...candidateFormData, experience: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Education</label>
-                                        <input
-                                            type="text"
-                                            value={candidateFormData.education}
-                                            onChange={(e) => setCandidateFormData({ ...candidateFormData, education: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Location</label>
-                                        <input
-                                            type="text"
-                                            value={candidateFormData.location}
-                                            onChange={(e) => setCandidateFormData({ ...candidateFormData, location: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Expected Salary</label>
-                                        <input
-                                            type="text"
-                                            value={candidateFormData.expectedSalary}
-                                            onChange={(e) => setCandidateFormData({ ...candidateFormData, expectedSalary: e.target.value })}
-                                            style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Skills (comma separated)</label>
-                                    <input
-                                        type="text"
-                                        value={candidateFormData.skills}
-                                        onChange={(e) => setCandidateFormData({ ...candidateFormData, skills: e.target.value })}
-                                        placeholder="React, Node.js, Python..."
-                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)' }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Notes</label>
-                                    <textarea
-                                        value={candidateFormData.notes}
-                                        onChange={(e) => setCandidateFormData({ ...candidateFormData, notes: e.target.value })}
-                                        rows="3"
-                                        style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '1rem', backgroundColor: 'var(--background)', color: 'var(--text-primary)', resize: 'vertical' }}
-                                    />
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowCandidateFormModal(false)}
-                                        style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 600, border: '1px solid var(--border)', backgroundColor: 'var(--background)', color: 'var(--text-primary)', cursor: 'pointer' }}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        style={{ flex: 1, padding: '12px', borderRadius: '8px', fontWeight: 600, backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer', boxShadow: 'var(--shadow-md)' }}
-                                    >
-                                        {isEditingCandidate ? 'Update Candidate' : 'Add Candidate'}
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )
-            }
-
-
 
             {/* Edit Employee Modal */}
             <EditEmployeeModal
@@ -3027,438 +1504,14 @@ const ModulePage = ({ title, type }) => {
                 }}
                 employee={selectedEmployeeForEdit}
                 orgId={orgId}
-                onSuccess={async () => {
+                onSuccess={() => {
                     addToast('Employee updated successfully', 'success');
-                    // Refresh employees list
                     if (type === 'workforce' || type === 'status') {
-                        try {
-                            const { data, error } = await supabase
-                                .from('profiles')
-                                .select(`
-                                    id, 
-                                    full_name, 
-                                    email, 
-                                    role, 
-                                    job_title,
-                                    employment_type,
-                                    team_id, 
-                                    department,
-                                    created_at,
-                                    teams!team_id (
-                                        team_name
-                                    )
-                                `);
-
-                            if (error) {
-                                console.error('Error refreshing employees:', error);
-                                return;
-                            }
-
-                            // Also fetch project assignments
-                            const { data: teamMembersData } = await supabase
-                                .from('project_members')
-                                .select(`
-                                    user_id,
-                                    project_id,
-                                    projects:project_id (
-                                        name
-                                    )
-                                `);
-
-                            const projectMap = {};
-                            if (teamMembersData) {
-                                teamMembersData.forEach(member => {
-                                    if (!projectMap[member.user_id]) projectMap[member.user_id] = []; if (member.projects?.name) projectMap[member.user_id].push(member.projects.name);
-                                });
-                            }
-
-                            if (data) {
-                                const transformedEmployees = data.map(emp => {
-                                    // Match department name from ID
-                                    const matchedDept = departments.find(d => d.id === emp.department);
-                                    const departmentNameDisplay = matchedDept ? matchedDept.department_name : (emp.department || 'N/A');
-
-                                    return {
-                                        id: emp.id,
-                                        name: emp.full_name || 'N/A',
-                                        email: emp.email || 'N/A',
-                                        role: emp.role || 'N/A',
-                                        job_title: emp.job_title,
-                                        employment_type: emp.employment_type || 'Full-Time',
-                                        team_id: emp.team_id,
-                                        dept: (Array.isArray(projectMap[emp.id]) && projectMap[emp.id].length > 0) ? (<>{projectMap[emp.id].map((pn, i) => <div key={i}>{pn}</div>)}</>) : (emp.teams?.team_name || 'Unassigned'),
-                                        department_display: departmentNameDisplay,
-                                        status: 'Active',
-                                        joinDate: emp.created_at ? new Date(emp.created_at).toLocaleDateString() : 'N/A',
-                                        performance: 'N/A',
-                                        projects: 0,
-                                        tasksCompleted: 0
-                                    };
-                                });
-                                setEmployees(transformedEmployees);
-                            }
-                        } catch (err) {
-                            console.error('Error refreshing after edit:', err);
-                        }
+                        refetchEmployees();
                     }
                 }}
             />
-            {
-                showLeaveDetailsModal && selectedLeaveRequest && (
-                    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
-                        <div className="no-scrollbar" style={{ backgroundColor: 'var(--surface)', borderRadius: '32px', padding: '40px', width: '1000px', maxWidth: '95%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', border: '1px solid var(--border)', position: 'relative' }}>
-                            {/* Modal Close Button */}
-                            <button
-                                onClick={() => setShowLeaveDetailsModal(false)}
-                                style={{ position: 'absolute', top: '24px', right: '24px', background: 'var(--background)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--text-secondary)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', zIndex: 10 }}
-                            >
-                                <X size={20} />
-                            </button>
-
-                            {/* Header */}
-                            <div style={{ marginBottom: '32px' }}>
-                                <h3 style={{ fontSize: '2rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.02em', marginBottom: '8px' }}>Leave Request Details</h3>
-                                <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', fontWeight: '500' }}>Review the details and status of this leave request</p>
-                            </div>
-
-                            {/* Employee Info Card */}
-                            <div style={{ marginBottom: '32px', padding: '24px', backgroundColor: 'var(--background)', borderRadius: '24px', border: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                                <div>
-                                    <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Employee</p>
-                                    <p style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)' }}>{selectedLeaveRequest.name}</p>
-                                </div>
-                                <div>
-                                    <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Leave Type</p>
-                                    <p style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)' }}>{selectedLeaveRequest.type}</p>
-                                </div>
-                                <div>
-                                    <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Breakdown</p>
-                                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                        <span style={{
-                                            padding: '6px 12px',
-                                            borderRadius: '10px',
-                                            fontSize: '0.8rem',
-                                            fontWeight: 800,
-                                            backgroundColor: '#dcfce7',
-                                            color: '#15803d',
-                                            border: '1px solid #bbf7d0'
-                                        }}>
-                                            Paid: {(selectedLeaveRequest.duration_weekdays !== null && selectedLeaveRequest.duration_weekdays !== undefined) ? selectedLeaveRequest.duration_weekdays : (() => {
-                                                const start = new Date(selectedLeaveRequest.startDate);
-                                                const end = new Date(selectedLeaveRequest.endDate);
-                                                let count = 0;
-                                                let current = new Date(start);
-                                                while (current <= end) {
-                                                    const dayOfWeek = current.getDay();
-                                                    if (dayOfWeek !== 0 && dayOfWeek !== 6) count++;
-                                                    current.setDate(current.getDate() + 1);
-                                                }
-                                                return count;
-                                            })()} days
-                                        </span>
-                                        <span style={{
-                                            padding: '6px 12px',
-                                            borderRadius: '10px',
-                                            fontSize: '0.8rem',
-                                            fontWeight: 800,
-                                            backgroundColor: '#f1f5f9',
-                                            color: '#64748b',
-                                            border: '1px solid #cbd5e1'
-                                        }}>
-                                            Weekends: {(() => {
-                                                const start = new Date(selectedLeaveRequest.startDate);
-                                                const end = new Date(selectedLeaveRequest.endDate);
-                                                let weekendCount = 0;
-                                                let current = new Date(start);
-                                                while (current <= end) {
-                                                    const dayOfWeek = current.getDay();
-                                                    if (dayOfWeek === 0 || dayOfWeek === 6) weekendCount++;
-                                                    current.setDate(current.getDate() + 1);
-                                                }
-                                                return weekendCount;
-                                            })()} days
-                                        </span>
-                                        <span style={{
-                                            padding: '6px 12px',
-                                            borderRadius: '10px',
-                                            fontSize: '0.8rem',
-                                            fontWeight: 800,
-                                            backgroundColor: '#fee2e2',
-                                            color: '#b91c1c',
-                                            border: '1px solid #fca5a5'
-                                        }}>
-                                            LOP: {selectedLeaveRequest.lop_days || 0} days
-                                        </span>
-                                    </div>
-                                </div>
-                                <div>
-                                    <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Status</p>
-                                    <span style={{ padding: '6px 14px', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '800', backgroundColor: selectedLeaveRequest.status === 'Approved' ? '#dcfce7' : selectedLeaveRequest.status === 'Pending' ? '#fef3c7' : '#fee2e2', color: selectedLeaveRequest.status === 'Approved' ? '#166534' : selectedLeaveRequest.status === 'Pending' ? '#b45309' : '#991b1b' }}>
-                                        {selectedLeaveRequest.status}
-                                    </span>
-                                </div>
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Reason</p>
-                                    <p style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)', lineHeight: '1.5' }}>{selectedLeaveRequest.reason}</p>
-                                </div>
-                            </div>
-
-                            {/* Day-wise Breakdown */}
-                            <div style={{ marginBottom: '32px', padding: '24px', backgroundColor: '#f8fafc', borderRadius: '24px', border: '1px solid #e2e8f0' }}>
-                                <h4 style={{ fontSize: '1.2rem', fontWeight: '800', marginBottom: '20px', color: 'var(--text-primary)' }}>
-                                    Day-wise Breakdown
-                                </h4>
-                                <div style={{
-                                    display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: (() => {
-                                        const start = new Date(selectedLeaveRequest.startDate);
-                                        const end = new Date(selectedLeaveRequest.endDate);
-                                        let dayCount = 0;
-                                        let current = new Date(start);
-                                        while (current <= end) {
-                                            dayCount++;
-                                            current.setDate(current.getDate() + 1);
-                                        }
-                                        // Each day item is ~46px (36px height + 10px gap), show up to 7 days without scroll
-                                        return dayCount <= 7 ? 'none' : '322px';
-                                    })(), overflowY: 'auto'
-                                }} className="no-scrollbar">
-                                    {(() => {
-                                        const start = new Date(selectedLeaveRequest.startDate);
-                                        const end = new Date(selectedLeaveRequest.endDate);
-                                        const days = [];
-                                        let current = new Date(start);
-                                        let paidDaysLeft = (selectedLeaveRequest.duration_weekdays !== null && selectedLeaveRequest.duration_weekdays !== undefined)
-                                            ? selectedLeaveRequest.duration_weekdays
-                                            : (() => {
-                                                const s = new Date(selectedLeaveRequest.startDate);
-                                                const e = new Date(selectedLeaveRequest.endDate);
-                                                let c = 0;
-                                                let curr = new Date(s);
-                                                while (curr <= e) {
-                                                    if (curr.getDay() !== 0 && curr.getDay() !== 6) c++;
-                                                    curr.setDate(curr.getDate() + 1);
-                                                }
-                                                return c;
-                                            })();
-
-                                        while (current <= end) {
-                                            const dateStr = current.toLocaleDateString('en-US', { month: 'short', day: '2-digit', weekday: 'short' });
-                                            const dayOfWeek = current.getDay();
-                                            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-                                            let status = 'Leave';
-                                            let color = 'var(--text-primary)';
-                                            let bgColor = 'white';
-                                            let borderColor = '#e2e8f0';
-
-                                            if (isWeekend) {
-                                                status = 'Weekend';
-                                                color = '#64748b';
-                                                bgColor = '#f1f5f9';
-                                                borderColor = '#cbd5e1';
-                                            } else {
-                                                if (paidDaysLeft > 0) {
-                                                    status = 'Paid Leave';
-                                                    color = '#15803d';
-                                                    bgColor = '#dcfce7';
-                                                    borderColor = '#bbf7d0';
-                                                    paidDaysLeft--;
-                                                } else {
-                                                    status = 'Loss of Pay';
-                                                    color = '#b91c1c';
-                                                    bgColor = '#fee2e2';
-                                                    borderColor = '#fca5a5';
-                                                }
-                                            }
-                                            days.push({ date: dateStr, status, color, bgColor, borderColor });
-                                            current.setDate(current.getDate() + 1);
-                                        }
-
-                                        return days.map((day, idx) => (
-                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: day.bgColor, borderRadius: '12px', border: `1px solid ${day.borderColor}`, alignItems: 'center' }}>
-                                                <span style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-primary)' }}>{day.date}</span>
-                                                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: day.color }}>
-                                                    {day.status}
-                                                </span>
-                                            </div>
-                                        ));
-                                    })()}
-                                </div>
-                            </div>
-
-                            {/* Live Re-evaluation Preview */}
-                            {selectedLeaveRequest.employee_id !== userId && selectedLeaveRequest.status === 'Pending' && (
-                                <div style={{
-                                    marginTop: '24px',
-                                    padding: '24px',
-                                    borderRadius: '24px',
-                                    background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
-                                    border: '1px solid #bae6fd',
-                                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', color: '#0369a1' }}>
-                                        <Activity size={20} />
-                                        <h4 style={{ fontSize: '1.25rem', fontWeight: '800', margin: 0 }}>Live Approval Preview</h4>
-                                    </div>
-
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
-                                        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #e0f2fe' }}>
-                                            <p style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Current Balance</p>
-                                            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a' }}>{evalBalance} Days</div>
-                                        </div>
-                                        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #e0f2fe' }}>
-                                            <p style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Other Pending (Paid)</p>
-                                            <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a' }}>{evalPendingPaid} Days</div>
-                                        </div>
-                                        <div style={{
-                                            backgroundColor: '#0369a1',
-                                            padding: '16px',
-                                            borderRadius: '16px',
-                                            color: 'white',
-                                            gridColumn: 'span 1'
-                                        }}>
-                                            <p style={{ fontSize: '0.75rem', fontWeight: '700', color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', marginBottom: '8px' }}>Effective Balance</p>
-                                            <div style={{ fontSize: '1.5rem', fontWeight: '800' }}>{Math.max(0, evalBalance - evalPendingPaid)} Days</div>
-                                        </div>
-                                    </div>
-
-                                    <div style={{
-                                        marginTop: '16px',
-                                        padding: '16px',
-                                        backgroundColor: 'rgba(255,255,255,0.5)',
-                                        borderRadius: '16px',
-                                        fontSize: '0.95rem',
-                                        fontWeight: '600',
-                                        color: '#0c4a6e',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '12px'
-                                    }}>
-                                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#0ea5e9' }}></div>
-                                        {(() => {
-                                            const totalReq = (selectedLeaveRequest.duration_weekdays || 0) + (selectedLeaveRequest.lop_days || 0);
-                                            const effective = Math.max(0, evalBalance - evalPendingPaid);
-                                            const willBePaid = Math.max(0, Math.min(totalReq, effective));
-                                            const willBeLop = totalReq - willBePaid;
-
-                                            if (willBeLop > 0) {
-                                                return `If approved: ${willBePaid} days will be Paid, ${willBeLop} days will be Loss of Pay.`;
-                                            }
-                                            return `If approved: All ${willBePaid} days will be Paid.`;
-                                        })()}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Tasks During Leave */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
-                                <div style={{ marginBottom: '24px' }}>
-                                    <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <Briefcase size={20} color="var(--primary)" /> Tasks During Leave Period
-                                    </h4>
-                                    {employeeTasks.length > 0 ? (
-                                        <div style={{ overflowX: 'auto', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                                                <thead style={{ backgroundColor: '#f8fafc' }}>
-                                                    <tr>
-                                                        <th style={{ textAlign: 'left', padding: '12px', color: '#64748b', fontWeight: 700 }}>Task Title</th>
-                                                        <th style={{ textAlign: 'left', padding: '12px', color: '#64748b', fontWeight: 700 }}>Due Date</th>
-                                                        <th style={{ textAlign: 'left', padding: '12px', color: '#64748b', fontWeight: 700 }}>Priority</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {employeeTasks.map(task => (
-                                                        <tr key={task.id} style={{ borderTop: '1px solid #e2e8f0' }}>
-                                                            <td style={{ padding: '12px', fontWeight: 600 }}>{task.title}</td>
-                                                            <td style={{ padding: '12px' }}>{new Date(task.due_date).toLocaleDateString()}</td>
-                                                            <td style={{ padding: '12px' }}>
-                                                                <span style={{
-                                                                    padding: '2px 8px',
-                                                                    borderRadius: '4px',
-                                                                    fontSize: '0.7rem',
-                                                                    fontWeight: 700,
-                                                                    backgroundColor: task.priority === 'High' ? '#fee2e2' : '#f0f9ff',
-                                                                    color: task.priority === 'High' ? '#ef4444' : '#0ea5e9'
-                                                                }}>{task.priority || 'Medium'}</span>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    ) : (
-                                        <div style={{ padding: '32px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '12px', color: 'var(--text-secondary)' }}>
-                                            No tasks scheduled during this leave period.
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div style={{ marginBottom: '24px' }}>
-                                    <h4 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <Activity size={20} color="var(--primary)" /> Your Pending Tasks
-                                    </h4>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        {pendingTasks.length > 0 ? pendingTasks.map(task => (
-                                            <div key={task.id} style={{ padding: '12px', borderRadius: '12px', background: '#f8fafc', border: '1px solid var(--border)' }}>
-                                                <div style={{ fontWeight: 700, fontSize: '0.9rem', marginBottom: '4px' }}>{task.title}</div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Due: {new Date(task.due_date).toLocaleDateString()}</span>
-                                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: task.priority === 'High' ? '#ef4444' : 'var(--primary)', textTransform: 'uppercase' }}>{task.priority}</span>
-                                                </div>
-                                            </div>
-                                        )) : (
-                                            <div style={{ padding: '20px', textAlign: 'center', borderRadius: '12px', background: '#f8fafc', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No pending tasks!</div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Approver Responsibilities */}
-                            <div style={{ marginBottom: '32px', padding: '20px', backgroundColor: '#eff6ff', borderRadius: '16px', border: '1px solid #dbeafe' }}>
-                                <h4 style={{ fontSize: '1.15rem', fontWeight: '800', marginBottom: '16px', color: '#1e40af', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <CheckCircle size={22} /> Approver Responsibilities
-                                </h4>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                    {APPROVER_RESPONSIBILITIES.map((resp, idx) => (
-                                        <div key={idx} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#3b82f6' }}></div>
-                                            <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#1e40af' }}>{resp}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Footer */}
-                            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                                <button
-                                    onClick={() => setShowLeaveDetailsModal(false)}
-                                    style={{ flex: 1, padding: '12px', borderRadius: '12px', fontWeight: 700, border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', cursor: 'pointer' }}
-                                >
-                                    Close Details
-                                </button>
-                                {selectedLeaveRequest.status === 'Pending' && (
-                                    <>
-                                        <button
-                                            onClick={() => { handleAction('Reject', selectedLeaveRequest); setShowLeaveDetailsModal(false); }}
-                                            style={{ flex: 1, padding: '12px', borderRadius: '12px', fontWeight: 700, backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', cursor: 'pointer' }}
-                                        >
-                                            Reject Request
-                                        </button>
-                                        <button
-                                            onClick={() => { handleAction('Approve', selectedLeaveRequest); setShowLeaveDetailsModal(false); }}
-                                            style={{ flex: 1, padding: '12px', borderRadius: '12px', fontWeight: 700, backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}
-                                        >
-                                            Approve Request
-                                        </button>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )
-            }
-
-        </div >
+        </div>
     );
 };
 

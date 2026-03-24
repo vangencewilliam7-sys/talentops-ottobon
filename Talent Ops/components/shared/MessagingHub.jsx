@@ -117,6 +117,11 @@ const MessagingHub = () => {
     }, []);
 
     // Reload conversations on global incoming message
+    const selectedConversationRef = useRef(selectedConversation);
+    useEffect(() => {
+        selectedConversationRef.current = selectedConversation;
+    }, [selectedConversation]);
+
     useEffect(() => {
         if (lastIncomingMessage && currentUserId) {
             setConversationCache(prev => {
@@ -125,6 +130,15 @@ const MessagingHub = () => {
                 return newCache;
             });
             loadConversations();
+
+            // INSTANT SYNC: If the message belongs to the current chat window, fetch the messages
+            const activeConv = selectedConversationRef.current;
+            if (activeConv && activeConv.id === lastIncomingMessage.conversation_id) {
+                getConversationMessages(activeConv.id).then(msgs => {
+                    setMessages(msgs);
+                }).catch(err => console.error('Failed to sync active chat:', err));
+                markAsRead(activeConv.id);
+            }
         }
     }, [lastIncomingMessage]);
 

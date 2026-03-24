@@ -3,8 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Layout from './components/Layout/Layout';
 import DashboardHome from './pages/DashboardHome';
 import ModulePage from './pages/ModulePage';
-import MyLeavesPage from './pages/MyLeavesPage';
 import NotificationsPage from '../shared/NotificationsPage';
+import AnnouncementsPage from '../shared/AnnouncementsPage';
+import AttendanceLogsPage from '../shared/AttendanceLogsPage';
+import PayrollPage from '../shared/PayrollPage';
 import MessagingHub from '../shared/MessagingHub';
 import ManagerTasks from './components/Tasks/ManagerTasks';
 import ManagerAllTasksPage from './pages/ManagerAllTasksPage';
@@ -21,17 +23,19 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardHome />} />
               <Route path="/analytics" element={<ModulePage title="Analytics" type="analytics" />} />
+              <Route path="/attendance-logs" element={<AttendanceLogsPage />} />
               <Route path="/employees" element={<ModulePage title="Employees" type="workforce" />} />
               <Route path="/project-members" element={<ModulePage title="Project Team Members" type="project-members" />} />
               <Route path="/tasks" element={<ManagerAllTasksPage />} />
               <Route path="/leaves/employee-info" element={<ModulePage title="Employee Leave Information" type="employee-leave-info" />} />
               <Route path="/leaves" element={<ModulePage title="Leave Requests" type="leaves" />} />
-              <Route path="/my-leaves" element={<MyLeavesPage />} />
+              <Route path="/my-leaves" element={<ModulePage title="My Leaves" type="my-leaves" />} />
               <Route path="/employee-status" element={<ModulePage title="Employee Status" type="status" />} />
-              <Route path="/payslips" element={<ModulePage title="Payslips" type="payroll" />} />
+              <Route path="/payslips" element={<PayrollPage userRole="Manager" />} />
               <Route path="/hiring" element={<ModulePage title="Hiring Portal" type="recruitment" />} />
               <Route path="/messages" element={<MessagingHub />} />
               <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/announcements" element={<AnnouncementsPage />} />
               <Route path="/hierarchy" element={<ModulePage title="Team Hierarchy" type="default" />} />
               <Route path="/audit" element={<ModulePage title="Audit Logs" type="default" />} />
               <Route path="/settings" element={<ModulePage title="Settings" type="default" />} />

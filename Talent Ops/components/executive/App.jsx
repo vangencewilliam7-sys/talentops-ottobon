@@ -4,7 +4,11 @@ import Layout from './components/Layout/Layout';
 import DashboardHome from './pages/DashboardHome';
 import ModulePage from './pages/ModulePage';
 import NotificationsPage from '../shared/NotificationsPage';
+import AttendanceLogsPage from '../shared/AttendanceLogsPage';
+import PayrollPage from '../shared/PayrollPage';
+import HiringPortal from './pages/HiringPortal/HiringPortal';
 import MessagingHub from '../shared/MessagingHub';
+import AnnouncementsPage from '../shared/AnnouncementsPage';
 import ExecutiveAllTasksPage from './pages/ExecutiveAllTasksPage';
 import { ToastProvider } from './context/ToastContext';
 import { UserProvider } from './context/UserContext';
@@ -20,14 +24,16 @@ function App() {
               <Route path="/executive-dashboard/dashboard" element={<DashboardHome />} />
               <Route path="/executive-dashboard/analytics" element={<ModulePage title="Analytics" type="analytics" />} />
               <Route path="/executive-dashboard/employees" element={<ModulePage title="Employees" type="workforce" />} />
+              <Route path="/executive-dashboard/attendance-logs" element={<AttendanceLogsPage />} />
               <Route path="/executive-dashboard/tasks" element={<ExecutiveAllTasksPage />} />
               <Route path="/executive-dashboard/leaves/employee-info" element={<ModulePage title="Employee Leave Information" type="employee-leave-info" />} />
               <Route path="/executive-dashboard/leaves" element={<ModulePage title="Leave Requests" type="leaves" />} />
               <Route path="/executive-dashboard/employee-status" element={<ModulePage title="Employee Status" type="status" />} />
-              <Route path="/executive-dashboard/payslips" element={<ModulePage title="Payslips" type="payroll" />} />
-              <Route path="/executive-dashboard/hiring" element={<ModulePage title="Hiring Portal" type="recruitment" />} />
+              <Route path="/executive-dashboard/payslips" element={<PayrollPage userRole="Executive" />} />
+              <Route path="/executive-dashboard/hiring" element={<HiringPortal />} />
               <Route path="/executive-dashboard/messages" element={<MessagingHub />} />
               <Route path="/executive-dashboard/notifications" element={<NotificationsPage />} />
+              <Route path="/executive-dashboard/announcements" element={<AnnouncementsPage />} />
               <Route path="/executive-dashboard/hierarchy" element={<ModulePage title="Organizational Hierarchy" type="default" />} />
               <Route path="/executive-dashboard/audit" element={<ModulePage title="Audit Logs" type="default" />} />
               <Route path="/executive-dashboard/settings" element={<ModulePage title="Settings" type="default" />} />

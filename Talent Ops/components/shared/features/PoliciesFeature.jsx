@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Eye, Download, Edit, Trash2, FileCheck } from 'lucide-react';
 import DataTable from '../../manager/components/UI/DataTable'; // Or the correct shared path for DataTable
 import { supabase } from '../../../lib/supabaseClient';
-import { useToast } from '../../manager/context/ToastContext'; 
 import DocumentViewer from '../DocumentViewer';
 
 const PoliciesFeature = ({ 
@@ -13,8 +12,8 @@ const PoliciesFeature = ({
     onDeletePolicy,
     onEditPolicy,
     onAddPolicy,
+    addToast
 }) => {
-    const { addToast } = useToast();
     
     // Viewer State
     const [showPolicyPreview, setShowPolicyPreview] = useState(false);
@@ -200,69 +199,98 @@ const PoliciesFeature = ({
     }
 
     return (
-        <div style={{
-            backgroundColor: 'white', borderRadius: '24px', padding: '32px',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.05)',
-            display: 'flex', flexDirection: 'column', gap: '24px', minHeight: '600px'
-        }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div style={{
-                        padding: '16px', borderRadius: '20px', background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
-                        color: '#15803d', boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.5)'
-                    }}>
-                        <FileCheck size={32} />
-                    </div>
-                    <div>
-                        <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>Company Policies</h2>
-                        <p style={{ margin: '8px 0 0 0', color: '#64748b', fontSize: '1.05rem' }}>View and download organizational guidelines</p>
-                    </div>
-                </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Premium Header with Mesh Background */}
+            <div style={{
+                position: 'relative',
+                padding: '20px 24px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+                marginBottom: '16px',
+                overflow: 'hidden',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+            }}>
+                {/* Decorative Mesh Grid */}
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundImage: 'radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0)',
+                    backgroundSize: '24px 24px',
+                    opacity: 0.5
+                }}></div>
 
-                {onAddPolicy && (userRole === 'executive' || userRole === 'hr') && (
-                    <button
-                        onClick={() => onAddPolicy()}
-                        style={{
-                            padding: '12px 24px',
-                            borderRadius: '12px',
-                            fontSize: '0.95rem',
-                            fontWeight: 700,
-                            backgroundColor: '#3b82f6',
-                            color: 'white',
-                            border: 'none',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#2563eb';
-                            e.currentTarget.style.transform = 'translateY(-2px)';
-                            e.currentTarget.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = '#3b82f6';
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
-                        }}
-                    >
-                        + Add Policy
-                    </button>
-                )}
+                <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                    <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '0.85rem', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
+                            <FileCheck size={14} />
+                            <span>Dashboard</span>
+                            <span>/</span>
+                            <span style={{ color: '#38bdf8' }}>Policies</span>
+                        </div>
+                        <h1 style={{ fontSize: '1.75rem', fontWeight: '800', color: 'white', letterSpacing: '-0.02em', marginBottom: '4px' }}>
+                            Policies
+                        </h1>
+                        <p style={{ color: '#94a3b8', fontSize: '0.9rem', maxWidth: '600px' }}>
+                            Management portal for your organizational policies
+                        </p>
+                    </div>
+
+                    {onAddPolicy && (userRole === 'executive' || userRole === 'hr') && (
+                        <button
+                            onClick={() => onAddPolicy()}
+                            style={{
+                                padding: '12px 24px',
+                                borderRadius: '12px',
+                                fontSize: '0.95rem',
+                                fontWeight: 700,
+                                backgroundColor: '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#2563eb';
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                e.currentTarget.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#3b82f6';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)';
+                            }}
+                        >
+                            + Add Policy
+                        </button>
+                    )}
+                </div>
             </div>
 
-            {policyError && (
-                <div style={{ padding: '16px', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '12px', fontSize: '14px' }}>
-                    Error loading policies: {policyError}
-                </div>
-            )}
+            <div style={{
+                backgroundColor: 'white', borderRadius: '16px', padding: '24px',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.05)',
+                display: 'flex', flexDirection: 'column', gap: '16px', minHeight: '400px'
+            }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>Policies List</h3>
+                
+                {policyError && (
+                    <div style={{ padding: '16px', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '12px', fontSize: '14px' }}>
+                        Error loading policies: {policyError}
+                    </div>
+                )}
 
-            {isLoadingPolicies ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
-                    <div className="spinner">Loading policies...</div>
-                </div>
-            ) : (
-                <DataTable data={policies} columns={policiesColumns} itemsPerPage={8} hoverable striped />
-            )}
+                {isLoadingPolicies ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+                        <div className="spinner">Loading policies...</div>
+                    </div>
+                ) : (
+                    <DataTable data={policies} columns={policiesColumns} itemsPerPage={8} hoverable striped />
+                )}
+            </div>
 
             {/* Document Viewer Modal */}
             {showPolicyPreview && (
@@ -273,7 +301,8 @@ const PoliciesFeature = ({
                 }}>
                     <div style={{ width: '95vw', height: '95vh' }}>
                         <DocumentViewer
-                            files={[{ url: policyPreviewUrl, name: policyPreviewFileName }]}
+                            url={policyPreviewUrl}
+                            fileName={policyPreviewFileName}
                             onClose={() => {
                                 setShowPolicyPreview(false);
                                 setPolicyPreviewUrl('');

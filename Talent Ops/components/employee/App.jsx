@@ -11,7 +11,8 @@ import TeamTasksPage from './pages/TeamTasksPage';
 import TeamPerformance from './pages/TeamPerformance';
 import NotificationsPage from '../shared/NotificationsPage';
 import MessagingHub from '../shared/MessagingHub';
-
+import AnnouncementsPage from '../shared/AnnouncementsPage';
+import PayslipsPage from '../shared/PayslipsPage';
 import { ToastProvider } from './context/ToastContext';
 import { UserProvider } from './context/UserContext';
 import { ProjectProvider } from './context/ProjectContext';
@@ -37,9 +38,9 @@ function App() {
                 <Route path="/employee-dashboard/employees" element={<ModulePage title="Team Members" type="workforce" />} />
                 <Route path="/employee-dashboard/leaves" element={<ModulePage title="Leave Requests" type="leaves" />} />
                 <Route path="/employee-dashboard/team-status" element={<ModulePage title="Your Status" type="status" />} />
-                <Route path="/employee-dashboard/payslips" element={<ModulePage title="Your Payslip" type="payroll" />} />
+                <Route path="/employee-dashboard/payslips" element={<PayslipsPage userId="employee" userRole="Employee" />} />
                 <Route path="/employee-dashboard/policies" element={<ModulePage title="Company Policies" type="policies" />} />
-                <Route path="/employee-dashboard/announcements" element={<ModulePage title="Announcements" type="announcements" />} />
+                <Route path="/employee-dashboard/announcements" element={<AnnouncementsPage />} />
                 <Route path="/employee-dashboard/performance" element={<TeamPerformance />} />
                 <Route path="/employee-dashboard/approve-leaves" element={<ModulePage title="Approve Leaves" type="leaves" />} />
                 <Route path="/employee-dashboard/manage-members" element={<ModulePage title="Manage Members" type="workforce" />} />

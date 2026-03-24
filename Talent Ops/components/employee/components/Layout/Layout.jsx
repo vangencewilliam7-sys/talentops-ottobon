@@ -9,6 +9,7 @@ import RiskAlertPopup from '../../../shared/RiskAlertPopup';
 import { supabase } from '../../../../lib/supabaseClient';
 import { useToast } from '../../context/ToastContext';
 import { MessageProvider } from '../../../shared/context/MessageContext';
+import { NotificationProvider } from '../../../shared/context/NotificationContext';
 import MessageNotificationStack from '../../../shared/MessageNotificationStack';
 
 const Layout = ({ children }) => {
@@ -83,53 +84,55 @@ const Layout = ({ children }) => {
     // Removed auto-collapse timer
 
     return (
-        <MessageProvider addToast={addToast}>
-            <div style={{ display: 'flex', minHeight: '100vh' }}>
-                <Sidebar
-                    isCollapsed={isCollapsed}
-                    toggleSidebar={() => setIsCollapsed(!isCollapsed)}
-                    onMouseEnter={() => setIsCollapsed(false)}
-                    onMouseLeave={() => setIsCollapsed(true)}
-                />
-                <div className="no-scrollbar" style={{
-                    marginLeft: isCollapsed ? '70px' : '240px',
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                    overflowX: 'hidden',
-                    minWidth: 0
-                }}>
-                    <Header />
-                    <main className="no-scrollbar" style={{
+        <NotificationProvider>
+            <MessageProvider addToast={addToast}>
+                <div style={{ display: 'flex', minHeight: '100vh' }}>
+                    <Sidebar
+                        isCollapsed={isCollapsed}
+                        toggleSidebar={() => setIsCollapsed(!isCollapsed)}
+                        onMouseEnter={() => setIsCollapsed(false)}
+                        onMouseLeave={() => setIsCollapsed(true)}
+                    />
+                    <div className="no-scrollbar" style={{
+                        marginLeft: isCollapsed ? '70px' : '240px',
                         flex: 1,
-                        overflowY: 'auto',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                         overflowX: 'hidden',
-                        padding: location.pathname.includes('/messages') ? 0 : '1.5rem',
-                        backgroundColor: location.pathname.includes('/messages') ? '#ffffff' : 'var(--background)'
+                        minWidth: 0
                     }}>
-                        {children}
-                    </main>
-                    <Chatbot />
+                        <Header />
+                        <main className="no-scrollbar" style={{
+                            flex: 1,
+                            overflowY: 'auto',
+                            overflowX: 'hidden',
+                            padding: location.pathname.includes('/messages') ? 0 : '1.5rem',
+                            backgroundColor: location.pathname.includes('/messages') ? '#ffffff' : 'var(--background)'
+                        }}>
+                            {children}
+                        </main>
+                        <Chatbot />
+                    </div>
+                    <MessageNotificationStack />
+                    <AnnouncementPopup
+                        isOpen={showAnnouncements}
+                        onClose={handleAnnouncementsClose}
+                        userId={userId}
+                    />
+                    <LoginSummaryModal
+                        isOpen={showLoginSummary}
+                        onClose={() => setShowLoginSummary(false)}
+                        userId={userId}
+                    />
+                    <RiskAlertPopup
+                        isOpen={showRiskPopup}
+                        onClose={() => setShowRiskPopup(false)}
+                        alertData={riskAlert}
+                    />
                 </div>
-                <MessageNotificationStack />
-                <AnnouncementPopup
-                    isOpen={showAnnouncements}
-                    onClose={handleAnnouncementsClose}
-                    userId={userId}
-                />
-                <LoginSummaryModal
-                    isOpen={showLoginSummary}
-                    onClose={() => setShowLoginSummary(false)}
-                    userId={userId}
-                />
-                <RiskAlertPopup
-                    isOpen={showRiskPopup}
-                    onClose={() => setShowRiskPopup(false)}
-                    alertData={riskAlert}
-                />
-            </div>
-        </MessageProvider>
+            </MessageProvider>
+        </NotificationProvider>
     );
 };
 

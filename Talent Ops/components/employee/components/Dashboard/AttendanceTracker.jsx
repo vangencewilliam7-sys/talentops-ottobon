@@ -18,10 +18,9 @@ const AttendanceTracker = () => {
     // Fetch Today's Attendance on Mount
     useEffect(() => {
         const fetchAttendance = async () => {
-            if (!userId || !orgId) return;
+            if (!userId) return;
 
             try {
-                // Now fetching status via RPC - UI no longer knows about the 'attendance' table
                 const { data, error } = await supabase.rpc('get_my_attendance_status');
 
                 if (error) {
@@ -30,20 +29,23 @@ const AttendanceTracker = () => {
                 }
 
                 if (data) {
-                    setCurrentTask(data.current_task || '');
+                    const attData = Array.isArray(data) ? data[0] : data;
+                    if (!attData) return;
 
-                    if (data.clock_in) {
+                    setCurrentTask(attData.current_task || '');
+
+                    if (attData.clock_in) {
                         let inTime;
-                        if (String(data.clock_in).includes('T') || String(data.clock_in).includes('-')) {
-                            inTime = new Date(data.clock_in);
+                        if (String(attData.clock_in).includes('T') || String(attData.clock_in).includes('-')) {
+                            inTime = new Date(attData.clock_in);
                         } else {
-                            const [h, m, s] = String(data.clock_in).split(':');
+                            const [h, m, s] = String(attData.clock_in).split(':');
                             inTime = new Date();
-                            inTime.setHours(parseInt(h, 10), parseInt(m, 10), parseInt(s, 10) || 0);
+                            inTime.setHours(parseInt(h, 10) || 0, parseInt(m, 10) || 0, parseInt(s, 10) || 0);
                         }
                         setCheckInTime(inTime);
 
-                        if (!data.clock_out) {
+                        if (!attData.clock_out) {
                             setStatus('checked-in');
                             setUserStatus('Online');
                             setLastActive('Now');
@@ -53,18 +55,20 @@ const AttendanceTracker = () => {
                             setElapsedTime(diff > 0 ? diff : 0);
                         } else {
                             let outTime;
-                            if (String(data.clock_out).includes('T') || String(data.clock_out).includes('-')) {
-                                outTime = new Date(data.clock_out);
+                            if (String(attData.clock_out).includes('T') || String(attData.clock_out).includes('-')) {
+                                outTime = new Date(attData.clock_out);
                             } else {
-                                const [oh, om, os] = String(data.clock_out).split(':');
+                                const [oh, om, os] = String(attData.clock_out).split(':');
                                 outTime = new Date();
-                                outTime.setHours(parseInt(oh, 10), parseInt(om, 10), parseInt(os, 10) || 0);
+                                outTime.setHours(parseInt(oh, 10) || 0, parseInt(om, 10) || 0, parseInt(os, 10) || 0);
                             }
                             setCheckOutTime(outTime);
                             setStatus('checked-out');
                             setUserStatus('Offline');
                             setLastActive(formatTime(outTime));
                         }
+                    } else {
+                        setStatus('checked-out');
                     }
                 }
             } catch (err) {
@@ -130,7 +134,6 @@ const AttendanceTracker = () => {
     const handleMainAction = async () => {
         try {
             if (status === 'checked-out') {
-                // CHECK IN via RPC
                 const { data, error } = await supabase.rpc('check_in');
 
                 if (error) {
@@ -143,17 +146,14 @@ const AttendanceTracker = () => {
                     return;
                 }
 
-                if (data && data.success) {
-                    setStatus('checked-in');
-                    setCheckInTime(new Date());
-                    setCheckOutTime(null);
-                    setElapsedTime(0);
-                    setUserStatus('Online');
-                    setLastActive('Now');
-                    addToast('Checked in successfully', 'success');
-                }
+                setStatus('checked-in');
+                setCheckInTime(new Date());
+                setCheckOutTime(null);
+                setElapsedTime(0);
+                setUserStatus('Online');
+                setLastActive('Now');
+                addToast('Checked in successfully', 'success');
             } else if (status === 'checked-in' || status === 'break') {
-                // TRIGGER CONFIRMATION
                 setShowConfirmModal(true);
             }
         } catch (error) {
@@ -164,7 +164,6 @@ const AttendanceTracker = () => {
 
     const performCheckOut = async () => {
         try {
-            // CHECK OUT via RPC
             const { data, error } = await supabase.rpc('check_out');
 
             if (error) {
@@ -177,14 +176,12 @@ const AttendanceTracker = () => {
                 return;
             }
 
-            if (data && data.success) {
-                const now = new Date();
-                setStatus('checked-out');
-                setCheckOutTime(now);
-                setUserStatus('Offline');
-                setLastActive(formatTime(now));
-                addToast('Checked out successfully', 'success');
-            }
+            const now = new Date();
+            setStatus('checked-out');
+            setCheckOutTime(now);
+            setUserStatus('Offline');
+            setLastActive(formatTime(now));
+            addToast('Checked out successfully', 'success');
         } catch (error) {
             console.error('Error updating attendance:', error);
             addToast('Unexpected error occurred', 'error');

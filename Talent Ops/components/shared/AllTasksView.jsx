@@ -37,7 +37,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
     const [loading, setLoading] = useState(true);
     const [employees, setEmployees] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilters, setStatusFilters] = useState(['pending', 'in_progress', 'on_hold', 'completed']); // Default active statuses
+    const [statusFilters, setStatusFilters] = useState(['pending', 'in_progress']); // Default: only Pending + In Progress
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
     const [dateFilter, setDateFilter] = useState('');
 

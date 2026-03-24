@@ -31,7 +31,7 @@ const MyTasksPage = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [dateFilter, setDateFilter] = useState('');
-    const [statusFilters, setStatusFilters] = useState(['in_progress', 'pending', 'completed']); // Default to In Progress + Pending + Completed
+    const [statusFilters, setStatusFilters] = useState(['in_progress', 'pending']); // Default: only Pending + In Progress
     const [showStatusDropdown, setShowStatusDropdown] = useState(false);
 
 

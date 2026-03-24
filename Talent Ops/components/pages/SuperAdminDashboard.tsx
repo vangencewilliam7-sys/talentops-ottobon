@@ -19,7 +19,6 @@ const SuperAdminDashboard = () => {
     const [orgs, setOrgs] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [showSqlHelper, setShowSqlHelper] = useState(false);
     const [selectedOrg, setSelectedOrg] = useState<any>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [formData, setFormData] = useState({
@@ -95,62 +94,6 @@ const SuperAdminDashboard = () => {
 
     return (
         <div className="min-h-screen bg-[#FDFBF7] p-8">
-            {/* SQL Onboarding Helper Modal */}
-            {showSqlHelper && selectedOrg && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-[60] flex items-center justify-center p-4">
-                    <div className="bg-white rounded-[40px] w-full max-w-2xl p-12 shadow-2xl border border-orange-100">
-                        <div className="text-center mb-8">
-                            <div className="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                                <ShieldCheck size={40} />
-                            </div>
-                            <h2 className="text-3xl font-bold text-slate-900 mb-2">Organization Prepared!</h2>
-                            <p className="text-slate-500 font-medium">Follow these 2 steps to activate the Executive account.</p>
-                        </div>
-
-                        <div className="space-y-6 bg-slate-50 p-6 rounded-3xl border border-slate-200">
-                            <div>
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                    <span className="w-5 h-5 bg-orange-500 text-white rounded-full flex items-center justify-center text-[10px]">1</span>
-                                    Create Auth User
-                                </p>
-                                <p className="text-sm text-slate-600 leading-relaxed mb-4">
-                                    Go to <strong>Authentication &gt; Users</strong> in Supabase and create a user for <code className="bg-white px-2 py-0.5 rounded border text-orange-600 font-bold">{selectedOrg.exec_email}</code>.
-                                </p>
-                            </div>
-
-                            <hr className="border-slate-200" />
-
-                            <div>
-                                <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                    <span className="w-5 h-5 bg-orange-500 text-white rounded-full flex items-center justify-center text-[10px]">2</span>
-                                    Run Global Lock SQL
-                                </p>
-                                <div className="relative group">
-                                    <pre className="bg-slate-900 text-orange-400 p-6 rounded-2xl text-[11px] font-mono overflow-auto border-4 border-slate-800 shadow-inner">
-                                        {`UPDATE public.profiles \nSET org_id = '${selectedOrg.id}', \n    role = 'executive'\nWHERE email = '${selectedOrg.exec_email}';`}
-                                    </pre>
-                                    <button
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(`UPDATE public.profiles SET org_id = '${selectedOrg.id}', role = 'executive' WHERE email = '${selectedOrg.exec_email}';`);
-                                            alert('SQL Copied!');
-                                        }}
-                                        className="absolute right-4 top-4 bg-orange-500 hover:bg-orange-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                                    >
-                                        Copy Code
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => setShowSqlHelper(false)}
-                            className="w-full mt-10 bg-slate-900 text-white py-5 rounded-2xl font-black uppercase hover:bg-black transition-all shadow-xl shadow-slate-200 tracking-widest"
-                        >
-                            I have finished the setup
-                        </button>
-                    </div>
-                </div>
-            )}
             {/* Modal Overlay */}
             {isModalOpen && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">

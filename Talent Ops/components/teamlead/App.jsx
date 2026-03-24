@@ -5,6 +5,8 @@ import DashboardHome from './pages/DashboardHome';
 import ModulePage from './pages/ModulePage';
 import MessagingHub from '../shared/MessagingHub';
 import AllTasksView from '../shared/AllTasksView';
+import AnnouncementsPage from '../shared/AnnouncementsPage';
+import PayslipsPage from '../shared/PayslipsPage';
 import { ToastProvider } from './context/ToastContext';
 import { UserProvider } from './context/UserContext';
 
@@ -21,9 +23,9 @@ function App() {
               <Route path="/employees" element={<ModulePage title="Team Members" type="team_members" />} />
               <Route path="/tasks" element={<AllTasksView userRole="team_lead" />} />
               <Route path="/leaves" element={<ModulePage title="Leave Requests" type="leaves" />} />
-              <Route path="/leaves" element={<ModulePage title="Leave Requests" type="leaves" />} />
+              <Route path="/announcements" element={<AnnouncementsPage />} />
               <Route path="/team-status" element={<ModulePage title="Team Status" type="status" />} />
-              <Route path="/payslips" element={<ModulePage title="Payslips" type="payroll" />} />
+              <Route path="/payslips" element={<PayslipsPage />} />
               <Route path="/messages" element={<MessagingHub />} />
               <Route path="/hierarchy" element={<ModulePage title="Team Hierarchy" type="default" />} />
               <Route path="/audit" element={<ModulePage title="Audit Logs" type="default" />} />
