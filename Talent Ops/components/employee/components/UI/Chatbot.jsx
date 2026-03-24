@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Bot, User, MessageSquare, X, Move, Loader } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../../../../lib/supabaseClient';
-
 import { useProject } from '../../context/ProjectContext';
 
 const CHATBOT_API_URL = '/api/chatbot/query';
@@ -11,13 +10,13 @@ const SMART_BUTTONS_URL = 'http://localhost:8000/api/chatbot/context-buttons';
 const Chatbot = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [input, setInput] = useState('');
-    const { currentProject } = useProject();
     const [messages, setMessages] = useState([
         { role: 'ai', text: '👋 Hello! I can answer questions about company policies, projects, and documents. Ask me anything!' }
     ]);
     const [isLoading, setIsLoading] = useState(false);
     const [userProfile, setUserProfile] = useState(null);
     const [smartButtons, setSmartButtons] = useState([]);
+    const { currentProject } = useProject();
     const messagesEndRef = useRef(null);
 
     // Dragging state
@@ -31,6 +30,7 @@ const Chatbot = () => {
 
     // Get current page context
     const location = useLocation();
+    const navigate = useNavigate();
 
 
     // Fetch user profile on mount
@@ -136,7 +136,21 @@ const Chatbot = () => {
 
             const data = await response.json();
 
-            // Handle RAG response
+            // Handle Redirection Logic
+            if (data.action === 'navigate_to_module' && data.data?.route) {
+                setMessages(prev => [...prev, {
+                    role: 'ai',
+                    text: data.response || `Redirecting you to ${data.data.module || 'the requested page'}...`
+                }]);
+
+                setTimeout(() => {
+                    navigate(data.data.route);
+                }, 2000);
+
+                setIsLoading(false);
+                return;
+            }
+
             // Handle RAG response
             const responseText = data.answer || data.response;
             if (responseText) {
@@ -155,7 +169,8 @@ const Chatbot = () => {
 
                 setMessages(prev => [...prev, {
                     role: 'ai',
-                    text: messageText
+                    text: messageText,
+                    suggestions: data.suggestions || []
                 }]);
             } else if (data.out_of_scope) {
                 setMessages(prev => [...prev, {
@@ -165,7 +180,8 @@ const Chatbot = () => {
             } else {
                 setMessages(prev => [...prev, {
                     role: 'ai',
-                    text: data.message || 'I processed your request.'
+                    text: data.message || 'I processed your request.',
+                    suggestions: data.suggestions || []
                 }]);
             }
         } catch (error) {
@@ -337,20 +353,103 @@ const Chatbot = () => {
                                     {msg.role === 'ai' ? <Bot size={18} /> : <User size={18} />}
                                 </div>
                                 <div style={{
-                                    maxWidth: '75%',
-                                    padding: '12px 16px',
-                                    borderRadius: '12px',
-                                    backgroundColor: msg.role === 'ai' ? 'var(--surface)' : 'var(--accent)',
-                                    color: msg.role === 'ai' ? 'var(--text-main)' : 'white',
-                                    boxShadow: 'var(--shadow-sm)',
-                                    borderTopLeftRadius: msg.role === 'ai' ? '2px' : '12px',
-                                    borderTopRightRadius: msg.role === 'user' ? '2px' : '12px',
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-word'
+                                    maxWidth: '85%', // Slightly wider for better link layout
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px'
                                 }}>
-                                    <p style={{ fontSize: '0.9rem', lineHeight: '1.5', margin: 0 }}>
-                                        {msg.text}
-                                    </p>
+                                    <div style={{
+                                        padding: '12px 16px',
+                                        borderRadius: '12px',
+                                        backgroundColor: msg.role === 'ai' ? 'var(--surface)' : 'var(--accent)',
+                                        color: msg.role === 'ai' ? 'var(--text-main)' : 'white',
+                                        boxShadow: 'var(--shadow-sm)',
+                                        borderTopLeftRadius: msg.role === 'ai' ? '2px' : '12px',
+                                        borderTopRightRadius: msg.role === 'user' ? '2px' : '12px',
+                                        whiteSpace: 'pre-wrap',
+                                        wordBreak: 'break-word'
+                                    }}>
+                                        <p style={{ fontSize: '0.9rem', lineHeight: '1.5', margin: 0 }}>
+                                            {/* --- RENDER MESSAGE WITH CLICKABLE LINKS --- */}
+                                            {msg.text.split(/(\[.*?\])/g).map((part, index) => {
+                                                if (part.startsWith('[') && part.endsWith(']')) {
+                                                    const route = part.slice(1, -1);
+                                                    if (route.startsWith('/')) {
+                                                        return (
+                                                            <button
+                                                                key={index}
+                                                                onClick={() => navigate(route)}
+                                                                style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px',
+                                                                    padding: '4px 8px',
+                                                                    backgroundColor: 'var(--primary)',
+                                                                    color: 'white',
+                                                                    borderRadius: '6px',
+                                                                    border: 'none',
+                                                                    fontSize: '0.8rem',
+                                                                    fontWeight: '600',
+                                                                    cursor: 'pointer',
+                                                                    marginTop: '4px',
+                                                                    marginLeft: '4px',
+                                                                    textDecoration: 'none',
+                                                                    transition: 'background 0.2s'
+                                                                }}
+                                                            >
+                                                                📂 Open Module
+                                                            </button>
+                                                        );
+                                                    }
+                                                }
+                                                return part;
+                                            })}
+                                        </p>
+                                    </div>
+
+                                    {/* --- RENDER SUGGESTION CHIPS --- */}
+                                    {msg.role === 'ai' && msg.suggestions && msg.suggestions.length > 0 && (
+                                        <div style={{
+                                            display: 'flex',
+                                            flexWrap: 'wrap',
+                                            gap: '6px',
+                                            marginTop: '4px'
+                                        }}>
+                                            {msg.suggestions.map((suggestion, sIdx) => {
+                                                const isLink = suggestion.includes('→');
+                                                const cleanText = suggestion.replace('→', '').trim();
+
+                                                return (
+                                                    <button
+                                                        key={sIdx}
+                                                        onClick={() => {
+                                                            if (isLink && suggestion.includes('[')) {
+                                                                const routeMatch = suggestion.match(/\[(.*?)\]/);
+                                                                if (routeMatch) navigate(routeMatch[1]);
+                                                            } else {
+                                                                setInput(cleanText);
+                                                                // Future improvement: auto-send if desired
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            padding: '6px 12px',
+                                                            borderRadius: '20px',
+                                                            backgroundColor: isLink ? 'rgba(var(--primary-rgb), 0.1)' : 'var(--background)',
+                                                            border: isLink ? '1px solid var(--primary)' : '1px solid var(--border)',
+                                                            color: isLink ? 'var(--primary)' : 'var(--text-secondary)',
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: '500',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s ease',
+                                                            whiteSpace: 'nowrap'
+                                                        }}
+                                                    >
+                                                        {suggestion}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
