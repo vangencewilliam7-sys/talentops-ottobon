@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { Users, TrendingUp, History, ArrowRight, CheckCircle, AlertCircle } from 'lucide-react';
+import { Users, TrendingUp, History, ArrowRight, CheckCircle, AlertCircle, Plus } from 'lucide-react';
+import { CareerHistory } from './CareerHistory';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../ui/dropdown-menu';
 
 const STAGES = ['Intern', 'FullTime_IC', 'Senior_IC', 'TeamLead', 'Manager', 'HR', 'Exited'];
 const TRACKS = ['Engineering', 'Management', 'HR', 'Operations', 'Sales'];
 
 export const EmployeeLifecycleManagement = ({ currentUser }) => {
+    const careerHistoryRef = useRef(null);
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -91,173 +94,179 @@ export const EmployeeLifecycleManagement = ({ currentUser }) => {
         }
     };
 
-    if (loading) return <div className="p-8 text-center">Loading employees...</div>;
+    if (loading) return <div className="p-8 text-center text-gray-500 font-medium">Loading employees...</div>;
 
     return (
-        <div className="flex flex-col gap-6 p-6 max-w-7xl mx-auto">
-            <div className="flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Employee Lifecycle Management</h1>
-                    <p className="text-slate-500 dark:text-slate-400">Manage career stages and functional tracks</p>
+        <div className="flex flex-col min-h-screen bg-gray-50 w-full font-sans">
+            
+            {/* Header Section (ONLY DARK PART) */}
+            <div className="w-full bg-slate-900 border-b border-slate-800 shadow-sm">
+                <div className="max-w-7xl mx-auto px-6 py-8 flex justify-between items-center">
+                    <div>
+                        <h1 className="text-[22px] font-semibold text-white tracking-tight">Employee Lifecycle Management</h1>
+                        <p className="text-gray-400 mt-1.5 text-sm font-medium">Manage career stages and functional tracks</p>
+                    </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Employee List */}
-                <div className="lg:col-span-1 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col h-[600px]">
-                    <div className="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-                        <h2 className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                            <Users size={18} /> Employees
-                        </h2>
-                    </div>
-                    <div className="overflow-y-auto flex-1 p-2">
-                        {employees.map(emp => (
-                            <div
-                                key={emp.id}
-                                onClick={() => handleEmployeeSelect(emp)}
-                                className={`p-3 rounded-lg cursor-pointer mb-2 transition-all ${selectedEmployee?.id === emp.id
-                                    ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 shadow-sm'
-                                    : 'hover:bg-slate-50 dark:hover:bg-slate-700 border border-transparent'
+            {/* Main Content */}
+            <div className="flex-1 p-6 max-w-7xl mx-auto w-full">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* Employee List */}
+                    <div className="lg:col-span-1 bg-white rounded-xl shadow-[0_2px_6px_rgba(0,0,0,0.04)] border border-gray-200 overflow-hidden flex flex-col h-[600px]">
+                        <div className="p-4 border-b border-gray-100 bg-white">
+                            <h2 className="font-semibold text-gray-900 flex items-center gap-2 text-[15px]">
+                                <Users size={18} className="text-gray-500" /> Employees
+                            </h2>
+                        </div>
+                        <div className="overflow-y-auto flex-1 p-3 space-y-1.5 bg-gray-50/30">
+                            {employees.map(emp => (
+                                <div
+                                    key={emp.id}
+                                    onClick={() => handleEmployeeSelect(emp)}
+                                    className={`p-3.5 rounded-xl cursor-pointer transition-all border ${
+                                        selectedEmployee?.id === emp.id
+                                            ? 'bg-blue-50 border-blue-200 shadow-sm'
+                                            : 'bg-white border-transparent hover:border-gray-200 hover:shadow-sm'
                                     }`}
-                            >
-                                <div className="font-medium text-slate-800 dark:text-slate-200">{emp.full_name || 'Unnamed'}</div>
-                                <div className="text-xs flex gap-2 mt-1">
-                                    <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300">
-                                        {emp.functional_track || 'No Track'}
-                                    </span>
-                                    <span className={`px-2 py-0.5 rounded ${emp.employee_stage === 'Exited' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+                                >
+                                    <div className="font-semibold text-gray-900 text-sm tracking-tight">{emp.full_name || 'Unnamed'}</div>
+                                    <div className="text-[11px] font-medium uppercase tracking-wider flex gap-2 mt-2">
+                                        <span className="px-2 py-0.5 bg-gray-100 rounded-md text-gray-600 border border-gray-200/60">
+                                            {emp.functional_track || 'No Track'}
+                                        </span>
+                                        <span className={`px-2 py-0.5 rounded-md border ${
+                                            emp.employee_stage === 'Exited' 
+                                            ? 'bg-red-50 text-red-600 border-red-100' 
+                                            : 'bg-green-50 text-green-700 border-green-100'
                                         }`}>
-                                        {emp.employee_stage || 'Intern'}
-                                    </span>
+                                            {emp.employee_stage || 'Intern'}
+                                        </span>
+                                    </div>
                                 </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Details & History */}
+                    <div className="lg:col-span-2 flex flex-col gap-6">
+                        {selectedEmployee ? (
+                            <>
+                                {/* Actions Card */}
+                                <div className="bg-white rounded-xl shadow-[0_2px_6px_rgba(0,0,0,0.04)] border border-gray-200 p-6">
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div>
+                                            <h2 className="text-xl font-semibold text-gray-900 tracking-tight">{selectedEmployee.full_name}</h2>
+                                            <div className="text-gray-500 text-sm mt-1 font-medium">{selectedEmployee.email}</div>
+                                        </div>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <button
+                                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                                >
+                                                    <TrendingUp size={16} /> Change Stage
+                                                </button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-48 mt-1 bg-white border border-gray-200 shadow-xl rounded-xl p-1.5 z-50">
+                                                <DropdownMenuItem
+                                                    onSelect={() => setShowPromoteModal(true)}
+                                                    className="flex items-center gap-2.5 px-3 py-2 outline-none rounded-md cursor-pointer hover:bg-gray-50 transition-colors focus:bg-gray-50"
+                                                >
+                                                    <TrendingUp size={15} className="text-blue-600" />
+                                                    <span className="font-medium text-gray-700 text-sm">Update Stage</span>
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    onSelect={() => careerHistoryRef.current?.openModal()}
+                                                    className="flex items-center gap-2.5 px-3 py-2 outline-none rounded-md cursor-pointer hover:bg-gray-50 transition-colors focus:bg-gray-50"
+                                                >
+                                                    <Plus size={15} className="text-blue-600" />
+                                                    <span className="font-medium text-gray-700 text-sm">Add Position</span>
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="p-4 bg-gray-50 rounded-xl border border-gray-200/80">
+                                            <div className="text-[11px] uppercase font-medium text-gray-500 tracking-wider mb-1">Current Stage</div>
+                                            <div className="text-[15px] font-semibold text-gray-900 tracking-tight">{selectedEmployee.employee_stage || 'Intern'}</div>
+                                        </div>
+                                        <div className="p-4 bg-gray-50 rounded-xl border border-gray-200/80">
+                                            <div className="text-[11px] uppercase font-medium text-gray-500 tracking-wider mb-1">Functional Track</div>
+                                            <div className="text-[15px] font-semibold text-gray-900 tracking-tight">{selectedEmployee.functional_track || 'Engineering'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* History Timeline */}
+                                <CareerHistory ref={careerHistoryRef} employeeId={selectedEmployee.id} />
+                            </>
+                        ) : (
+                            <div className="h-full flex items-center justify-center text-gray-400 font-medium bg-gray-50/50 rounded-xl border-2 border-dashed border-gray-200">
+                                Select an employee to view career details
                             </div>
-                        ))}
+                        )}
                     </div>
                 </div>
 
-                {/* Details & History */}
-                <div className="lg:col-span-2 flex flex-col gap-6">
-                    {selectedEmployee ? (
-                        <>
-                            {/* Actions Card */}
-                            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-slate-800 dark:text-white">{selectedEmployee.full_name}</h2>
-                                        <div className="text-slate-500 dark:text-slate-400 text-sm mt-1">{selectedEmployee.email}</div>
-                                    </div>
-                                    <button
-                                        onClick={() => setShowPromoteModal(true)}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm"
+                {/* Promotion Modal */}
+                {showPromoteModal && (
+                    <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 max-w-md w-full animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+                            
+                            {/* Modal Header */}
+                            <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gray-50/50">
+                                <h3 className="text-lg font-semibold text-gray-900">Update Career Stage</h3>
+                                <button onClick={() => setShowPromoteModal(false)} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg transition-colors">
+                                    <X size={18} />
+                                </button>
+                            </div>
+
+                            <div className="p-6 space-y-5">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">New Stage</label>
+                                    <select
+                                        value={newStage}
+                                        onChange={(e) => setNewStage(e.target.value)}
+                                        className="w-full px-3 py-2.5 border border-gray-200 bg-white text-gray-900 text-sm font-medium rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
                                     >
-                                        <TrendingUp size={18} /> Change Stage
+                                        {STAGES.map(s => (
+                                            <option key={s} value={s}>{s}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Reason for Change</label>
+                                    <textarea
+                                        value={reason}
+                                        onChange={(e) => setReason(e.target.value)}
+                                        placeholder="e.g. Annual promotion, Performance review..."
+                                        className="w-full p-3 border border-gray-200 bg-white text-gray-900 text-sm font-medium rounded-lg h-28 resize-none focus:ring-2 focus:ring-blue-500 outline-none transition-shadow placeholder:text-gray-400"
+                                    />
+                                </div>
+
+                                <div className="flex gap-3 pt-3">
+                                    <button
+                                        onClick={() => setShowPromoteModal(false)}
+                                        className="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors outline-none focus:ring-2 focus:ring-gray-200"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleStageUpdate}
+                                        disabled={submitting || !reason}
+                                        className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 shadow-sm"
+                                    >
+                                        {submitting ? 'Updating...' : 'Confirm Update'}
                                     </button>
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-700">
-                                        <div className="text-xs uppercase font-semibold text-slate-400 mb-1">Current Stage</div>
-                                        <div className="text-lg font-bold text-slate-700 dark:text-slate-200">{selectedEmployee.employee_stage || 'Intern'}</div>
-                                    </div>
-                                    <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-100 dark:border-slate-700">
-                                        <div className="text-xs uppercase font-semibold text-slate-400 mb-1">Functional Track</div>
-                                        <div className="text-lg font-bold text-slate-700 dark:text-slate-200">{selectedEmployee.functional_track || 'Engineering'}</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* History Timeline */}
-                            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 flex-1">
-                                <h3 className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 mb-4">
-                                    <History size={18} /> Career History
-                                </h3>
-
-                                {history.length === 0 ? (
-                                    <div className="text-center py-8 text-slate-400">No history recorded yet.</div>
-                                ) : (
-                                    <div className="relative pl-4 border-l-2 border-slate-100 dark:border-slate-700 space-y-8">
-                                        {history.map((record, idx) => (
-                                            <div key={record.id} className="relative">
-                                                <div className="absolute -left-[21px] top-0 w-3 h-3 rounded-full bg-blue-500 ring-4 ring-white dark:ring-slate-800" />
-                                                <div className="flex flex-col gap-1">
-                                                    <div className="text-xs text-slate-400">
-                                                        {new Date(record.created_at).toLocaleDateString()}
-                                                    </div>
-                                                    <div className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                                                        {record.from_stage || 'Start'} <ArrowRight size={14} className="text-slate-400" /> {record.to_stage}
-                                                    </div>
-                                                    {record.reason && (
-                                                        <div className="text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/50 p-2 rounded mt-1 border border-slate-100 dark:border-slate-700">
-                                                            "{record.reason}"
-                                                        </div>
-                                                    )}
-                                                    <div className="text-xs text-slate-400 mt-1">
-                                                        Approved by: {record.approver?.full_name || 'System'}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    ) : (
-                        <div className="h-full flex items-center justify-center text-slate-400 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
-                            Select an employee to view details
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Promotion Modal */}
-            {showPromoteModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in-95 duration-200">
-                        <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Update Career Stage</h3>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">New Stage</label>
-                                <select
-                                    value={newStage}
-                                    onChange={(e) => setNewStage(e.target.value)}
-                                    className="w-full p-2 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                                >
-                                    {STAGES.map(s => (
-                                        <option key={s} value={s}>{s}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Reason for Change</label>
-                                <textarea
-                                    value={reason}
-                                    onChange={(e) => setReason(e.target.value)}
-                                    placeholder="e.g. Annual promotion, Performance review..."
-                                    className="w-full p-2 border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg h-24 resize-none focus:ring-2 focus:ring-blue-500 outline-none"
-                                />
-                            </div>
-
-                            <div className="flex gap-3 justify-end mt-6">
-                                <button
-                                    onClick={() => setShowPromoteModal(false)}
-                                    className="px-4 py-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={handleStageUpdate}
-                                    disabled={submitting || !reason}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    {submitting ? 'Updating...' : 'Confirm Update'}
-                                </button>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 };
