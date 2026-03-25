@@ -7,12 +7,15 @@ Runs on port 8035.
 
 import uvicorn
 import datetime as dt
-import time
 import os
-import sys
 import json
-import re
+import time
+import logging
+import httpx
 import asyncio
+import re
+import uuid
+from typing import List, Optional, Dict, Any
 from contextvars import ContextVar
 from dotenv import load_dotenv
 from app.rbac_rules import check_permission, ACTION_REGISTRY, get_role_level
@@ -97,6 +100,33 @@ from app.state import (
 
 # Initialize rate limiter (fails open if Redis unavailable)
 rate_limiter = TokenBucketRateLimiter(_state_redis, capacity=10, refill_rate=0.5)
+
+# =============================================================================
+# DATA SANITIZATION (METADATA SECURITY)
+# =============================================================================
+def sanitize_context_metadata(text: str) -> str:
+    """Mask technical implementation details from context to prevent model leakage."""
+    if not text:
+        return text
+    
+    # Aggressive substring replacement for all sensitive internal terms
+    sensitive_terms = [
+        "document_chunks", "project_documents", "organization_members", "auth.users", 
+        "audit_log", "profiles", "project_members", "public.", "organizations",
+        "users", "user_id", "project_id", "org_id"
+    ]
+    
+    clean_text = text
+    # Keep document titles somewhat intact by avoiding replacement in bracketed headers if possible
+    # but for now, we'll just refine the regex to not be so aggressive about 'task'
+    for term in sensitive_terms:
+        clean_text = re.sub(re.escape(term), '[REDACTED_SOURCE]', clean_text, flags=re.IGNORECASE)
+    
+    # Also clean SQL-like structures
+    clean_text = re.sub(r'CREATE TABLE \w+', 'CREATE TABLE [redacted]', clean_text, flags=re.IGNORECASE)
+    clean_text = re.sub(r'UUID', 'ID_HASH', clean_text, flags=re.IGNORECASE)
+    
+    return clean_text
 
 def log_latency(model_type, ttft, total_latency, generation_latency, tokens_generated, status="success", **kwargs):
     """Structured JSON logging for production observability (Phase 2.3)."""
@@ -1565,16 +1595,31 @@ GUIDELINES:
 
 # Keywords that suggest RAG (Document & Policy Queries)
 RAG_KEYWORDS = [
+    # Formal names
     "policy guide", "handbook", "procedure manual", "holiday rules", "expense policy", 
-    "hr guide", "what is the policy", "regulations", "company guidelines", "sop",
-    "standard operating procedure", "compliance", "code of conduct", "employee manual",
-    "benefits guide", "onboarding guide", "training material", "project documentation",
-    "technical specs", "requirements document", "what does the document say",
+    "hr guide", "regulations", "company guidelines", "sop", "standard operating procedure", 
+    "compliance", "code of conduct", "employee manual", "benefits guide", "onboarding guide", 
+    "training material", "project documentation", "technical specs", "requirements document",
+    "task spec", "task guidance", "phase document", "guidance document", "task document",
+    
+    # Document inquiry actions
     "read the policy", "check the handbook", "according to the manual",
+    "search documents", "read document", "document content", "tell me about this document", 
+    "inside the document", "what does the doc say", "according to",
+    "table of contents", "toc", "summary of", "contents", "explain", "tell me about",
+    "detailed description", "overview of", "read the document", "check the document",
+    
+    # Natural language topic inquiries
+    "what is the policy", "what does the document say", "what is in", "what is in the document",
+    "what is", "what are", "how does", "how do i", "can you explain", "details about", 
+    "information about", "what's the", "what are the", "is there a",
+    "how many", "how is", "how to", "how are", "how was",
+    "describe", "definition of", "meaning of", "list", "show me the", "tables",
+    "tell me", "what data", "where is",
+    
+    # Technical topics
     "architecture", "frontend", "backend", "system design", "technical details",
-    "module overview", "technical documentation", "search documents", "read document",
-    "document content", "tell me about this document", "inside the document",
-    "what is in", "what does the doc say", "according to", "manual", "guide", "specs", "specification"
+    "module overview", "technical documentation"
 ]
 
 # Keywords that suggest SLM (Actions & Data Queries for TalentOps)
@@ -1689,7 +1734,31 @@ async def llm_query(request: LLMQueryRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 # =============================================================================
-# ORCHESTRATOR (Intelligent Routing)
+# SEMANTIC CACHE (Redis Optimized)
+# =============================================================================
+async def check_semantic_cache(query: str, org_id: str, user_id: str, project_id: str) -> Optional[str]:
+    """Simple exact-match semantic cache to reduce LLM costs."""
+    if not redis_client: return None
+    try:
+        # Cache key based on query + org isolation
+        cache_key = f"cache:rag:{org_id}:{re.sub(r'[^a-zA-Z0-9]', '', query.lower())[:50]}"
+        cached = await redis_client.get(cache_key)
+        if cached:
+            logger.info(f"🎯 CACHE HIT: '{query}'")
+            return cached
+    except Exception as e:
+        logger.warning(f"Cache lookup failed: {e}")
+    return None
+
+async def set_semantic_cache(query: str, org_id: str, response: str):
+    if not redis_client: return
+    try:
+        cache_key = f"cache:rag:{org_id}:{re.sub(r'[^a-zA-Z0-9]', '', query.lower())[:50]}"
+        await redis_client.set(cache_key, response, ex=3600*12) # 12 hour TTL
+    except: pass
+
+# =============================================================================
+# ORCHESTRATOR (Intelligent Routing & Sticky Context)
 # =============================================================================
 # OrchestratorRequest has been moved to 'binding'
 
@@ -1706,9 +1775,11 @@ async def orchestrate_query(request: OrchestratorRequest, background_tasks: Back
     logger.info(f"📝 Context: {request.context}")
     logger.info(f"{'='*50}\n")
 
+    start_time = time.perf_counter()
+    app_name = request.app_name or "talentops"
+
     try:
-        # --- 0. EXTRACT CONTEXT (CRITICAL FIX) ---
-        # If IDs are not top-level, check if they are inside the 'context' dictionary
+        # --- 0. EXTRACT CONTEXT ---
         if request.context:
             if not request.user_id:
                 request.user_id = request.context.get("user_id")
@@ -1717,9 +1788,9 @@ async def orchestrate_query(request: OrchestratorRequest, background_tasks: Back
             if not request.org_id:
                 request.org_id = request.context.get("org_id")
             if not request.app_name:
-                request.app_name = request.context.get("app_name")
+                request.app_name = request.context.get("app_name") or app_name
 
-        # 0. Fetch User Context (Personalization)
+        # 1. Fetch User Context
         user_context = {}
         if request.user_id and request.user_id != 'guest':
             user_context = await fetch_user_context(request.user_id)
@@ -1735,30 +1806,42 @@ async def orchestrate_query(request: OrchestratorRequest, background_tasks: Back
         if not request.org_id and user_context.get("org_id"):
             request.org_id = user_context.get("org_id")
 
-        # --- 🚀 LAYER 0.5: SESSION & HISTORY (Phase 2.3) ---
+        # --- 🚀 LAYER 0.5: SESSION & HISTORY ---
         session_id = f"{request.org_id}:{request.user_id}" if request.org_id else request.user_id or "anonymous"
         state = await get_shared_state_singleton()
         history = await state.get_history(session_id, user_id=request.user_id, org_id=request.org_id)
-        # --- 1. DETERMINISTIC ROUTING (Hard Locking) ---
+        
+        # --- 🚀 LAYER 0.6: STICKY CONTEXT (Source Tracking) ---
+        target_doc_id = None
+        follow_up_terms = ["it", "them", "this", "that", "tell me more", "explain", "why", "how"]
+        is_follow_up = any(term in request.query.lower().split() for term in follow_up_terms) or len(request.query.split()) < 4
+        
+        if is_follow_up and history:
+            # Check last assistant message for source metadata
+            for h in reversed(history):
+                if h["role"] == "assistant":
+                    match = re.search(r"<!-- DOCUMENT_SOURCE: ([a-f0-9-]+) -->", h["content"])
+                    if match:
+                        target_doc_id = match.group(1)
+                        logger.info(f"📍 STICKY CONTEXT: Targeting previous document ID: {target_doc_id}")
+                        break
+
+        # --- 🚀 LAYER 0.7: SEMANTIC CACHE ---
+        if not is_follow_up:
+            cached_resp = await check_semantic_cache(request.query, request.org_id, request.user_id, request.project_id)
+            if cached_resp:
+                return {"system": "cache", "response": cached_resp, "action": "chat"}
+
+        # --- 1. DETERMINISTIC ROUTING ---
         query_lower = request.query.lower()
         target_system = None
         
-        # 0.1 Check for Confirmation (Requirement 9)
         is_yes = any(w in query_lower for w in ["yes", "proceed", "confirm", "do it", "sure", "ok", "okay"])
         pending_action = None
         pending_params = None
         if request.context:
             pending_action = request.context.get("pending_action")
             pending_params = request.context.get("pending_params")
-
-        # --- 🚀 LAYER 0.6: SEMANTIC CACHE LOOKUP (Phase 2.2) ---
-        # Skip cache for confirmations or explicit commands
-        if not is_yes and "@" not in request.query:
-            cached_resp = await check_semantic_cache(request.query, request.org_id, request.user_id, request.project_id)
-            if cached_resp:
-                total_lat = time.perf_counter() - start_time
-                log_latency("CACHE", 0, total_lat, 0, len(cached_resp.split()))
-                return {"system": "cache", "response": cached_resp, "action": "chat"}
 
         if is_yes and pending_action:
             target_system = "slm"
@@ -1773,15 +1856,13 @@ async def orchestrate_query(request: OrchestratorRequest, background_tasks: Back
             target_system = "rag"
             logger.info("🔒 INTENT LOCKED: Routing to [rag] due to @mention.")
             
-        # 2. SEMANTIC ROUTING (Router LLM Fallback)
+        # 2. SEMANTIC ROUTING Fallback
         if not target_system:
             logger.info("🤖 Routing decision delegated to Orchestrator LLM...")
             try:
-                # Build messages with history for context-aware routing
                 router_messages = [{"role": "system", "content": ORCHESTRATOR_SYSTEM_PROMPT}]
-                # Add last 3 turns of history for context
                 for h in history[-3:]:
-                    router_messages.append(h)
+                    router_messages.append({"role": h["role"], "content": h["content"]})
                 router_messages.append({"role": "user", "content": request.query})
 
                 router_resp = await openai_client.chat.completions.create(
@@ -1791,144 +1872,83 @@ async def orchestrate_query(request: OrchestratorRequest, background_tasks: Back
                 )
                 router_json = json.loads(router_resp.choices[0].message.content)
                 target_system = router_json.get("system", "llm").lower()
-                
-                # Rule 5 Enforcement: REMOVED per user request
-                # No longer re-routing to [llm] if @ is missing.
             except Exception as e:
                 logger.error(f"Router Error: {e}")
                 target_system = "llm"
             
         logger.info(f"Orchestrator routed '{request.query}' to [{target_system}]")
         
-        # 2. Route to the appropriate handler
         if target_system == "slm":
-            # Call SLM with full context
             slm_context = user_context.copy()
-            
-            # Prepare confirmation flags
-            is_confirmed = False
-            p_action = None
-            p_params = None
-            
-            if is_yes and pending_action:
-                is_confirmed = True
-                p_action = pending_action
-                p_params = pending_params
-                # We also need to pass the original query if we want to re-parse, 
-                # but better to use the pending action name directly.
-                # If we are confirming, the "query" can be "yes", so we need to pass the pending intent.
-                query_to_send = f"Perform {pending_action} with {json.dumps(p_params)}"
-            else:
-                query_to_send = request.query
-
+            is_confirmed = (is_yes and pending_action)
             slm_req = SLMQueryRequest(
-                query=query_to_send,
-                user_id=request.user_id,
-                project_id=request.project_id,
-                org_id=request.org_id,
-                user_role=user_context.get("role", "employee"), 
-                context=slm_context,
-                is_confirmed=is_confirmed,
-                pending_action=p_action,
-                pending_params=p_params,
-                history=history,
-                app_name=request.app_name
+                query=f"Perform {pending_action}" if is_confirmed else request.query,
+                user_id=request.user_id, project_id=request.project_id, org_id=request.org_id,
+                user_role=user_context.get("role", "employee"), context=slm_context,
+                is_confirmed=is_confirmed, pending_action=pending_action, pending_params=pending_params,
+                history=history, app_name=request.app_name
             )
             slm_resp = await slm_chat(slm_req, background_tasks)
-            
-            # Save to history (Phase 2.3)
             await state.add_history(session_id, request.user_id, "user", request.query, org_id=request.org_id)
             await state.add_history(session_id, request.user_id, "assistant", slm_resp.response, org_id=request.org_id)
-            
-            # Add feedback request to action responses (Requirement 14)
-            if slm_resp.action in ["chat", "success"]:
-                slm_resp.response += "\n\n*Was this what you wanted?*"
-                
             return slm_resp
-            
-            # slm_text = slm_resp.response if hasattr(slm_resp, 'response') else str(slm_resp)
-            
-            # # --- HYBRID FALLBACK ---
-            # # If SLM says "NO_DATA_FOUND_IN_DB" and the query might be document-related, try RAG
-            # if "NO_DATA_FOUND_IN_DB" in slm_text:
-            #     logger.info("⚠️ SLM returned NO_DATA. Attempting RAG fallback...")
-            #     if request.org_id:
-            #         rag_req = RAGQueryRequest(
-            #             question=request.query,
-            #             org_id=request.org_id,
-            #             project_id=request.project_id
-            #         )
-            #         rag_resp = await rag_query(rag_req)
-                    
-            #         # If RAG found something meaningful (simple heuristic)
-            #         if rag_resp and "answer" in rag_resp and len(rag_resp["answer"]) > 50:
-            #              logger.info("✅ RAG fallback SUCCESSFUL.")
-            #              return {
-            #                 "system": "rag-fallback",
-            #                 "response": rag_resp.get("answer"),
-            #                 "sources": rag_resp.get("sources"),
-            #                 "action": "chat"
-            #              }
-            
-            # result = {
-            #     "system": "slm",
-            #     "response": slm_text, 
-            #     "action": "chat" 
-            # }
-            
-            # logger.info(f"📤 SENDING RESPONSE TO FRONTEND: {result}")
-            # return result
 
         elif target_system == "rag":
-            # Extract document name from @mention
-            doc_name = "general"
-            if "@" in query_lower:
-                parts = query_lower.split("@")
-                if len(parts) > 1:
-                    doc_name = parts[1].split()[0]
-
+            # 1. Fetch RAG content
             rag_req = RAGQueryRequest(
                 question=request.query,
                 org_id=request.org_id,
-                project_id=request.project_id
+                project_id=request.project_id,
+                task_id=user_context.get("task_id") if user_context else None,
+                target_doc_id=target_doc_id # Pass sticky context
             )
             rag_resp = await rag_query(rag_req)
+            data_context = rag_resp.get("answer", "No relevant information found.")
+            primary_source_id = rag_resp.get("primary_source_id")
             
-            # REQUIREMENT 0: SLM delivers the answer
-            logger.info(f"🔍 RAG Answer received: {len(rag_resp.get('answer', ''))} chars. Sources: {rag_resp.get('sources')}")
-            
-            slm_context = user_context.copy()
-            cleaned_query = re.sub(r'@[a-zA-Z0-9_]+', '', request.query).strip()
-            
-            slm_req = SLMQueryRequest(
-                query=cleaned_query,
-                user_id=request.user_id,
-                project_id=request.project_id,
-                org_id=request.org_id,
-                user_role=user_context.get("role", "employee"), 
-                context=slm_context,
-                forced_action="present_rag",
-                rag_content=rag_resp.get("answer"),
-                rag_source=", ".join(rag_resp.get("sources", [])) if rag_resp.get("sources") else "Database",
-                history=history
-            )
-            slm_resp = await slm_chat(slm_req, background_tasks)
-            
-            # Save to history (Phase 2.3)
-            await state.add_history(session_id, request.user_id, "user", request.query, org_id=request.org_id)
-            await state.add_history(session_id, request.user_id, "assistant", slm_resp.response, org_id=request.org_id)
-            
-            return slm_resp
+            response_prompt = f"""### SYSTEM ROLE
+You are the {app_name.title()} AI Assistant.
+
+### CRITICAL RULES
+1. **NO TECHNICAL LEAKS:** Never mention table names.
+2. **STRICT GROUNDING:** ONLY use the provided context. If missing, say: "The document does not specify this information."
+
+### DOCUMENT CONTEXT
+{sanitize_context_metadata(data_context)}
+
+### USER QUERY
+{request.query}
+"""
+            try:
+                friendly_resp = await together_client.chat.completions.create(
+                    model="meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                    messages=[{"role": "system", "content": response_prompt}, {"role": "user", "content": request.query}],
+                    temperature=0.0, max_tokens=800
+                )
+                final_response = friendly_resp.choices[0].message.content
+                
+                # --- 📍 ADD STICKY CONTEXT TRACKING (Hidden) ---
+                if primary_source_id:
+                    final_response += f"\n\n<!-- DOCUMENT_SOURCE: {primary_source_id} -->"
+
+                await state.add_history(session_id, request.user_id, "user", request.query, org_id=request.org_id)
+                await state.add_history(session_id, request.user_id, "assistant", final_response, org_id=request.org_id)
+                
+                # Cache successful RAG responses
+                if len(data_context) > 100:
+                    await set_semantic_cache(request.query, request.org_id, final_response)
+                
+                return {"system": "rag", "response": final_response, "sources": rag_resp.get("sources"), "action": "chat"}
+            except Exception as e:
+                return {"system": "rag", "response": f"Error: {e}", "action": "error"}
             
         else:
-            # Call LLM for Guardrails/Domain knowledge
+            # LLM Fallback
             personalized_prompt = LLM_SYSTEM_PROMPT.format(
                 user_name=user_context.get("name", "User"),
                 user_role=user_context.get("role", "employee"),
                 project_name=user_context.get("project_name", "None")
             )
-            
-            # Build messages with FULL history for memory
             messages = [{"role": "system", "content": personalized_prompt}]
             for h in history:
                 messages.append({"role": h["role"], "content": h["content"]})
@@ -1941,7 +1961,6 @@ async def orchestrate_query(request: OrchestratorRequest, background_tasks: Back
             )
             llm_text = response.choices[0].message.content
 
-            # REQUIREMENT 0: SLM delivers the answer
             slm_context = user_context.copy()
             slm_req = SLMQueryRequest(
                 query=request.query,
@@ -1951,24 +1970,17 @@ async def orchestrate_query(request: OrchestratorRequest, background_tasks: Back
                 user_role=user_context.get("role", "employee"), 
                 context=slm_context,
                 forced_action="chat",
-                pending_params={"llm_response": llm_text}, # Pass LLM text as parameter
+                pending_params={"llm_response": llm_text},
                 history=history
             )
-            
-            # In slm_chat, if action is "chat", it will look at context for answer
-            # We should update slm_chat's chat handler to use this.
             slm_resp = await slm_chat(slm_req, background_tasks)
-            
-            # Save to history
             await state.add_history(session_id, request.user_id, "user", request.query, org_id=request.org_id)
             await state.add_history(session_id, request.user_id, "assistant", slm_resp.response, org_id=request.org_id)
-            
             return slm_resp
 
     except Exception as e:
         logger.error(f"Orchestrator Error: {e}")
-        return {"system": "error", "response": f"I encountered an error trying to process that: {str(e)}"}
-
+        return {"system": "error", "response": f"I encountered an error: {str(e)}"}
 
 # =============================================================================
 # RAG ENDPOINTS (Document Ingestion & Query)
@@ -1978,76 +1990,50 @@ async def orchestrate_query(request: OrchestratorRequest, background_tasks: Back
 # RAG utility functions (chunk_text, get_embeddings, parse_file_from_url) 
 # have been moved to 'binding'
 
+@app.post("/api/chatbot/ingest")
 @app.post("/rag/ingest")
 @app.post("/docs/ingest")
 async def rag_ingest(request: RAGIngestRequest):
-
     try:
-        # --- DB CONTEXT SWITCHING (FIX 3: centralized via select_client) ---
         app_name = (request.app_name or request.metadata.get("app_name") or "talentops").lower()
-        _client_error = select_client(app_name)
-        if _client_error == "COHORT_UNAVAILABLE":
-            return {"success": False, "message": "The Cohort service is not currently available."}
-        doc_id = request.doc_id or request.metadata.get('doc_id')
+        if select_client(app_name) == "COHORT_UNAVAILABLE": return {"success": False, "message": "Service unavailable"}
+        
+        doc_id = request.doc_id or request.metadata.get('doc_id') or str(uuid.uuid4())
         org_id = request.org_id or request.metadata.get('org_id')
         project_id = request.project_id or request.metadata.get('project_id')
+        task_id = request.task_id or request.metadata.get('task_id')
+        phase = request.phase or request.metadata.get('phase')
         
-        if not org_id or not doc_id:
-            return {"success": False, "message": "Missing org_id or doc_id"}
+        if not org_id: return {"success": False, "message": "Missing org_id"}
         
-        # 1. Extract text from URL if provided
-        file_text = ""
+        # 1. Parse content
+        full_text = (request.text or "")
         if request.file_url:
-            file_text = parse_file_from_url(request.file_url)
-            
-        full_text = (request.text or "") + "\n\n" + file_text
-        full_text = full_text.strip()
+            full_text += "\n" + (await parse_file_from_url(request.file_url))
         
-        if len(full_text) < 5:
-            return {"success": False, "message": "Text content too short or empty mapping"}
+        if len(full_text.strip()) < 5: return {"success": False, "message": "Empty content"}
         
-        # 2. Upsert parent document in 'documents' table
-        try:
-             await supabase.table("documents").insert({
-                 "id": doc_id,
-                 "org_id": org_id,
-                 "project_id": project_id,
-                 "title": request.metadata.get("title", "Uploaded Document")
-             }).execute()
-        except Exception as e:
-             # Might fail if already exists, that's fine
-             logger.info(f"Note: Document parent entry check: {e}")
+        # 2. Sync Document Parent
+        await supabase.table("documents").insert({
+            "id": doc_id, "org_id": org_id, "project_id": project_id, 
+            "task_id": task_id, "phase": phase, "title": request.metadata.get("title", "Uploaded Document")
+        }).execute()
 
-        # 3. Chunk and embed
+        # 3. Process Chunks
+        await supabase.table("document_chunks").delete().eq("document_id", doc_id).execute()
         chunks = chunk_text(full_text)
-        embeddings_res = await get_embeddings(chunks)
-        embeddings, embedding_latency = embeddings_res if isinstance(embeddings_res, tuple) else (embeddings_res, 0)
+        embeddings, _ = await get_embeddings(chunks)
         
-        if not chunks or not embeddings:
-            return {"success": False, "message": "Failed to process document"}
-        
-        # Store in Supabase
         records = []
         for i, chunk in enumerate(chunks):
             records.append({
-                "document_id": doc_id,
-                "org_id": org_id,
-                "project_id": project_id,
-                "content": chunk,
-                "embedding": embeddings[i]
+                "document_id": doc_id, "org_id": org_id, "project_id": project_id,
+                "task_id": task_id, "phase": phase, "content": chunk, "embedding": embeddings[i]
             })
-            
-        # Bulk insert
-        resp = await supabase.table("document_chunks").insert(records).execute()
+        await supabase.table("document_chunks").insert(records).execute()
         
-        return {
-            "success": True, 
-            "chunks": len(chunks), 
-            "message": f"Processed and stored {len(chunks)} chunks"
-        }
-        
+        return {"success": True, "chunks": len(chunks)}
     except Exception as e:
-        logger.error(f"RAG Ingest Error: {e}")
         return {"success": False, "message": str(e)}
 
 @app.post("/rag/query")
@@ -2055,139 +2041,106 @@ async def rag_ingest(request: RAGIngestRequest):
 async def rag_query(request: RAGQueryRequest):
     start_time = time.perf_counter()
     embedding_latency = 0.0
-    retrieval_latency = 0.0
+    final_matches = []
+    app_name = (request.app_name or "talentops").lower()
+    select_client(app_name)
 
     try:
-        # --- DB CONTEXT SWITCHING (FIX 3: centralized via select_client) ---
-        app_name = (request.app_name or "talentops").lower()
-        _client_error = select_client(app_name)
-        if _client_error == "COHORT_UNAVAILABLE":
-            return {"answer": "The Cohort service is not currently available.", "sources": []}
-
-        # 🚀 PARALLELIZED EXECUTION BLOCK
-        # We start metadata fetch and embedding generation simultaneously
-        logger.info("⚡ Starting Parallel RAG Retrieval...")
-        
+        # 🚀 1. PARALLELIZED RETRIEVAL (Tier 0)
         async def fetch_metadata():
             try:
-                # Use current Supabase context
-                query = supabase.table("documents").select("id, title, org_id, project_id, user_id")
-                query = query.eq("org_id", request.org_id)
-                
-                # Filter by user_id or global (null)
-                if request.user_id:
-                     # Use the newly added in_ filter
-                     query = query.in_("user_id", [request.user_id, "null"])
-                
-                resp = await query.execute()
-                if resp.error:
-                    # If user_id column doesn't exist yet, fallback to just org_id
-                    logger.warning(f"RAG Filter Error: {resp.error}. Falling back to Org-level fetch.")
-                    resp = await supabase.table("documents").select("id, title, org_id, project_id").eq("org_id", request.org_id).execute()
-                return resp.data or []
-            except Exception as e:
-                logger.error(f"Error fetching existing doc metadata: {e}")
-                return []
+                resp = await supabase.table("documents").select("id, title, source").eq("org_id", str(request.org_id)).execute()
+                docs = {str(d.get('id')): d.get('title') for d in resp.data or []}
+                sources = {str(d.get('id')): str(d.get('source')) for d in resp.data or []}
+                return docs, sources
+            except: return {}, {}
 
-        # Parallelize: 1. Metadata, 2. Embedding
+        logger.info(f"⚡ RAG Discovery: '{request.question}'")
         metadata_task = fetch_metadata()
         embedding_task = get_embeddings([request.question])
         
-        all_docs, (q_emb, emb_lat) = await asyncio.gather(metadata_task, embedding_task)
+        (all_doc_map, all_doc_sources), (q_emb_res, emb_lat) = await asyncio.gather(metadata_task, embedding_task)
+        q_emb = q_emb_res[0] if q_emb_res else None
         embedding_latency = emb_lat
 
-        # 1. Process Metadata for title matching
-        doc_filters = {}
-        all_doc_map = {}
-        if all_docs:
-            # Sort by title length descending to match longest (most specific) title first
-            all_docs.sort(key=lambda x: len(x.get('title', '')), reverse=True)
-            
-            q_norm = re.sub(r'[^a-z0-9]', '', request.question.lower())
-            logger.info(f"🔍 Normalized Query for Matching: {q_norm}")
-            for d in all_docs:
-                title = d.get('title', '')
-                t_id = d.get('id')
-                all_doc_map[t_id] = title
-                t_norm = re.sub(r'[^a-z0-9]', '', title.lower())
-                
-                if t_norm and t_norm in q_norm:
-                    doc_filters["document_id"] = t_id
-                    # CRITICAL: Use the document's actual org_id for chunk fetching
-                    doc_filters["org_id"] = d.get("org_id")
-                    doc_filters["project_id"] = d.get("project_id")
-                    logger.info(f"🎯 MATCH FOUND: '{title}' ({t_id}) matched")
-                    break
-
-        # 2. Strategy: Direct Fetch vs Vector Search
-        target_doc_id = doc_filters.get("document_id")
-        final_matches = []
+        # 🚀 2. TIERED DISCOVERY PIPELINE
         
-        if target_doc_id:
-            logger.info(f"Directly fetching chunks for Document: {target_doc_id}")
-            # Use current Supabase context - and importantly, use the correct document ID and potentially ignore org_id if mismatched
-            # We filter only by document_id here since it is a unique UUID
-            resp = await supabase.table("document_chunks").select("content, document_id").eq("document_id", target_doc_id).execute()
-            if resp.data:
-                chunks = resp.data
-                logger.info(f"Retrieved {len(chunks)} shards from document {target_doc_id}")
-                for c in chunks:
-                    final_matches.append({
-                        "id": c.get('document_id'),
-                        "content": c.get('content')
-                    })
-            
-        # If no specific doc was mentioned OR direct fetch failed, use Vector Search
+        # Tier 1: Targeted Search (Title Hints / Sticky Context)
+        target_ids = []
+        if request.target_doc_id: target_ids.append(str(request.target_doc_id))
+        if request.target_doc_title and request.target_doc_title != "all":
+            t_lower = request.target_doc_title.lower()
+            for did, dtitle in all_doc_map.items():
+                if t_lower in dtitle.lower(): target_ids.append(did)
+
+        if target_ids:
+            logger.info(f"🎯 TIER 1: Targeted Search ({len(target_ids)} docs)")
+            dr = await supabase.table("document_chunks").select("id, content, document_id").in_("document_id", target_ids).execute()
+            for m in (dr.data or []):
+                final_matches.append({"id": m['id'], "document_id": str(m['document_id']), "content": m['content'], "is_primary": True})
+
+        # Tier 2: Global Vector Search (0.25 Threshold, 60 Count)
+        if not final_matches and q_emb:
+            logger.info("📡 TIER 2: Global Vector Search")
+            params = {"query_embedding": q_emb, "match_threshold": 0.25, "match_count": 60, "filter": {"org_id": str(request.org_id)}}
+            resp = await supabase.rpc("match_documents", params)
+            for m in (resp.data or []):
+                m_task = m.get('task_id')
+                if request.task_id and m_task and str(m_task) != str(request.task_id): continue
+                final_matches.append({"id": m['id'], "document_id": str(m.get('document_id', m.get('id'))), "content": m['content'], "is_primary": False})
+
+        # Tier 3: Task-Specific Fallback
+        if not final_matches and request.task_id:
+            logger.info(f"🔍 TIER 3: Task Fallback ({request.task_id})")
+            dr = await supabase.table("document_chunks").select("id, content, document_id").eq("task_id", str(request.task_id)).execute()
+            for m in (dr.data or []):
+                final_matches.append({"id": m['id'], "document_id": str(m['document_id']), "content": m['content'], "is_primary": True})
+
+        # Tier 4: Policy Aggregation
+        if "policy" in request.question.lower() or "handbook" in request.question.lower():
+            logger.info("📚 TIER 4: Policy Aggregation")
+            p_ids = [did for did, dtitle in all_doc_map.items() if "polic" in dtitle.lower() or all_doc_sources.get(did) == "policy"]
+            if p_ids:
+                dr = await supabase.table("document_chunks").select("id, content, document_id").in_("document_id", p_ids).limit(20).execute()
+                for m in (dr.data or []):
+                    if not any(f['id'] == m['id'] for f in final_matches):
+                        final_matches.append({"id": m['id'], "document_id": str(m['document_id']), "content": m['content'], "is_primary": False, "source_label": f"Policy: {all_doc_map.get(str(m['document_id']))}"})
+
+        # Tier 5: Deep Safety Net (Keyword + Direct Parsing)
         if not final_matches:
-            q_emb, embedding_latency = await get_embeddings([request.question])
-            if q_emb:
-                query_vector = q_emb[0]
-                params = {
-                    "query_embedding": query_vector,
-                    "match_threshold": 0.01, 
-                    "match_count": 20,
-                    "filter": {
-                        "org_id": request.org_id,
-                        "project_id": request.project_id
-                    }
-                }
-                rpc_resp = await supabase.rpc("match_documents", params)
-                matches = rpc_resp.data if rpc_resp.data else []
-                for m in matches:
-                    final_matches.append({
-                        "id": m.get('id'), # In RPC result, 'id' is the parent document ID
-                        "content": m.get('content')
-                    })
-            else:
-                return {"answer": "Failed to generate embedding", "sources": []}
+            keywords = ["leave", "holiday", "sick", "conduct", "handbook"]
+            found = [k for k in keywords if k in request.question.lower()]
+            if found:
+                logger.info(f"🕵️ TIER 5: Deep Safety Net ({found[0]})")
+                c_res = await supabase.table("document_chunks").select("id, content, document_id").ilike("content", f"%{found[0]}%").limit(5).execute()
+                for m in (c_res.data or []):
+                    final_matches.append({"id": m['id'], "document_id": str(m['document_id']), "content": m['content'], "is_primary": True, "source_label": "Safety Net Discovery"})
 
-        # 4. Format context with titles
-        context_text = ""
+        # Build Context
+        context_text = "### ACCESSIBLE KNOWLEDGE REPOSITORY\n\n"
         unique_sources = []
+        primary_source_id = None
         
-        # Limit to 15 chunks to avoid overwhelming context window
-        for item in final_matches[:15]:
-            d_id = item.get('id')
-            title = all_doc_map.get(d_id, "Unknown Document")
-            context_text += f"---\n[SOURCE: {title}]\n{item.get('content', '')}\n"
-            unique_sources.append(title)
+        # Sort so primary/targeted docs are first
+        final_matches.sort(key=lambda x: x.get("is_primary", False), reverse=True)
+        
+        for item in final_matches[:60]:
+            d_id = item.get('document_id')
+            if not primary_source_id and item.get("is_primary"): primary_source_id = d_id
+            title = item.get("source_label") or all_doc_map.get(d_id, "Document")
+            context_text += f"---\n[SOURCE: {title}]\n{item['content']}\n"
+            if title not in unique_sources: unique_sources.append(title)
             
-        if not context_text:
-            context_text = "No relevant document sections were found in the database."
-
-        retrieval_latency = (time.perf_counter() - start_time) - embedding_latency
-        
-        # 5. Return Raw Context for SLM Delivery (Requirement 0)
         return {
-            "answer": context_text,
-            "sources": sorted(list(set(unique_sources))),
+            "answer": context_text if final_matches else "No relevant documents found.",
+            "sources": unique_sources,
+            "primary_source_id": primary_source_id,
             "metrics": {
                 "embedding_latency": embedding_latency,
-                "retrieval_latency": retrieval_latency,
+                "retrieval_latency": (time.perf_counter() - start_time) - embedding_latency,
                 "total_rag_latency": time.perf_counter() - start_time
             }
         }
-        
     except Exception as e:
         logger.error(f"RAG Query Error: {e}")
         return {
