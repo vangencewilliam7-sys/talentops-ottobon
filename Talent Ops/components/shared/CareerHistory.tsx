@@ -48,7 +48,7 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
       setPositions([]);
       return;
     }
-    
+
     setFetching(true);
     try {
       const { data: profile, error: profileError } = await supabase
@@ -62,7 +62,7 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
         .single();
 
       if (profileError && profileError.code !== 'PGRST116') {
-         console.warn("Profiles fetch issue:", profileError);
+        console.warn("Profiles fetch issue:", profileError);
       }
 
       const deptName = (profile?.departments as any)?.name || 'Engineering';
@@ -85,7 +85,7 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
           id: 'current-profile-role',
           title: profile.job_title,
           department: deptName,
-          employmentType: 'Full Time', 
+          employmentType: 'Full Time',
           startDate: profile.join_date || format(new Date(), 'yyyy-MM-dd'),
           isCurrent: true,
         });
@@ -96,7 +96,7 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
           mappedPositions.push({
             id: h.id,
             title: h.role || h.title || h.job_title || 'Role',
-            department: deptName, 
+            department: deptName,
             employmentType: h.employment_type || 'Full Time',
             startDate: h.start_date,
             endDate: h.end_date,
@@ -106,13 +106,13 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
       }
 
       mappedPositions.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
-      
+
       // Safety Fallback: Ensure at least the top-most position behaves as 'current' 
       // if database strictly lacked an explicit 'isCurrent'/open end-date.
       if (mappedPositions.length > 0 && !mappedPositions.some(p => p.isCurrent)) {
         mappedPositions[0].isCurrent = true;
       }
-      
+
       setPositions(mappedPositions);
 
     } catch (err) {
@@ -126,7 +126,7 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
     fetchTimeline();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId]);
-  
+
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const handleCloseModal = () => {
@@ -146,7 +146,7 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!employeeId) return;
-    
+
     try {
       const dbPayload = {
         employee_id: employeeId,
@@ -159,13 +159,13 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
 
       const { error } = await supabase.from('career_history').insert(dbPayload);
       if (error) throw error;
-      
+
       if (formData.isCurrent) {
-         await supabase.from('profiles').update({
-           job_title: formData.title
-         }).eq('id', employeeId);
+        await supabase.from('profiles').update({
+          job_title: formData.title
+        }).eq('id', employeeId);
       }
-      
+
       handleCloseModal();
       fetchTimeline();
 
@@ -214,11 +214,11 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
   const getRoleIcon = (title: string, isCurrent: boolean) => {
     if (!title) return <Briefcase size={20} className={isCurrent ? "text-blue-600" : "text-gray-500"} />;
     if (isCurrent) return <Star size={20} className="fill-blue-600 text-blue-600" />;
-    
+
     const titleLower = title.toLowerCase();
     if (titleLower.includes('intern')) return <GraduationCap size={20} className="text-gray-500" />;
     if (titleLower.includes('developer') || titleLower.includes('engineering') || titleLower.includes('software')) return <Code size={20} className="text-gray-500" />;
-    
+
     return <Briefcase size={20} className="text-gray-500" />;
   };
 
@@ -226,13 +226,13 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
     if (isCurrent) {
       return (
         <div className="relative z-10 flex shrink-0 items-center justify-center w-[16px] h-[16px] bg-blue-500 rounded-full mt-2.5 animate-custom-pulse">
-            <div className="w-[6px] h-[6px] bg-white rounded-full"></div>
+          <div className="w-[6px] h-[6px] bg-white rounded-full"></div>
         </div>
       );
     }
     return (
       <div className="relative z-10 flex shrink-0 items-center justify-center w-[16px] h-[16px] bg-blue-500 rounded-full mt-2.5 text-white">
-         <Check size={10} strokeWidth={4} />
+        <Check size={10} strokeWidth={4} />
       </div>
     );
   };
@@ -249,9 +249,9 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
           animation: customPulse 1.8s infinite;
         }
       `}</style>
-      
+
       <div className="w-full flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[400px]">
-        
+
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center bg-white">
           <h2 className="text-[17px] font-semibold text-gray-900">Career Journey</h2>
@@ -272,7 +272,7 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
                 const isLast = index === positions.length - 1;
                 return (
                   <div key={role.id} className="relative flex items-stretch group">
-                    
+
                     {!isLast && (
                       <div className="absolute left-[15px] top-[16px] -bottom-[42px] w-[2px] bg-blue-400 z-0"></div>
                     )}
@@ -283,22 +283,20 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
 
                     <div
                       onClick={() => setExpandedId(expandedId === role.id ? null : role.id)}
-                      className={`flex-1 rounded-xl border p-4 transition-all w-full cursor-pointer hover:shadow-md ${
-                        role.isCurrent
+                      className={`flex-1 rounded-xl border p-4 transition-all w-full cursor-pointer hover:shadow-md ${role.isCurrent
                           ? 'bg-[#EFF6FF] border-blue-500 shadow-sm'
                           : 'bg-white border-gray-200'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-start gap-4">
-                        
-                        <div className={`w-12 h-12 flex-shrink-0 rounded-[14px] flex items-center justify-center ${
-                          role.isCurrent 
-                            ? 'bg-[#DBEAFE] text-blue-600' 
+
+                        <div className={`w-12 h-12 flex-shrink-0 rounded-[14px] flex items-center justify-center ${role.isCurrent
+                            ? 'bg-[#DBEAFE] text-blue-600'
                             : 'bg-gray-100 text-gray-500'
-                        }`}>
+                          }`}>
                           {getRoleIcon(role.title, role.isCurrent)}
                         </div>
-                        
+
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-start gap-3">
                             <h3 className="text-[15px] font-semibold text-gray-900 leading-tight">
@@ -325,7 +323,7 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
                               </DropdownMenu>
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center gap-2.5 mt-1.5 text-[13px] text-gray-500 font-medium">
                             <span className="truncate">{role.department}</span>
                             <div className="w-1 h-1 rounded-full bg-gray-300 shrink-0"></div>
@@ -334,16 +332,16 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
 
                           {expandedId === role.id && (
                             <div className="mt-3 pt-3 border-t border-gray-200/60 text-sm animate-in fade-in slide-in-from-top-2 duration-200">
-                               <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                     <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Start Date</span>
-                                     <span className="font-semibold text-gray-800">{role.startDate ? format(new Date(role.startDate), 'MMMM d, yyyy') : 'Unknown'}</span>
-                                  </div>
-                                  <div>
-                                     <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">End Date</span>
-                                     <span className="font-semibold text-gray-800">{role.isCurrent || !role.endDate ? 'Current Role' : format(new Date(role.endDate), 'MMMM d, yyyy')}</span>
-                                  </div>
-                               </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Start Date</span>
+                                  <span className="font-semibold text-gray-800">{role.startDate ? format(new Date(role.startDate), 'MMMM d, yyyy') : 'Unknown'}</span>
+                                </div>
+                                <div>
+                                  <span className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">End Date</span>
+                                  <span className="font-semibold text-gray-800">{role.isCurrent || !role.endDate ? 'Current Role' : format(new Date(role.endDate), 'MMMM d, yyyy')}</span>
+                                </div>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -366,7 +364,7 @@ export const CareerHistory = forwardRef<CareerHistoryRef, CareerHistoryProps>(({
                   <X size={18} />
                 </button>
               </div>
-              
+
               <form onSubmit={handleSubmit} className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Job Title</label>
