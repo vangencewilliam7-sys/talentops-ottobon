@@ -22,6 +22,8 @@ import { useEmployees } from '../../shared/hooks/useEmployees';
 import EmployeesFeature from '../../shared/features/EmployeesFeature';
 import { useLeaves } from '../../shared/hooks/useLeaves';
 import LeavesFeature from '../../shared/features/LeavesFeature';
+import ApplyLeaveModal from '../../shared/Leaves/ApplyLeaveModal';
+import LeaveDetailsModal from '../../shared/Leaves/LeaveDetailsModal';
 import PayslipsPage from '../../shared/PayslipsPage';
 
 
@@ -45,6 +47,13 @@ const ModulePage = ({ title, type }) => {
     // State for Handover Modal
     const [showHandoverModal, setShowHandoverModal] = useState(false);
     const [selectedMemberForHandover, setSelectedMemberForHandover] = useState(null);
+
+    // State for Leave Details modal
+    const [selectedLeaveRequest, setSelectedLeaveRequest] = useState(null);
+    const [showLeaveDetailsModal, setShowLeaveDetailsModal] = useState(false);
+
+    // State for Apply Leave modal
+    const [showApplyLeaveModal, setShowApplyLeaveModal] = useState(false);
 
     // State for Realtime Updates
     // Leave data fetching is now completely handled by the useLeaves hook
@@ -125,7 +134,29 @@ const ModulePage = ({ title, type }) => {
     };
 
     const handleAction = async (action, item) => {
-        if (action === 'View Team Member') {
+        if (action === 'Apply Leave') {
+            setShowApplyLeaveModal(true);
+        } else if (action === 'View Leave') {
+            setSelectedLeaveRequest(item);
+            setShowLeaveDetailsModal(true);
+        } else if (action === 'Delete Leave') {
+            if (window.confirm('Are you sure you want to delete this leave request?')) {
+                try {
+                    const { error } = await supabase
+                        .from('leaves')
+                        .delete()
+                        .eq('id', item.id)
+                        .eq('employee_id', userId);
+
+                    if (error) throw error;
+                    addToast('Leave request deleted successfully', 'success');
+                    refetchLeaves();
+                } catch (error) {
+                    console.error('Error deleting leave:', error);
+                    addToast(error.message || 'Failed to delete leave', 'error');
+                }
+            }
+        } else if (action === 'View Team Member') {
             setSelectedEmployee(item);
             setShowEmployeeModal(true);
         } else if (action === 'View Candidate') {
@@ -484,6 +515,38 @@ const ModulePage = ({ title, type }) => {
                         </p>
                     </div>
 
+                    {type === 'leaves' && (
+                        <button
+                            onClick={() => handleAction('Apply Leave')}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                padding: '12px 24px',
+                                borderRadius: '12px',
+                                background: 'linear-gradient(135deg, #38bdf8, #0284c7)',
+                                color: 'white',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontWeight: '800',
+                                fontSize: '0.9rem',
+                                boxShadow: '0 4px 12px rgba(56, 189, 248, 0.3)',
+                                transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                                whiteSpace: 'nowrap'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                e.currentTarget.style.boxShadow = '0 8px 20px rgba(56, 189, 248, 0.4)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(56, 189, 248, 0.3)';
+                            }}
+                        >
+                            <Plus size={20} strokeWidth={3} /> Apply for Leave
+                        </button>
+                    )}
+
                 </div>
             </div>
 
@@ -494,6 +557,7 @@ const ModulePage = ({ title, type }) => {
                 (type === 'leaves') ? (
                     <LeavesFeature
                         type={type}
+                        title={title}
                         leaves={sharedLeaves}
                         leaveStats={sharedLeaveStats}
                         remainingLeaves={sharedRemainingLeaves}
@@ -856,6 +920,26 @@ const ModulePage = ({ title, type }) => {
                 </div>
             )}
 
+            {/* Apply Leave Modal */}
+            {showApplyLeaveModal && (
+                <ApplyLeaveModal
+                    onClose={() => setShowApplyLeaveModal(false)}
+                    onSuccess={() => {
+                        setShowApplyLeaveModal(false);
+                        refetchLeaves();
+                    }}
+                    remainingLeaves={sharedRemainingLeaves}
+                />
+            )}
+
+            {/* Leave Details Modal */}
+            {showLeaveDetailsModal && selectedLeaveRequest && (
+                <LeaveDetailsModal
+                    selectedLeaveRequest={selectedLeaveRequest}
+                    onClose={() => setShowLeaveDetailsModal(false)}
+                    orgId={orgId}
+                />
+            )}
         </div>
     );
 };
