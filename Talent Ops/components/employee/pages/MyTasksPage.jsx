@@ -13,6 +13,7 @@ import AIAssistantPopup from '../../shared/AIAssistantPopup';
 import RiskBadge from '../../shared/RiskBadge';
 import { riskService } from '../../../services/modules/risk';
 import { calculateElapsedBusinessHours } from '../../../lib/businessHoursUtils';
+import { sendNotification } from '../../../services/notificationService';
 
 const LIFECYCLE_PHASES = [
     { key: 'requirement_refiner', label: 'Requirement Refiner', short: 'Req' },
@@ -97,90 +98,119 @@ const MyTasksPage = () => {
     };
 
     const checkMyRisks = async () => {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const userId = authUser?.id;
+        if (!userId) return;
+
         // Only analyze tasks that are actually in the current view (filtered)
         const activeTasks = filteredTasks.filter(t =>
             t.status !== 'completed' &&
             t.status !== 'archived' &&
-            t.status !== 'cancelled' &&
-            !checkedRiskTaskIds.has(t.id)
+            t.status !== 'cancelled'
         );
 
         if (activeTasks.length === 0) return;
 
-        // 1. Identifying ALL Urgent/Risky Tasks
+        // 1. Identifying ALL Urgent/Risky Tasks based strictly on milestones
         const urgentTasks = activeTasks.filter(t => {
             const now = new Date();
-
-            // A. Deadline Check
-            let isDeadlineRisk = false;
-            if (t.due_date) {
-                const due = new Date(`${t.due_date}T${t.due_time || '23:59:59'}`);
-                const hoursLeft = (due - now) / (1000 * 60 * 60);
-                isDeadlineRisk = hoursLeft < 24;
-            }
-
-            // B. Allocation vs Elapsed Check (Internal Math)
             const startedAt = t.started_at ? new Date(t.started_at) : new Date(t.created_at);
             const elapsedHours = calculateElapsedBusinessHours(startedAt, now);
-            const isOverAllocated = t.allocated_hours > 0 && elapsedHours > t.allocated_hours;
+            const totalHours = t.allocated_hours || 0;
+            
+            if (totalHours <= 0) return false;
+            
+            const hoursLeft = totalHours - elapsedHours;
+            const progressRatio = elapsedHours / totalHours;
+            
+            let activeMilestone = null;
+            
+            // Priority 0: 30 minutes left
+            if (hoursLeft <= 0.5 && hoursLeft > 0) activeMilestone = '30m_left';
+            // Priority 1: 1 hour left
+            else if (hoursLeft <= 1 && hoursLeft > 0.5) activeMilestone = '1h_left';
+            // Priority 2: 75% completed
+            else if (progressRatio >= 0.75 && progressRatio < 1) activeMilestone = '75_percent';
+            // Priority 3: 50% completed
+            else if (progressRatio >= 0.50 && progressRatio < 0.75) activeMilestone = '50_percent';
+            
+            if (!activeMilestone) return false;
+            
+            // Check LocalStorage to see if we already showed this exact milestone check
+            const storageKey = `ai_alert_${userId}_${t.id}_${activeMilestone}`;
+            if (localStorage.getItem(storageKey)) return false;
 
-            // C. Micro-task Urgency
-            const isMicroTask = (t.allocated_hours || 0) < 5;
-
-            return isDeadlineRisk || isOverAllocated || isMicroTask;
+            // Also check session cache to prevent loops before closing popup
+            if (checkedRiskTaskIds.has(`${t.id}_${activeMilestone}`)) return false;
+            
+            // Mark task so we know which milestone triggered it
+            t.activeMilestone = activeMilestone;
+            return true;
         });
 
         if (urgentTasks.length > 0) {
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-
-            // 2. Process ALL urgent tasks to ensure snapshots are created
+            // 2. Process ALL urgent tasks to ensure snapshots are created based on the milestone
             for (const task of urgentTasks) {
                 try {
-                    let snapshot = await riskService.getLatestSnapshot(task.id);
                     const isMicroTask = (task.allocated_hours || 0) < 5;
 
-                    // Check if snapshot is stale (re-analyze every 1h for micro, 4h for others)
-                    let isStale = false;
-                    if (snapshot) {
-                        const ageHrs = (new Date() - new Date(snapshot.computed_at)) / (1000 * 60 * 60);
-                        isStale = isMicroTask ? ageHrs > 1 : ageHrs > 4;
-                    }
+                    // Force trigger the Edge function because they HIT an exact milestone
+                    const result = await riskService.analyzeRisk(task.id, task.title, {
+                        full_name: authUser?.user_metadata?.full_name || 'Employee',
+                        role: 'employee',
+                        is_micro_task: isMicroTask,
+                        milestone_triggered: task.activeMilestone
+                    });
 
-                    // If missing or stale analysis, trigger it
-                    if (!snapshot || isStale) {
-                        const result = await riskService.analyzeRisk(task.id, task.title, {
-                            full_name: authUser?.user_metadata?.full_name || 'Employee',
-                            role: 'employee',
-                            is_micro_task: isMicroTask
-                        });
+                    // Merge metrics (numbers) and analysis (logic/text) into the snapshot state
+                    const snapshot = {
+                        ...(result.analysis || {}),
+                        ...(result.metrics || {}),
+                        snapshot_id: result.snapshotId
+                    };
 
-                        // Merge metrics (numbers) and analysis (logic/text) into the snapshot state
-                        snapshot = {
-                            ...(result.analysis || {}),
-                            ...(result.metrics || {}),
-                            snapshot_id: result.snapshotId
-                        };
+                    setRiskSnapshots(prev => ({ ...prev, [task.id]: snapshot }));
+                    
+                    // Add to session cache instantly so we don't loop it again during typing
+                    setCheckedRiskTaskIds(prev => {
+                        const newSet = new Set(prev);
+                        newSet.add(`${task.id}_${task.activeMilestone}`);
+                        return newSet;
+                    });
 
-                        setRiskSnapshots(prev => ({ ...prev, [task.id]: snapshot }));
-                    }
-
-                    // 3. Trigger Popup for the FIRST important one
-                    const shouldShowPopup = snapshot &&
-                        (snapshot.risk_level === 'high' || (isMicroTask && snapshot.risk_level === 'medium')) &&
-                        !showAIPopup;
-
-                    if (shouldShowPopup) {
+                    // 3. Trigger Popup exactly ONCE for this milestone 
+                    // No need to check AI's risk_level string anymore, User explicitly wants the popup at these times!
+                    if (!showAIPopup) {
+                        let milestoneText = task.activeMilestone.replace(/_/g, ' ');
                         setAiPopupData({
                             taskTitle: task.title,
                             type: 'coach',
-                            message: isMicroTask
-                                ? `This micro-task is tight! You have ${Math.round(task.allocated_hours * 60)} mins allocated. Let's move fast.`
-                                : `I've performed an AI analysis on this task. At your current pace, there's a risk of delay.`,
+                            message: `Milestone Alert: You are at the ${milestoneText} mark! ` +
+                                (isMicroTask ? `Let's wrap this up fast.` : `I've analyzed your pace and generated a quick coaching assessment.`),
                             reasons: snapshot.reasons || [],
                             recommended_actions: snapshot.recommended_actions || [],
                             onAction: () => setShowAIPopup(false)
                         });
+                        
                         setShowAIPopup(true);
+                        
+                        // Mark as permanently shown in localStorage so it NEVER opens again!
+                        const storageKey = `ai_alert_${userId}_${task.id}_${task.activeMilestone}`;
+                        localStorage.setItem(storageKey, 'true');
+                        
+                        // FIRE GLOBAL DATABASE NOTIFICATION USING AI RESULT
+                        const fallbackMsg = isMicroTask ? "Task time is nearly up." : "AI: You need to pick up the pace.";
+                        const aiMessageText = snapshot.reasons && snapshot.reasons.length > 0 ? snapshot.reasons[0] : fallbackMsg;
+                        await sendNotification(
+                            userId, // Send to self
+                            userId, // From self/system
+                            'AI Coach', // Custom Sender Name 
+                            `Task: ${task.title} - ${aiMessageText}`,
+                            'task_alert',
+                            task.org_id
+                        );
+                        
+                        break; // Only show one popup at a time to not overwhelm the user
                     }
                 } catch (err) {
                     console.error(`Risk analysis failed for task ${task.id}:`, err);

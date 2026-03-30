@@ -169,7 +169,8 @@ export const submitTaskProof = async ({
                 await supabase
                     .from('task_submissions')
                     .update(subUpdates)
-                    .eq('id', existingSub.id);
+                    .eq('id', existingSub.id)
+                    .eq('org_id', orgId);
             } else {
                 const insertPayload = {
                     task_id: task.id,
@@ -433,7 +434,7 @@ export const approveTaskPhase = async (task, phaseKey, orgId) => {
 
     // ── Send Notification to Assignee ──
     if (task.assigned_to) {
-        const { data: managerProfile } = await supabase.from('profiles').select('full_name').eq('id', task.assigned_by || '').single();
+        const { data: managerProfile } = await supabase.from('profiles').select('full_name').eq('id', task.assigned_by || '').eq('org_id', orgId).single();
         const managerName = managerProfile?.full_name || 'Manager';
 
         await sendNotification(
@@ -472,7 +473,7 @@ export const rejectTaskPhase = async (task, phaseKey, orgId) => {
 
     // ── Send Notification to Assignee ──
     if (task.assigned_to) {
-        const { data: managerProfile } = await supabase.from('profiles').select('full_name').eq('id', task.assigned_by || '').single();
+        const { data: managerProfile } = await supabase.from('profiles').select('full_name').eq('id', task.assigned_by || '').eq('org_id', orgId).single();
         const managerName = managerProfile?.full_name || 'Manager';
 
         await sendNotification(

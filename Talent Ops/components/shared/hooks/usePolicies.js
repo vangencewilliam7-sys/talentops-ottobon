@@ -61,7 +61,11 @@ export const usePolicies = (orgId, addToast) => {
             const { error: storageError } = await supabase.storage.from('policies').remove([filePath]);
             if (storageError) throw new Error('Failed to delete policy document from storage.');
 
-            const { error: dbError } = await supabase.from('policies').delete().eq('id', policy.id);
+            const { error: dbError } = await supabase
+                .from('policies')
+                .delete()
+                .eq('id', policy.id)
+                .eq('org_id', orgId);
             if (dbError) throw new Error('Failed to delete policy record from database.');
 
             setPolicies(prev => prev.filter(p => p.id !== policy.id));

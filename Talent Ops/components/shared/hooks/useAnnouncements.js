@@ -18,13 +18,14 @@ export const useAnnouncements = (userId, orgId) => {
                     .from('profiles')
                     .select('team_id')
                     .eq('id', userId)
+                    .eq('org_id', orgId)
                     .single();
                 if (profile) {
                     setUserTeamId(profile.team_id);
                 }
             }
 
-            const { data, error: rpcError } = await supabase.rpc('get_my_announcements');
+            const { data, error: rpcError } = await supabase.rpc('get_my_announcements', { p_org_id: orgId });
             if (rpcError) throw rpcError;
 
             let allEvents = data || [];
@@ -34,6 +35,7 @@ export const useAnnouncements = (userId, orgId) => {
             const { data: holidays } = await supabase
                 .from('organization_holidays')
                 .select('*')
+                .eq('org_id', orgId)
                 .gte('holiday_date', `${currentYear}-01-01`);
 
             if (holidays) {
@@ -101,14 +103,18 @@ export const useAnnouncements = (userId, orgId) => {
     const updateAnnouncementStatus = async (eventId, newStatus) => {
         const { error } = await supabase.rpc('update_announcement_status', {
             p_announcement_id: eventId,
-            p_status: newStatus
+            p_status: newStatus,
+            p_org_id: orgId
         });
         if (error) throw error;
         setAnnouncements(prev => prev.map(ev => ev.id === eventId ? { ...ev, status: newStatus } : ev));
     };
 
     const deleteAnnouncement = async (eventId) => {
-        const { error } = await supabase.rpc('delete_announcement', { p_announcement_id: eventId });
+        const { error } = await supabase.rpc('delete_announcement', { 
+            p_announcement_id: eventId,
+            p_org_id: orgId 
+        });
         if (error) throw error;
         setAnnouncements(prev => prev.filter(ev => ev.id !== eventId));
     };

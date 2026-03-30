@@ -3,13 +3,13 @@ import {
     X, Upload, Send, AlertTriangle, CheckCircle2, Clock, Calendar,
     User, FileText, MessageSquare, ChevronRight, ArrowLeft, Star,
     Link as LinkIcon, ExternalLink, Check, Circle, Trash2, Award,
-    StickyNote, ThumbsUp, ThumbsDown
+    StickyNote, ThumbsUp, ThumbsDown, Eye, FileCheck, CloudOff, Paperclip, Play,
+    FileUp, ArrowRight, AlertCircle
 } from 'lucide-react';
 import { supabase } from '../../../../lib/supabaseClient';
 import { taskService } from '../../../../services/modules/task';
 import TaskNotesModal from '../../../shared/TaskNotesModal';
 import DocumentViewer from '../../../shared/DocumentViewer';
-import { Eye } from 'lucide-react';
 
 
 const TaskDetailOverlay = ({
@@ -89,6 +89,7 @@ const TaskDetailOverlay = ({
                 .from('task_notes')
                 .select('*, profiles:author_id(full_name, avatar_url)')
                 .eq('task_id', task.id)
+                .eq('org_id', orgId)
                 .order('created_at', { ascending: true });
 
             if (error) throw error;
@@ -131,6 +132,7 @@ const TaskDetailOverlay = ({
                 .from('task_steps')
                 .select('*')
                 .eq('task_id', task.id)
+                .eq('org_id', orgId)
                 .order('order_index', { ascending: true });
 
             if (error) throw error;
@@ -203,7 +205,8 @@ const TaskDetailOverlay = ({
                     completed_at: newStatus === 'completed' ? new Date().toISOString() : null,
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', step.id);
+                .eq('id', step.id)
+                .eq('org_id', orgId);
 
             if (error) throw error;
             fetchTaskSteps();
@@ -225,7 +228,8 @@ const TaskDetailOverlay = ({
                     skipped_reason: skipReason.trim(),
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', skipModalStep.id);
+                .eq('id', skipModalStep.id)
+                .eq('org_id', orgId);
 
             if (error) throw error;
             setSkipModalStep(null);
@@ -246,7 +250,8 @@ const TaskDetailOverlay = ({
                     step_title: editingStepTitle.trim(),
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', stepId);
+                .eq('id', stepId)
+                .eq('org_id', orgId);
 
             if (error) throw error;
             setEditingStepId(null);
@@ -262,7 +267,8 @@ const TaskDetailOverlay = ({
             const { error } = await supabase
                 .from('task_steps')
                 .delete()
-                .eq('id', stepId);
+                .eq('id', stepId)
+                .eq('org_id', orgId);
 
             if (error) throw error;
             fetchTaskSteps();
@@ -460,7 +466,8 @@ const TaskDetailOverlay = ({
             const { error } = await supabase
                 .from('tasks')
                 .update(updatePayload)
-                .eq('id', task.id);
+                .eq('id', task.id)
+                .eq('org_id', orgId);
 
             if (error) throw error;
 
@@ -484,7 +491,8 @@ const TaskDetailOverlay = ({
             const { error } = await supabase
                 .from('tasks')
                 .update({ issues: updatedIssues })
-                .eq('id', task.id);
+                .eq('id', task.id)
+                .eq('org_id', orgId);
 
             if (error) throw error;
             addToast?.('Issue reported successfully', 'success');
@@ -518,7 +526,8 @@ const TaskDetailOverlay = ({
                     issues: updatedIssues,
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', task.id);
+                .eq('id', task.id)
+                .eq('org_id', orgId);
 
             if (error) throw error;
             addToast?.('Issues marked as resolved', 'success');
@@ -535,19 +544,21 @@ const TaskDetailOverlay = ({
 
     const getPriorityColor = (priority) => {
         const colors = {
-            high: { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' },
-            medium: { bg: '#fef3c7', text: '#d97706', border: '#fde68a' },
-            low: { bg: '#dcfce7', text: '#16a34a', border: '#bbf7d0' }
+            critical: { bg: '#fef2f2', text: '#ef4444', border: '#fecaca', iconColor: '#ef4444' },
+            high: { bg: '#fff1f2', text: '#e11d48', border: '#fecdd3', iconColor: '#e11d48' },
+            medium: { bg: '#fffbeb', text: '#d97706', border: '#fef3c7', iconColor: '#d97706' },
+            low: { bg: '#f0fdf4', text: '#16a34a', border: '#dcfce7', iconColor: '#16a34a' }
         };
         return colors[priority?.toLowerCase()] || colors.medium;
     };
 
     const getStatusColor = (status) => {
         const colors = {
-            pending: { bg: '#fef3c7', text: '#d97706' },
-            in_progress: { bg: '#dbeafe', text: '#2563eb' },
-            completed: { bg: '#dcfce7', text: '#16a34a' },
-            on_hold: { bg: '#f3e8ff', text: '#9333ea' }
+            pending: { bg: '#fef3c7', text: '#92400e', dot: '#f59e0b' },
+            in_progress: { bg: '#eff6ff', text: '#1e40af', dot: '#3b82f6' },
+            completed: { bg: '#f0fdf4', text: '#166534', dot: '#10b981' },
+            on_hold: { bg: '#f5f3ff', text: '#5b21b6', dot: '#8b5cf6' },
+            delayed: { bg: '#fff1f2', text: '#9f1239', dot: '#e11d48' }
         };
         return colors[status?.toLowerCase()] || colors.pending;
     };
@@ -602,138 +613,211 @@ const TaskDetailOverlay = ({
                 flexDirection: 'column'
             }}
         >
-            {/* Top Bar */}
+            {/* Premium Header */}
             <div style={{
-                padding: '12px 24px',
+                padding: '16px 40px',
                 backgroundColor: 'white',
-                borderBottom: '1px solid #e2e8f0',
+                borderBottom: '1px solid #f1f5f9',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 position: 'sticky',
                 top: 0,
-                zIndex: 10
+                zIndex: 100,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.03)'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <input
-                        type="text"
-                        placeholder="Search"
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <div
+                        onClick={onClose}
                         style={{
-                            padding: '8px 16px',
-                            borderRadius: '8px',
-                            border: '1px solid #e2e8f0',
-                            backgroundColor: '#f8fafc',
-                            fontSize: '0.9rem',
-                            width: '200px'
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '4px',
+                            backgroundColor: '#f1f5f9',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            color: '#64748b',
+                            transition: 'all 0.2s'
                         }}
-                    />
+                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#e2e8f0'; e.currentTarget.style.color = '#0f172a'; }}
+                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#f1f5f9'; e.currentTarget.style.color = '#64748b'; }}
+                    >
+                        <ArrowLeft size={18} />
+                    </div>
+                    <div style={{ height: '24px', width: '1px', backgroundColor: '#e2e8f0' }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '0.9rem', fontWeight: 500 }}>
+                        <span style={{ color: '#0f172a' }}>Tasks</span>
+                        <ChevronRight size={14} />
+                        <span>{task.project_name || 'Project'}</span>
+                        <ChevronRight size={14} />
+                        <span style={{ color: '#0f172a' }}>{task.title?.length > 30 ? task.title.slice(0, 30) + '...' : task.title}</span>
+                    </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 14px', backgroundColor: '#f8fafc', borderRadius: '4px', border: '1px solid #f1f5f9' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: getStatusColor(task.status).dot }}></div>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: getStatusColor(task.status).text, textTransform: 'uppercase' }}>
+                            {task.status?.replace('_', ' ')}
+                        </span>
+                    </div>
+
                     <button
                         onClick={() => setShowNotesModal(true)}
                         style={{
-                            padding: '6px 16px',
-                            borderRadius: '20px',
+                            padding: '10px 20px',
+                            borderRadius: '6px',
                             border: '1px solid #e2e8f0',
                             backgroundColor: 'white',
-                            color: '#0ea5e9',
+                            color: '#0f172a',
                             fontSize: '0.85rem',
                             fontWeight: 600,
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '8px',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                             transition: 'all 0.2s'
                         }}
-                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f0f9ff'}
-                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'white'}
+                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
                     >
-                        <StickyNote size={16} /> Task Notes
+                        <MessageSquare size={16} /> Task Notes
                     </button>
+
                     <button
                         onClick={onClose}
                         style={{
-                            padding: '6px 16px',
-                            borderRadius: '20px',
+                            padding: '10px 24px',
+                            borderRadius: '6px',
                             border: 'none',
-                            background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                            backgroundColor: '#0f172a',
                             color: 'white',
                             fontSize: '0.85rem',
                             fontWeight: 600,
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '6px'
+                            gap: '8px',
+                            boxShadow: '0 10px 20px rgba(15, 23, 42, 0.15)',
+                            transition: 'all 0.2s'
                         }}
+                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                        onMouseLeave={e => e.currentTarget.style.transform = 'none'}
                     >
-                        Close <X size={14} />
+                        Done <X size={16} />
                     </button>
                 </div>
-
             </div>
 
-            {/* Main Content */}
+            {/* Main Content Area */}
             <div style={{
                 flex: 1,
-                display: 'grid',
-                gridTemplateColumns: '1fr 380px',
-                gap: '0',
-                maxWidth: '1400px',
-                width: '100%',
-                margin: '0 auto',
-                padding: '32px'
+                backgroundColor: '#f8fafc',
+                padding: '40px 40px',
+                backgroundImage: 'radial-gradient(#e2e8f0 1px, transparent 1px)',
+                backgroundSize: '24px 24px'
             }}>
-                {/* Left Column - Task Details */}
-                <div style={{ paddingRight: '32px' }}>
-                    {/* Task Title & Priority */}
-                    <div style={{ marginBottom: '24px' }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+                <div style={{
+                    maxWidth: '1440px',
+                    margin: '0 auto',
+                    display: 'grid',
+                    gridTemplateColumns: 'minmax(0, 1fr) 400px',
+                    gap: '40px',
+                    alignItems: 'start'
+                }}>
+                {/* Left Column - Product Hero & Features */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                    
+                    {/* PDP Hero Section */}
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '8px',
+                        padding: '48px',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.03)',
+                        border: '1px solid white',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '24px',
+                        position: 'relative',
+                        overflow: 'hidden'
+                    }}>
+                        {/* Decorative background element */}
+                        <div style={{
+                            position: 'absolute',
+                            top: '-50px',
+                            right: '-50px',
+                            width: '200px',
+                            height: '200px',
+                            borderRadius: '50%',
+                            backgroundColor: priorityStyle.bg,
+                            opacity: 0.3,
+                            filter: 'blur(60px)',
+                            zIndex: 0
+                        }} />
+
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '4px',
+                                    backgroundColor: '#f1f5f9',
+                                    color: '#64748b',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em'
+                                }}>
+                                    {task.project_name || 'Project Category'}
+                                </div>
+                                <div style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '4px',
+                                    backgroundColor: priorityStyle.bg,
+                                    color: priorityStyle.text,
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}>
+                                    <Star size={12} fill="currentColor" /> {task.priority || 'Medium'} Priority
+                                </div>
+                            </div>
+
                             <h1 style={{
-                                fontSize: '1.75rem',
-                                fontWeight: 700,
+                                fontSize: '2.5rem',
+                                fontWeight: 800,
                                 color: '#0f172a',
                                 margin: 0,
-                                lineHeight: 1.3
+                                lineHeight: 1.1,
+                                letterSpacing: '-0.02em'
                             }}>
-                                Task: {task.title}
+                                {task.title}
                             </h1>
-                            <span style={{
-                                padding: '6px 14px',
-                                borderRadius: '20px',
-                                fontSize: '0.8rem',
-                                fontWeight: 600,
-                                backgroundColor: priorityStyle.bg,
-                                color: priorityStyle.text,
-                                border: `1px solid ${priorityStyle.border}`,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                whiteSpace: 'nowrap'
+
+                            <div style={{ 
+                                marginTop: '24px', 
+                                padding: '24px', 
+                                backgroundColor: '#f8fafc', 
+                                borderRadius: '8px',
+                                border: '1px solid #f1f5f9'
                             }}>
-                                <Star size={14} fill="currentColor" /> {task.priority || 'Medium'} Priority
-                            </span>
+                                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#334155', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Overview</h3>
+                                <p style={{
+                                    color: '#475569',
+                                    lineHeight: 1.6,
+                                    fontSize: '1rem',
+                                    margin: 0
+                                }}>
+                                    {task.description || 'This task does not have a detailed description yet.'}
+                                </p>
+                            </div>
                         </div>
-                    </div>
-
-
-                    {/* Description */}
-                    <div style={{ marginBottom: '32px' }}>
-                        <h3 style={{
-                            fontSize: '1rem',
-                            fontWeight: 600,
-                            color: '#334155',
-                            marginBottom: '12px'
-                        }}>
-                            Description
-                        </h3>
-                        <p style={{
-                            color: '#64748b',
-                            lineHeight: 1.7,
-                            fontSize: '0.95rem',
-                            margin: 0
-                        }}>
-                            {task.description || 'No description provided for this task.'}
-                        </p>
                     </div>
 
                     {/* Time Details Grid */}
@@ -744,7 +828,7 @@ const TaskDetailOverlay = ({
                         marginBottom: '32px'
                     }}>
                         {/* Start Time */}
-                        <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                        <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                             <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Start Date & Time</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontWeight: 600, fontSize: '0.95rem' }}>
@@ -758,7 +842,7 @@ const TaskDetailOverlay = ({
                         </div>
 
                         {/* Due Time */}
-                        <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                        <div style={{ padding: '16px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                             <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Due Date & Time</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontWeight: 600, fontSize: '0.95rem' }}>
@@ -772,7 +856,7 @@ const TaskDetailOverlay = ({
                         </div>
 
                         {/* Duration */}
-                        <div style={{ padding: '16px', backgroundColor: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                        <div style={{ padding: '16px', backgroundColor: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                             <div style={{ fontSize: '0.75rem', color: '#3b82f6', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Wait Time</div>
                             <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#1e40af', display: 'flex', alignItems: 'baseline', gap: '4px' }}>
                                 {task?.allocated_hours || 0}
@@ -786,7 +870,7 @@ const TaskDetailOverlay = ({
                         <div style={{
                             padding: '16px',
                             backgroundColor: '#fff7ed',
-                            borderRadius: '12px',
+                            borderRadius: '8px',
                             border: '1px solid #fed7aa',
                             marginBottom: '32px'
                         }}>
@@ -808,7 +892,7 @@ const TaskDetailOverlay = ({
                         <div style={{
                             padding: '16px',
                             backgroundColor: isTaskLocked ? '#fee2e2' : '#f0f9ff',
-                            borderRadius: '12px',
+                            borderRadius: '8px',
                             border: `1px solid ${isTaskLocked ? '#fecaca' : '#bae6fd'}`,
                             marginBottom: '32px',
                             display: 'flex',
@@ -829,7 +913,7 @@ const TaskDetailOverlay = ({
                             {isTaskLocked && !task.access_requested && (
                                 <button
                                     onClick={() => onShowAccessRequest?.(task)}
-                                    style={{ padding: '8px 16px', backgroundColor: '#991b1b', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                                    style={{ padding: '8px 16px', backgroundColor: '#991b1b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
                                 >
                                     Request Access
                                 </button>
@@ -837,7 +921,7 @@ const TaskDetailOverlay = ({
                             {task.access_requested && (userRole === 'manager' || userRole === 'team_lead') && task.access_status === 'pending' && (
                                 <button
                                     onClick={() => onShowAccessReview?.(task)}
-                                    style={{ padding: '8px 16px', backgroundColor: '#f97316', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                                    style={{ padding: '8px 16px', backgroundColor: '#f97316', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 600 }}
                                 >
                                     Review Request
                                 </button>
@@ -865,7 +949,7 @@ const TaskDetailOverlay = ({
                                     color: '#64748b',
                                     backgroundColor: '#f1f5f9',
                                     padding: '2px 8px',
-                                    borderRadius: '10px'
+                                    borderRadius: '4px'
                                 }}>
                                     Full Task Overview
                                 </span>
@@ -894,7 +978,7 @@ const TaskDetailOverlay = ({
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                             {loadingSteps ? (
-                                <div style={{ backgroundColor: '#f8fafc', borderRadius: '12px', padding: '24px', textAlign: 'center' }}>
+                                <div style={{ backgroundColor: '#f8fafc', borderRadius: '8px', padding: '24px', textAlign: 'center' }}>
                                     <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Loading steps...</p>
                                 </div>
                             ) : phases.map((phase) => {
@@ -908,7 +992,7 @@ const TaskDetailOverlay = ({
                                 return (
                                     <div key={phase.key} style={{
                                         backgroundColor: isCurrentPhase ? '#ffffff' : '#f8fafc',
-                                        borderRadius: '12px',
+                                        borderRadius: '8px',
                                         border: `1px solid ${isCurrentPhase ? '#3b82f6' : '#e2e8f0'}`,
                                         padding: '16px',
                                         boxShadow: isCurrentPhase ? '0 4px 6px -1px rgba(59, 130, 246, 0.1)' : 'none'
@@ -934,7 +1018,7 @@ const TaskDetailOverlay = ({
                                             <div style={{
                                                 backgroundColor: '#f8fafc',
                                                 padding: '10px 12px',
-                                                borderRadius: '8px',
+                                                borderRadius: '4px',
                                                 marginBottom: '12px',
                                                 fontSize: '0.85rem',
                                                 color: '#334155',
@@ -953,7 +1037,7 @@ const TaskDetailOverlay = ({
                                                 justifyContent: 'space-between',
                                                 backgroundColor: '#eff6ff',
                                                 padding: '10px 12px',
-                                                borderRadius: '8px',
+                                                borderRadius: '4px',
                                                 border: '1px solid #bfdbfe',
                                                 marginBottom: '12px'
                                             }}>
@@ -997,7 +1081,7 @@ const TaskDetailOverlay = ({
                                                         gap: '10px',
                                                         padding: '8px 10px',
                                                         backgroundColor: step.status === 'completed' ? '#ecfdf5' : step.status === 'skipped' ? '#f1f5f9' : (isCurrentPhase ? '#ffffff' : '#f8fafc'),
-                                                        borderRadius: '6px',
+                                                        borderRadius: '4px',
                                                         border: `1px solid ${step.status === 'completed' ? '#a7f3d0' : step.status === 'skipped' ? '#cbd5e1' : (isCurrentPhase ? '#e2e8f0' : 'transparent')}`
                                                     }}>
                                                         {/* Status Toggle */}
@@ -1073,7 +1157,7 @@ const TaskDetailOverlay = ({
                                                         onChange={(e) => setNewStepTitle(e.target.value)}
                                                         onKeyDown={(e) => e.key === 'Enter' && handleAddStep()}
                                                         placeholder="+ Add step to active phase..."
-                                                        style={{ flex: 1, padding: '6px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.8rem', outline: 'none' }}
+                                                        style={{ flex: 1, padding: '6px 10px', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '0.8rem', outline: 'none' }}
                                                     />
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
                                                         <input
@@ -1082,14 +1166,14 @@ const TaskDetailOverlay = ({
                                                             onChange={(e) => setNewStepHours(e.target.value)}
                                                             min="0.5"
                                                             step="0.5"
-                                                            style={{ width: '45px', padding: '6px 4px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.8rem', outline: 'none', textAlign: 'center' }}
+                                                            style={{ width: '45px', padding: '6px 4px', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '0.8rem', outline: 'none', textAlign: 'center' }}
                                                         />
                                                         <span style={{ fontSize: '0.7rem', color: '#64748b' }}>h</span>
                                                     </div>
                                                     <button
                                                         onClick={handleAddStep}
                                                         disabled={addingStep || !newStepTitle.trim()}
-                                                        style={{ padding: '6px 12px', backgroundColor: '#3b82f6', color: 'white', borderRadius: '6px', fontWeight: 600, fontSize: '0.75rem', border: 'none', cursor: 'pointer' }}
+                                                        style={{ padding: '6px 12px', backgroundColor: '#3b82f6', color: 'white', borderRadius: '4px', fontWeight: 600, fontSize: '0.75rem', border: 'none', cursor: 'pointer' }}
                                                     >Add</button>
                                                 </div>
                                             )}
@@ -1100,102 +1184,84 @@ const TaskDetailOverlay = ({
                         </div>
                     </div>
 
-                    {/* Phase Validations Progress */}
-                    <div style={{ marginBottom: '32px' }}>
-                        <h3 style={{
-                            fontSize: '1rem',
-                            fontWeight: 600,
-                            color: '#334155',
-                            marginBottom: '20px'
-                        }}>
-                            Phase Validations
-                        </h3>
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            position: 'relative',
-                            paddingBottom: '40px'
-                        }}>
-                            {/* Progress Line */}
+                    {/* Progress Timeline */}
+                    <div style={{
+                        backgroundColor: 'white',
+                        borderRadius: '8px',
+                        padding: '32px',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.03)',
+                        border: '1px solid white'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Workflow Timeline</h3>
+                            <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>
+                                {phases.filter(p => getPhaseStatus(p.key) === 'completed').length} / {phases.length} Phases Completed
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', position: 'relative', paddingBottom: '20px', overflowX: 'auto', gap: '8px' }} className="no-scrollbar">
+                            {/* Track line */}
                             <div style={{
                                 position: 'absolute',
-                                top: '12px',
-                                left: '24px',
-                                right: '24px',
-                                height: '4px',
-                                backgroundColor: '#e2e8f0',
-                                borderRadius: '2px'
-                            }}>
-                                <div style={{
-                                    height: '100%',
-                                    backgroundColor: '#3b82f6',
-                                    borderRadius: '2px',
-                                    transition: 'width 0.4s ease-in-out',
-                                    width: (() => {
-                                        // Bar should reach the dot of the current lifecycle state
-                                        const activeIndex = phases.findIndex(p => p.key === task.lifecycle_state);
-                                        const safeIndex = activeIndex === -1 ? 0 : activeIndex;
-                                        return `${(safeIndex / (phases.length - 1)) * 100}%`;
-                                    })()
-                                }} />
-                            </div>
+                                top: '24px',
+                                left: '40px',
+                                right: '40px',
+                                height: '2px',
+                                backgroundColor: '#f1f5f9',
+                                zIndex: 0
+                            }} />
 
-                            {phases.map((phase, idx) => {
+                            {phases.map((phase, index) => {
                                 const status = getPhaseStatus(phase.key);
+                                const isCurrent = task.lifecycle_state === phase.key;
+                                
                                 return (
                                     <div key={phase.key} style={{
+                                        flex: 1,
+                                        minWidth: '160px',
                                         display: 'flex',
                                         flexDirection: 'column',
                                         alignItems: 'center',
+                                        gap: '16px',
+                                        position: 'relative',
                                         zIndex: 1,
-                                        flex: 1
+                                        opacity: status === 'pending' ? 0.6 : 1
                                     }}>
                                         <div style={{
-                                            width: '28px',
-                                            height: '28px',
+                                            width: '48px',
+                                            height: '48px',
                                             borderRadius: '50%',
-                                            backgroundColor: status === 'completed' ? '#10b981' :
-                                                status === 'pending_validation' ? '#f59e0b' :
-                                                    status === 'in_progress' ? '#e2e8f0' : '#e2e8f0', // In Progress is now Grey (Active Border only)
+                                            backgroundColor: status === 'completed' ? '#10b981' : (isCurrent ? '#3b82f6' : 'white'),
+                                            border: `2px solid ${status === 'completed' ? '#10b981' : (isCurrent ? '#3b82f6' : '#e2e8f0')}`,
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            border: status === 'in_progress' || status === 'pending_validation' ? '3px solid #bfdbfe' : 'none',
-                                            transition: 'all 0.3s ease'
+                                            color: (status === 'completed' || isCurrent) ? 'white' : '#94a3b8',
+                                            boxShadow: isCurrent ? '0 0 0 4px rgba(59, 130, 246, 0.1)' : 'none',
+                                            transition: 'all 0.3s'
                                         }}>
-                                            {status === 'completed' ? (
-                                                <Check size={14} color="white" />
-                                            ) : (
-                                                <Circle size={10}
-                                                    color={(status === 'pending_validation') ? 'white' : (status === 'in_progress' ? '#3b82f6' : '#94a3b8')}
-                                                    fill={(status === 'pending_validation') ? 'white' : (status === 'in_progress' ? '#3b82f6' : 'none')}
-                                                />
-                                            )}
+                                            {status === 'completed' ? <Check size={20} strokeWidth={3} /> : (isCurrent ? <Play size={18} fill="white" /> : <Circle size={10} fill="#e2e8f0" />)}
                                         </div>
-                                        <div style={{
-                                            marginTop: '12px',
-                                            textAlign: 'center'
-                                        }}>
-                                            <div style={{
-                                                fontSize: '0.75rem',
-                                                fontWeight: 600,
-                                                color: '#334155',
-                                                marginBottom: '4px'
+                                        <div style={{ textAlign: 'center' }}>
+                                            <p style={{
+                                                fontSize: '0.85rem',
+                                                fontWeight: 800,
+                                                color: isCurrent ? '#3b82f6' : '#0f172a',
+                                                margin: 0,
+                                                whiteSpace: 'nowrap'
                                             }}>
-                                                {idx + 1}. {phase.label}
-                                            </div>
-                                            <div style={{
+                                                {phase.label}
+                                            </p>
+                                            <p style={{
                                                 fontSize: '0.7rem',
-                                                color: status === 'completed' ? '#10b981' :
-                                                    status === 'pending_validation' ? '#f59e0b' :
-                                                        status === 'in_progress' ? '#3b82f6' : '#94a3b8',
-                                                fontWeight: 500
+                                                fontWeight: 600,
+                                                color: status === 'completed' ? '#10b981' : (isCurrent ? '#3b82f6' : '#94a3b8'),
+                                                marginTop: '4px',
+                                                textTransform: 'uppercase',
+                                                textAlign: 'center'
                                             }}>
-                                                ({status === 'completed' ? 'Completed' :
-                                                    status === 'pending_validation' ? 'Pending Validation' :
-                                                        status === 'in_progress' ? 'In Progress' : 'Pending'})
-                                            </div>
+                                                {status.replace('_', ' ')}
+                                            </p>
                                         </div>
                                     </div>
                                 );
@@ -1203,674 +1269,360 @@ const TaskDetailOverlay = ({
                         </div>
                     </div>
 
-                    {/* Validation Proofs Section - MATCHING PIC */}
+                    {/* Validation Proofs - "Specifications" Area */}
                     <div style={{
-                        marginTop: '32px',
-                        padding: '24px',
-                        backgroundColor: '#f0fdf4',
-                        borderRadius: '16px',
-                        border: '1px solid #bbf7d0'
+                        backgroundColor: 'white',
+                        borderRadius: '8px',
+                        padding: '32px',
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.03)',
+                        border: '1px solid white'
                     }}>
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            marginBottom: '16px',
-                            color: '#15803d'
-                        }}>
-                            <CheckCircle2 size={20} />
-                            <h3 style={{
-                                fontSize: '1rem',
-                                fontWeight: 700,
-                                margin: 0,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.025em'
-                            }}>
-                                Validation Proofs
-                            </h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '8px', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#16a34a' }}>
+                                <FileCheck size={24} />
+                            </div>
+                            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Verified Submissions</h3>
                         </div>
 
-                        <div style={{
-                            backgroundColor: 'white',
-                            borderRadius: '12px',
-                            padding: '16px',
-                            border: '1px solid #dcfce7',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '12px'
-                        }}>
-                            {phases.map(p => {
-                                const val = task.phase_validations?.[p.key];
-                                if (!val || (!val.proof_url && !val.proof_text)) return null;
-
-                                let displayFiles = [];
-                                try {
-                                    if (val.proof_url) {
-                                        // Robust parsing to handle both JSON arrays and legacy strings
-                                        const parsed = JSON.parse(val.proof_url);
-                                        displayFiles = Array.isArray(parsed) ? parsed : [val.proof_url];
-                                    }
-                                } catch (e) {
-                                    // Handle legacy comma-separated values if JSON.parse fails
-                                    if (val.proof_url && val.proof_url.includes('http')) {
-                                        displayFiles = val.proof_url.split(',').map(u => u.trim());
-                                    } else if (val.proof_url) {
-                                        displayFiles = [val.proof_url];
-                                    }
-                                }
-
-                                return (
-                                    <div key={p.key} style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '8px',
-                                        paddingBottom: '12px',
-                                        borderBottom: '1px solid #f0fdf4'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#166534' }}>
-                                                {p.label}:
-                                            </span>
-                                            <span style={{ fontSize: '0.75rem', color: '#86efac', fontWeight: 500 }}>
-                                                {val.status?.toUpperCase() || 'SUBMITTED'} {val.submitted_at ? new Date(val.submitted_at).toLocaleDateString() : ''}
-                                            </span>
-                                        </div>
-
-                                        {displayFiles.map((url, i) => (
-                                            <div key={i} style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                backgroundColor: '#f8fafc',
-                                                padding: '8px 12px',
-                                                borderRadius: '8px',
-                                                border: '1px solid #f1f5f9'
-                                            }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                                                    <FileText size={16} color="#64748b" />
-                                                    <span style={{
-                                                        fontSize: '0.85rem',
-                                                        color: '#334155',
-                                                        whiteSpace: 'nowrap',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        maxWidth: '220px'
-                                                    }}>
-                                                        {url.split('/').pop().split('_').pop() || `File ${i + 1}`}
-                                                    </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {Object.entries(task.phase_validations || {}).filter(([k, v]) => v.proof_url || v.proof_text).length > 0 ? (
+                                Object.entries(task.phase_validations || {}).map(([key, val]) => {
+                                    if (!val.proof_url && !val.proof_text) return null;
+                                    const phase = phases.find(p => p.key === key) || { label: key };
+                                    
+                                    return (
+                                        <div key={key} style={{
+                                            padding: '24px',
+                                            backgroundColor: '#f8fafc',
+                                            borderRadius: '8px',
+                                            border: '1px solid #f1f5f9',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '16px'
+                                        }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: val.validated ? '#10b981' : '#f59e0b' }} />
+                                                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a' }}>{phase.label}</span>
                                                 </div>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', backgroundColor: 'white', padding: '4px 10px', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                                                    {val.validated ? 'VERIFIED' : 'AWAITING REVIEW'}
+                                                </span>
+                                            </div>
+
+                                            {val.proof_url && (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                    {val.proof_url.split(',').map((url, i) => (
+                                                        <div 
+                                                            key={i} 
+                                                            onClick={() => { setPreviewUrl(url); setPreviewTitle(url.split('/').pop()); setShowPreview(true); }}
+                                                            style={{
+                                                                padding: '12px 16px',
+                                                                backgroundColor: 'white',
+                                                                borderRadius: '6px',
+                                                                border: '1px solid #e2e8f0',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '10px',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s'
+                                                            }}
+                                                            onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                                            onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; }}
+                                                        >
+                                                            <Paperclip size={14} color="#3b82f6" />
+                                                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#1e293b' }}>View Attachment</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {val.proof_text && (
+                                                <div style={{ 
+                                                    padding: '16px', 
+                                                    backgroundColor: 'white', 
+                                                    borderRadius: '6px', 
+                                                    border: '1px solid #e2e8f0',
+                                                    fontSize: '0.85rem',
+                                                    color: '#334155',
+                                                    lineHeight: 1.6,
+                                                    whiteSpace: 'pre-wrap'
+                                                }}>
+                                                    {val.proof_text}
+                                                </div>
+                                            )}
+
+                                            {(userRole === 'manager' || userRole === 'team_lead' || userRole === 'org_admin') && val.status === 'pending' && (
+                                                <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
                                                     <button
-                                                        onClick={() => {
-                                                            setPreviewUrl(url);
-                                                            setPreviewTitle(`${p.label} Proof`);
-                                                            setShowPreview(true);
-                                                        }}
+                                                        onClick={() => onRejectPhase?.(key)}
                                                         style={{
-                                                            fontSize: '0.85rem',
-                                                            color: '#2563eb',
-                                                            fontWeight: 600,
-                                                            textDecoration: 'none',
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            cursor: 'pointer',
+                                                            flex: 1,
                                                             display: 'flex',
                                                             alignItems: 'center',
-                                                            gap: '4px'
+                                                            justifyContent: 'center',
+                                                            gap: '6px',
+                                                            padding: '12px',
+                                                            borderRadius: '6px',
+                                                            border: '1px solid #fee2e2',
+                                                            backgroundColor: 'white',
+                                                            color: '#ef4444',
+                                                            fontSize: '0.85rem',
+                                                            fontWeight: 700,
+                                                            cursor: 'pointer'
                                                         }}
                                                     >
-                                                        View File <Eye size={12} />
+                                                        <ThumbsDown size={14} /> Reject
                                                     </button>
-                                                    {!isTaskLocked && !isAccessPending && (
-                                                        <Trash2
-                                                            size={14}
-                                                            color="#ef4444"
-                                                            style={{ cursor: 'pointer', opacity: 0.7 }}
-                                                            title="Delete File"
-                                                            onClick={() => handleDeleteProof(p.key, url)}
-                                                        />
-                                                    )}
+                                                    <button
+                                                        onClick={() => onApprovePhase?.(key)}
+                                                        style={{
+                                                            flex: 1,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '6px',
+                                                            padding: '12px',
+                                                            borderRadius: '6px',
+                                                            border: 'none',
+                                                            backgroundColor: '#10b981',
+                                                            color: 'white',
+                                                            fontSize: '0.85rem',
+                                                            fontWeight: 700,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <ThumbsUp size={14} /> Approve
+                                                    </button>
                                                 </div>
-                                            </div>
-                                        ))}
-
-                                        {val.proof_text && (
-                                            <div style={{
-                                                fontSize: '0.85rem',
-                                                color: '#4b5563',
-                                                backgroundColor: '#f9fafb',
-                                                padding: '10px',
-                                                borderRadius: '8px',
-                                                borderLeft: '4px solid #10b981',
-                                                whiteSpace: 'pre-wrap',
-                                                wordBreak: 'break-all'
-                                            }}>
-                                                {linkify(val.proof_text)}
-                                            </div>
-                                        )}
-
-                                        {/* Manager Controls: Approve/Reject Phase */}
-                                        {(userRole === 'manager' || userRole === 'team_lead' || userRole === 'org_admin') && val.status === 'pending' && (
-                                            <div style={{ display: 'flex', gap: '8px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #f0fdf4' }}>
-                                                <button
-                                                    onClick={() => onRejectPhase?.(p.key)}
-                                                    style={{
-                                                        flex: 1,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        gap: '6px',
-                                                        padding: '8px',
-                                                        borderRadius: '8px',
-                                                        border: '1px solid #fecaca',
-                                                        backgroundColor: 'white',
-                                                        color: '#ef4444',
-                                                        fontSize: '0.85rem',
-                                                        fontWeight: 600,
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    <ThumbsDown size={14} /> Reject
-                                                </button>
-                                                <button
-                                                    onClick={() => onApprovePhase?.(p.key)}
-                                                    style={{
-                                                        flex: 1,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        gap: '6px',
-                                                        padding: '8px',
-                                                        borderRadius: '8px',
-                                                        border: 'none',
-                                                        backgroundColor: '#10b981',
-                                                        color: 'white',
-                                                        fontSize: '0.85rem',
-                                                        fontWeight: 600,
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    <ThumbsUp size={14} /> Approve
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-
-                            {!Object.values(task.phase_validations || {}).some(v => v.proof_url || v.proof_text) && (
-                                <p style={{ fontSize: '0.85rem', color: '#94a3b8', fontStyle: 'italic', margin: 0, textAlign: 'center' }}>
-                                    No proofs submitted for any phase yet.
-                                </p>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div style={{ padding: '48px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #e2e8f0' }}>
+                                    <CloudOff size={40} color="#cbd5e1" style={{ marginBottom: '16px' }} />
+                                    <p style={{ fontSize: '0.9rem', color: '#64748b', fontWeight: 500, margin: 0 }}>No submissions verified yet.</p>
+                                    <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>Submit your work in the right sidebar to start the review process.</p>
+                                </div>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* Right Column - Actions */}
+                {/* Right Column - Actions Sidebar */}
                 <div style={{
                     backgroundColor: 'white',
-                    borderRadius: '16px',
-                    padding: '24px',
-                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '32px',
+                    border: '1px solid white',
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.04)',
                     height: 'fit-content',
                     position: 'sticky',
-                    top: '100px'
+                    top: '120px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '24px'
                 }}>
-                    {/* Submit Work Section - Show for assigned employees OR managers/admins */}
-                    {(userId === task.assigned_to || userRole === 'manager' || userRole === 'org_admin' || userRole === 'team_lead') && (
-                        <div style={{ marginBottom: '24px' }}>
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                marginBottom: '16px',
-                                color: '#334155'
-                            }}>
-                                <Upload size={18} />
-                                <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>
-                                    Submit Work {userId !== task.assigned_to && <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#64748b' }}>(as {userRole})</span>}
-                                </h3>
-                            </div>
-                            <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '16px' }}>
-                                Upload files or link your code repository.
-                            </p>
+                    {/* Primary Status Card */}
+                    <div style={{
+                        padding: '20px',
+                        backgroundColor: '#f8fafc',
+                        borderRadius: '6px',
+                        border: '1px solid #f1f5f9'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b' }}>EXPECTED TIME</span>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0f172a' }}>{task.estimated_hours || 0}h</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b' }}>SPENT TIME</span>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#3b82f6' }}>{task.spent_hours || 0}h</span>
+                        </div>
+                    </div>
 
-                            {/* Error out if access is pending or task is locked */}
-                            {/* Block if access is pending OR task is locked/overdue */}
+                    {/* Submit Work Section */}
+                    {(userId === task.assigned_to || userRole === 'manager' || userRole === 'org_admin' || userRole === 'team_lead') && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Upload size={20} strokeWidth={2.5} /> Submission Hub
+                            </h3>
+
                             {isAccessPending || isTaskLocked ? (
                                 <div style={{
-                                    padding: '16px',
-                                    backgroundColor: isAccessPending ? '#f0f9ff' : '#fee2e2',
-                                    borderRadius: '12px',
-                                    color: isAccessPending ? '#0369a1' : '#991b1b',
+                                    padding: '24px',
+                                    backgroundColor: isAccessPending ? '#f0f9ff' : '#fff1f2',
+                                    borderRadius: '8px',
                                     textAlign: 'center',
-                                    marginBottom: '12px',
-                                    border: `1px solid ${isAccessPending ? '#bae6fd' : '#fecaca'}`
+                                    border: `1px solid ${isAccessPending ? '#bae6fd' : '#fecdd3'}`
                                 }}>
-                                    {isTaskLocked ? <Clock size={24} style={{ margin: '0 auto 8px auto' }} /> : <AlertTriangle size={24} style={{ margin: '0 auto 8px auto' }} />}
-                                    <p style={{ fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>
-                                        {isTaskLocked ? 'Submissions Locked' : 'Access Request Pending'}
+                                    {isTaskLocked ? <Clock size={32} color="#e11d48" style={{ margin: '0 auto 12px auto' }} /> : <AlertTriangle size={32} color="#0369a1" style={{ margin: '0 auto 12px auto' }} />}
+                                    <p style={{ fontSize: '1rem', fontWeight: 800, color: isAccessPending ? '#0c4a6e' : '#9f1239', margin: 0 }}>
+                                        {isTaskLocked ? 'Task Locked' : 'Pending Access'}
                                     </p>
-                                    <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>
+                                    <p style={{ fontSize: '0.85rem', color: isAccessPending ? '#0369a1' : '#be123c', marginTop: '8px', lineHeight: 1.5 }}>
                                         {isTaskLocked
-                                            ? 'The deadline for this task has passed. Submit an access request to continue.'
-                                            : 'You cannot submit work until your access request is approved.'}
+                                            ? 'The submission window has closed. Need more time? Request access extension.'
+                                            : 'Your access to this task is currently under review.'}
                                     </p>
                                 </div>
                             ) : (
-                                <>
-                                    {/* File Upload Area */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {/* Upload Dropzone */}
                                     <div
+                                        onClick={() => document.getElementById('proofFileInput').click()}
                                         style={{
                                             border: '2px dashed #e2e8f0',
-                                            borderRadius: '12px',
-                                            padding: '24px',
+                                            borderRadius: '8px',
+                                            padding: '32px 20px',
                                             textAlign: 'center',
-                                            marginBottom: '12px',
                                             backgroundColor: '#fafafa',
                                             cursor: 'pointer',
-                                            transition: 'border-color 0.2s'
+                                            transition: 'all 0.2s'
                                         }}
-                                        onClick={() => document.getElementById('proofFileInput').click()}
-                                        onMouseEnter={(e) => e.currentTarget.style.borderColor = '#3b82f6'}
-                                        onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+                                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.backgroundColor = '#f8fafc'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.backgroundColor = '#fafafa'; }}
                                     >
-                                        <input
-                                            id="proofFileInput"
-                                            type="file"
-                                            multiple
-                                            style={{ display: 'none' }}
-                                            onChange={handleFileSelect}
-                                        />
-                                        <Upload size={24} color="#94a3b8" style={{ marginBottom: '8px' }} />
-                                        <p style={{ fontSize: '0.85rem', color: '#64748b', margin: 0 }}>
-                                            Drag and drop files here or <span style={{ color: '#3b82f6', fontWeight: 500 }}>Browse Files</span>
-                                        </p>
-                                        <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: '8px 0 0 0' }}>
-                                            You can select multiple files
-                                        </p>
+                                        <input id="proofFileInput" type="file" multiple style={{ display: 'none' }} onChange={handleFileSelect} />
+                                        <div style={{
+                                            width: '48px',
+                                            height: '48px',
+                                            borderRadius: '6px',
+                                            backgroundColor: 'white',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            margin: '0 auto 12px auto',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                                            color: '#3b82f6'
+                                        }}>
+                                            <FileUp size={24} />
+                                        </div>
+                                        <p style={{ fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', margin: 0 }}>Select Files</p>
+                                        <p style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>PDF, ZIP, Images (Max 50MB)</p>
                                     </div>
 
-                                    {/* Selected Files List */}
+                                    {/* File List */}
                                     {proofFiles.length > 0 && (
-                                        <div style={{ marginBottom: '12px' }}>
-                                            <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', marginBottom: '8px' }}>
-                                                {proofFiles.length} file(s) selected:
-                                            </p>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
-                                                {proofFiles.map((file, index) => (
-                                                    <div key={index} style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'space-between',
-                                                        padding: '8px 12px',
-                                                        backgroundColor: '#f0f9ff',
-                                                        borderRadius: '6px',
-                                                        border: '1px solid #bfdbfe'
-                                                    }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                                                            <FileText size={14} color="#3b82f6" />
-                                                            <span style={{ fontSize: '0.8rem', color: '#1e40af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                                {file.name}
-                                                            </span>
-                                                            <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                                                                ({(file.size / 1024).toFixed(1)} KB)
-                                                            </span>
-                                                        </div>
-                                                        <button
-                                                            onClick={(e) => { e.stopPropagation(); removeFile(index); }}
-                                                            style={{
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                cursor: 'pointer',
-                                                                padding: '4px',
-                                                                color: '#ef4444',
-                                                                display: 'flex',
-                                                                alignItems: 'center'
-                                                            }}
-                                                        >
-                                                            <X size={14} />
-                                                        </button>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            {proofFiles.map((f, i) => (
+                                                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', backgroundColor: '#eff6ff', borderRadius: '6px', border: '1px solid #dbeafe' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                                                        <FileText size={16} color="#3b82f6" />
+                                                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1e40af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>{f.name}</span>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Upload Progress */}
-                                    {uploading && (
-                                        <div style={{ marginBottom: '12px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Uploading...</span>
-                                                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#3b82f6' }}>{uploadProgress}%</span>
-                                            </div>
-                                            <div style={{ width: '100%', height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                                                <div style={{
-                                                    width: `${uploadProgress}%`,
-                                                    height: '100%',
-                                                    backgroundColor: '#3b82f6',
-                                                    borderRadius: '3px',
-                                                    transition: 'width 0.3s ease'
-                                                }} />
-                                            </div>
+                                                    <X size={16} color="#3b82f6" style={{ cursor: 'pointer' }} onClick={() => removeFile(i)} />
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
 
                                     <textarea
                                         value={proofText}
                                         onChange={(e) => setProofText(e.target.value)}
-                                        placeholder="Add comments or notes about your submission..."
+                                        placeholder="Add a comment or link your repo..."
                                         style={{
                                             width: '100%',
-                                            padding: '12px',
+                                            padding: '16px',
                                             borderRadius: '8px',
                                             border: '1px solid #e2e8f0',
-                                            fontSize: '0.85rem',
+                                            fontSize: '0.9rem',
                                             resize: 'none',
-                                            minHeight: '80px',
-                                            marginBottom: '12px'
+                                            minHeight: '100px',
+                                            backgroundColor: '#f8fafc',
+                                            outline: 'none',
+                                            transition: 'all 0.2s'
                                         }}
+                                        onFocus={e => e.currentTarget.style.borderColor = '#3b82f6'}
+                                        onBlur={e => e.currentTarget.style.borderColor = '#e2e8f0'}
                                     />
-
-                                    {/* Pending Steps Warning */}
-                                    {hasPendingSteps && (
-                                        <div style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            padding: '10px 12px',
-                                            backgroundColor: '#fef3c7',
-                                            borderRadius: '8px',
-                                            marginBottom: '12px',
-                                            border: '1px solid #fcd34d'
-                                        }}>
-                                            <AlertTriangle size={16} color="#f59e0b" />
-                                            <span style={{ fontSize: '0.8rem', color: '#92400e', fontWeight: 500 }}>
-                                                Complete all execution steps before submitting
-                                            </span>
-                                        </div>
-                                    )}
 
                                     <button
                                         onClick={handleSubmitProof}
                                         disabled={uploading || hasPendingSteps || (!proofText.trim() && proofFiles.length === 0)}
                                         style={{
                                             width: '100%',
-                                            padding: '12px',
+                                            padding: '16px',
                                             borderRadius: '8px',
                                             border: 'none',
-                                            background: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : '#e5e7eb',
-                                            color: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'white' : '#9ca3af',
-                                            fontWeight: 600,
-                                            fontSize: '0.9rem',
+                                            backgroundColor: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? '#0f172a' : '#e2e8f0',
+                                            color: 'white',
+                                            fontWeight: 700,
+                                            fontSize: '1rem',
                                             cursor: (!hasPendingSteps && (proofText.trim() || proofFiles.length > 0)) ? 'pointer' : 'not-allowed',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            gap: '8px'
+                                            gap: '12px',
+                                            transition: 'all 0.2s'
                                         }}
+                                        onMouseEnter={e => { if (e.currentTarget.style.cursor === 'pointer') e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
                                     >
-                                        {uploading ? 'Submitting...' : hasPendingSteps ? '🔒 Complete Steps First' : 'Submit for Review'}
+                                        {uploading ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div className="spinner" style={{ width: '16px', height: '16px', border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%' }} />
+                                                Sending...
+                                            </div>
+                                        ) : hasPendingSteps ? '🔒 Finish Active Steps' : (
+                                            <>Submit for Review <ArrowRight size={18} /></>
+                                        )}
                                     </button>
-
-                                    <button
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px',
-                                            borderRadius: '8px',
-                                            border: '1px solid #e2e8f0',
-                                            backgroundColor: 'white',
-                                            color: '#334155',
-                                            fontWeight: 500,
-                                            fontSize: '0.85rem',
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '8px',
-                                            marginTop: '8px'
-                                        }}
-                                        onClick={() => {
-                                            const url = window.prompt('Enter your repository or documentation URL:');
-                                            if (url) {
-                                                if (!url.startsWith('http')) {
-                                                    addToast?.('Please enter a valid URL starting with http:// or https://', 'error');
-                                                    return;
-                                                }
-                                                setProofText(prev => prev ? `${prev}\nRepository: ${url}` : `Repository: ${url}`);
-                                                addToast?.('Link added to description!', 'success');
-                                            }
-                                        }}
-                                    >
-                                        <LinkIcon size={16} /> Connect Repository
-                                    </button>
-                                </>
+                                </div>
                             )}
                         </div>
                     )}
 
-                    {/* Team Notes Section */}
-                    <div style={{ marginBottom: '24px' }}>
-                        <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            marginBottom: '16px'
-                        }}>
-                            <h3 style={{
-                                fontSize: '1rem',
-                                fontWeight: 600,
-                                color: '#334155',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                margin: 0
-                            }}>
-                                <MessageSquare size={18} /> Team Notes
+                    <div style={{ height: '1px', backgroundColor: '#f1f5f9' }} />
+
+                    {/* Team Insights & Issues */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <AlertCircle size={20} color="#f59e0b" /> Issues & Blockers
                             </h3>
-                            <span style={{ color: '#94a3b8', cursor: 'pointer' }}>•••</span>
+                            {task.issues && <span style={{ padding: '4px 10px', backgroundColor: '#fee2e2', color: '#b91c1c', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 800 }}>ACTIVE</span>}
                         </div>
-
-                        <div style={{
-                            maxHeight: '250px',
-                            overflowY: 'auto',
-                            marginBottom: '12px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '16px'
-                        }}>
-                            {loadingNotes ? (
-                                <p style={{ fontSize: '0.85rem', color: '#94a3b8', textAlign: 'center' }}>Loading notes...</p>
-                            ) : notes.length === 0 ? (
-                                <p style={{ fontSize: '0.85rem', color: '#94a3b8', textAlign: 'center', fontStyle: 'italic' }}>No notes yet. Start the conversation!</p>
-                            ) : (
-                                notes.map(note => (
-                                    <div key={note.id} style={{ display: 'flex', gap: '12px' }}>
-                                        <div style={{
-                                            width: '32px',
-                                            height: '32px',
-                                            borderRadius: '50%',
-                                            backgroundColor: '#3b82f6',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            color: 'white',
-                                            fontSize: '0.75rem',
-                                            fontWeight: 600,
-                                            flexShrink: 0
-                                        }}>
-                                            {note.profiles?.full_name?.charAt(0) || '?'}
-                                        </div>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px',
-                                                marginBottom: '4px'
-                                            }}>
-                                                <span style={{
-                                                    fontSize: '0.85rem',
-                                                    fontWeight: 600,
-                                                    color: '#334155'
-                                                }}>
-                                                    {note.profiles?.full_name || 'Unknown'}
-                                                </span>
-                                                <span style={{
-                                                    fontSize: '0.7rem',
-                                                    color: '#94a3b8'
-                                                }}>
-                                                    {new Date(note.created_at).toLocaleString()}
-                                                </span>
-                                            </div>
-                                            <p style={{
-                                                fontSize: '0.85rem',
-                                                color: '#64748b',
-                                                margin: 0,
-                                                lineHeight: 1.5
-                                            }}>
-                                                {note.note_text}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <input
-                                type="text"
-                                value={newNote}
-                                onChange={(e) => setNewNote(e.target.value)}
-                                placeholder="Type a message to the team..."
-                                style={{
-                                    flex: 1,
-                                    padding: '10px 14px',
-                                    borderRadius: '8px',
-                                    border: '1px solid #e2e8f0',
-                                    fontSize: '0.85rem'
-                                }}
-                                onKeyPress={(e) => e.key === 'Enter' && handleAddNote()}
-                            />
-                            <button
-                                onClick={handleAddNote}
-                                disabled={!newNote.trim() || submittingNote}
-                                style={{
-                                    padding: '10px 16px',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    backgroundColor: newNote.trim() ? '#3b82f6' : '#e5e7eb',
-                                    color: newNote.trim() ? 'white' : '#9ca3af',
-                                    fontWeight: 600,
-                                    fontSize: '0.85rem',
-                                    cursor: newNote.trim() ? 'pointer' : 'not-allowed'
-                                }}
-                            >
-                                Send
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Issues Section */}
-                    <div>
-                        <h3 style={{
-                            fontSize: '1rem',
-                            fontWeight: 600,
-                            color: '#334155',
-                            marginBottom: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}>
-                            <AlertTriangle size={18} color="#f59e0b" /> Issues
-                        </h3>
 
                         {task.issues ? (
-                            <div style={{
-                                backgroundColor: '#fef2f2',
-                                borderRadius: '8px',
-                                padding: '12px',
-                                marginBottom: '12px',
-                                border: '1px solid #fecaca'
-                            }}>
-                                <pre style={{
-                                    fontSize: '0.8rem',
-                                    color: '#991b1b',
-                                    whiteSpace: 'pre-wrap',
-                                    margin: 0,
-                                    fontFamily: 'inherit'
-                                }}>
-                                    {task.issues}
-                                </pre>
-                                {['manager', 'team_lead', 'executive', 'org_admin'].includes(userRole) && !task.issues.includes('RESOLVED') && (
-                                    <button
+                            <div style={{ padding: '16px', backgroundColor: '#fff1f2', borderRadius: '8px', border: '1px solid #fecdd3' }}>
+                                <p style={{ fontSize: '0.85rem', color: '#9f1239', margin: 0, fontWeight: 500, lineHeight: 1.5 }}>{task.issues}</p>
+                                {['manager', 'team_lead', 'org_admin'].includes(userRole) && !task.issues.includes('RESOLVED') && (
+                                    <button 
                                         onClick={handleResolveIssues}
-                                        disabled={submittingIssue}
-                                        style={{
-                                            marginTop: '12px',
-                                            padding: '6px 12px',
-                                            backgroundColor: '#10b981',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '6px',
-                                            fontSize: '0.8rem',
-                                            fontWeight: 600,
-                                            cursor: 'pointer',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '6px'
-                                        }}
+                                        style={{ marginTop: '12px', width: '100%', padding: '8px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}
                                     >
-                                        <CheckCircle2 size={14} /> Mark as Resolved
+                                        Mark as Resolved
                                     </button>
                                 )}
                             </div>
                         ) : (
-                            <p style={{
-                                fontSize: '0.85rem',
-                                color: '#94a3b8',
-                                fontStyle: 'italic',
-                                marginBottom: '12px'
-                            }}>
-                                No issues reported for this task.
-                            </p>
+                            <div style={{ padding: '20px', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px dashed #e2e8f0' }}>
+                                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0, fontStyle: 'italic' }}>No blockers reported yet.</p>
+                            </div>
                         )}
 
-                        <textarea
-                            value={issueText}
-                            onChange={(e) => setIssueText(e.target.value)}
-                            placeholder="Describe any issues or blockers..."
-                            style={{
-                                width: '100%',
-                                padding: '10px',
-                                borderRadius: '8px',
-                                border: '1px solid #e2e8f0',
-                                fontSize: '0.85rem',
-                                resize: 'none',
-                                minHeight: '60px',
-                                marginBottom: '8px'
-                            }}
-                        />
-                        <button
-                            onClick={handleSubmitIssue}
-                            disabled={!issueText.trim() || submittingIssue}
-                            style={{
-                                width: '100%',
-                                padding: '10px',
-                                borderRadius: '8px',
-                                border: 'none',
-                                background: issueText.trim() ? 'linear-gradient(135deg, #f59e0b, #d97706)' : '#e5e7eb',
-                                color: issueText.trim() ? 'white' : '#9ca3af',
-                                fontWeight: 600,
-                                fontSize: '0.85rem',
-                                cursor: issueText.trim() ? 'pointer' : 'not-allowed'
-                            }}
-                        >
-                            {submittingIssue ? 'Reporting...' : 'Report Issue'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <input 
+                                value={issueText}
+                                onChange={e => setIssueText(e.target.value)}
+                                placeholder="Any blockers?"
+                                style={{ flex: 1, padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.85rem', outline: 'none' }}
+                                onFocus={e => e.currentTarget.style.borderColor = '#f59e0b'}
+                                onBlur={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+                            />
+                            <button 
+                                onClick={handleSubmitIssue}
+                                disabled={!issueText.trim() || submittingIssue}
+                                style={{ padding: '12px 20px', borderRadius: '6px', border: 'none', backgroundColor: issueText.trim() ? '#f59e0b' : '#e2e8f0', color: 'white', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
+                            >
+                                Report
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
 
             {/* Skip Reason Modal */}
             {
@@ -1889,7 +1641,7 @@ const TaskDetailOverlay = ({
                     }}>
                         <div style={{
                             backgroundColor: 'white',
-                            borderRadius: '16px',
+                            borderRadius: '8px',
                             padding: '24px',
                             width: '400px',
                             maxWidth: '90%',
@@ -1909,7 +1661,7 @@ const TaskDetailOverlay = ({
                                     width: '100%',
                                     minHeight: '80px',
                                     padding: '12px',
-                                    borderRadius: '8px',
+                                    borderRadius: '4px',
                                     border: '1px solid #e2e8f0',
                                     fontSize: '0.9rem',
                                     resize: 'vertical',
@@ -1925,7 +1677,7 @@ const TaskDetailOverlay = ({
                                         padding: '10px 20px',
                                         backgroundColor: '#f1f5f9',
                                         color: '#64748b',
-                                        borderRadius: '8px',
+                                        borderRadius: '6px',
                                         fontWeight: 600,
                                         fontSize: '0.85rem',
                                         border: 'none',
@@ -1941,7 +1693,7 @@ const TaskDetailOverlay = ({
                                         padding: '10px 20px',
                                         backgroundColor: skipReason.trim() ? '#f59e0b' : '#e2e8f0',
                                         color: skipReason.trim() ? 'white' : '#94a3b8',
-                                        borderRadius: '8px',
+                                        borderRadius: '6px',
                                         fontWeight: 600,
                                         fontSize: '0.85rem',
                                         border: 'none',

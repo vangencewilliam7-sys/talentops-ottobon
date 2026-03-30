@@ -186,10 +186,7 @@ const TaskTable = ({
                                             />
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                 <span style={{ fontWeight: 600, color: '#0f172a', fontSize: '0.95rem' }}>{task.title}</span>
-                                                <span style={{ fontSize: '0.8rem', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {task.project_name} • {task.assignee_name}
-                                                </span>
-                                            </div>
+                                           </div>
                                         </div>
                                     </td>
                                     {userRole !== 'manager' && (

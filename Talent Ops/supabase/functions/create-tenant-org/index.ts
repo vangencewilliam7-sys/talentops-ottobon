@@ -33,7 +33,7 @@ serve(async (req) => {
 
         if (profile?.role !== 'super_admin') throw new Error('Forbidden: Super Admin access required')
 
-        const { org_name, org_slug, exec_email, exec_password } = await req.json()
+        const { org_name, org_slug, exec_email, exec_password, enabled_modules } = await req.json()
 
         // Database client for direct TCP transaction
         const dbClient = new Client(Deno.env.get('DATABASE_URL'))
@@ -47,8 +47,17 @@ serve(async (req) => {
 
             // 2. Create Organization with Dual-ID Sync
             await dbClient.queryArray(
-                'INSERT INTO public.orgs (id, org_id, name, slug, is_active) VALUES ($1, $1, $2, $3, $4)',
-                [v_new_uuid, org_name, org_slug, true]
+                'INSERT INTO public.orgs (id, org_id, name, slug, is_active, enabled_modules) VALUES ($1, $1, $2, $3, $4, $5)',
+                [v_new_uuid, org_name, org_slug, true, JSON.stringify(enabled_modules || {
+                    tasks: true,
+                    messages: true,
+                    payroll: true,
+                    leaves: true,
+                    performance: true,
+                    hiring: true,
+                    workforce: true,
+                    announcements: true
+                })]
             )
             const orgId = v_new_uuid
 

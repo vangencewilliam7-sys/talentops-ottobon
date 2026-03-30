@@ -1,23 +1,23 @@
-CREATE OR REPLACE FUNCTION get_org_payroll_history()
+CREATE OR REPLACE FUNCTION get_org_payroll_history(p_org_id uuid)
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
     v_user_id uuid;
-    v_org_id uuid;
+    v_profile_org_id uuid;
     v_user_role text;
     v_results json;
 BEGIN
     v_user_id := auth.uid();
     
-    SELECT org_id, role INTO v_org_id, v_user_role
+    SELECT org_id, role INTO v_profile_org_id, v_user_role
     FROM public.profiles 
     WHERE id = v_user_id;
 
     -- Strict Permission Check
-    IF v_user_role NOT IN ('executive', 'manager', 'admin') THEN
-         RETURN json_build_object('success', false, 'error', 'Unauthorized: Executives/Managers only');
+    IF v_user_role NOT IN ('executive', 'manager', 'admin') OR v_profile_org_id != p_org_id THEN
+         RETURN json_build_object('success', false, 'error', 'Unauthorized: Insufficient permissions or organization mismatch');
     END IF;
 
     SELECT json_agg(
@@ -42,11 +42,11 @@ BEGIN
     ) INTO v_results
     FROM public.payroll p
     JOIN public.profiles pro ON p.employee_id = pro.id
-    WHERE p.org_id = v_org_id;
+    WHERE p.org_id = p_org_id;
 
     RETURN json_build_object('success', true, 'data', COALESCE(v_results, '[]'::json));
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION get_org_payroll_history() TO authenticated;
+GRANT EXECUTE ON FUNCTION get_org_payroll_history(uuid) TO authenticated;
 NOTIFY pgrst, 'reload schema';

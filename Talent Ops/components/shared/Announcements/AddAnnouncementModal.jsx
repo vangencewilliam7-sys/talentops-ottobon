@@ -73,6 +73,7 @@ const AddAnnouncementModal = ({
             }
 
             const payload = {
+                p_org_id: orgId,
                 p_title: newEvent.title,
                 p_date: finalDate,
                 p_time: finalTime,

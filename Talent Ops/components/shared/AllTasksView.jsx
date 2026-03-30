@@ -770,7 +770,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                 {/* Premium Dark Header */}
                 <div style={{
                     background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
-                    borderRadius: '20px',
+                    borderRadius: '8px',
                     padding: '32px 36px',
                     position: 'relative',
                     overflow: 'hidden',
@@ -817,7 +817,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                     background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                                     color: 'white',
                                     padding: '6px 14px',
-                                    borderRadius: '20px',
+                                    borderRadius: '4px',
                                     fontSize: '0.7rem',
                                     fontWeight: 700,
                                     letterSpacing: '0.1em',
@@ -874,7 +874,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                         background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
                                         color: 'white',
                                         border: 'none',
-                                        borderRadius: '12px',
+                                        borderRadius: '6px',
                                         fontWeight: 600,
                                         cursor: 'pointer',
                                         fontSize: '0.9rem',
@@ -985,9 +985,9 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                 {
                     showIssueModal && taskWithIssue && (
                         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1002, backdropFilter: 'blur(4px)' }}>
-                            <div style={{ backgroundColor: 'white', padding: '32px', borderRadius: '20px', width: '600px', maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                            <div style={{ backgroundColor: 'white', padding: '32px', borderRadius: '8px', width: '600px', maxWidth: '90%', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                                    <div style={{ backgroundColor: '#fef2f2', borderRadius: '12px', padding: '12px' }}>
+                                    <div style={{ backgroundColor: '#fef2f2', borderRadius: '4px', padding: '12px' }}>
                                         <AlertTriangle size={24} color="#f59e0b" />
                                     </div>
                                     <div>
@@ -996,7 +996,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                     </div>
                                 </div>
 
-                                <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '2px solid #fecaca' }}>
+                                <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#fef2f2', borderRadius: '6px', border: '2px solid #fecaca' }}>
                                     <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#991b1b', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <AlertCircle size={18} /> Issue Log
                                     </h4>
@@ -1005,7 +1005,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                     </div>
                                 </div>
 
-                                <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '12px', marginBottom: '24px', border: '1px solid #fde047' }}>
+                                <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '6px', marginBottom: '24px', border: '1px solid #fde047' }}>
                                     <p style={{ fontSize: '0.9rem', color: '#92400e', lineHeight: '1.6' }}>
                                         <strong>Note:</strong> Clicking "Mark as Resolved" will add a resolution timestamp to this issue log.
                                         The employee will be able to see that the issue has been acknowledged and resolved.
@@ -1053,7 +1053,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                             backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
                         }}>
-                            <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '16px', width: '500px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+                            <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', width: '500px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                     <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', margin: 0 }}>Edit Task</h3>
                                     <button onClick={() => { setShowEditModal(false); setEditingTask(null); }} style={{ color: '#64748b', background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
@@ -1413,7 +1413,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                             backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001, backdropFilter: 'blur(4px)'
                         }}>
-                            <div style={{ backgroundColor: 'white', padding: '32px', borderRadius: '20px', width: '550px', maxWidth: '90%', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                            <div style={{ backgroundColor: 'white', padding: '32px', borderRadius: '8px', width: '550px', maxWidth: '90%', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
                                     <div style={{ backgroundColor: '#ede9fe', borderRadius: '12px', padding: '12px' }}>
                                         <Upload size={24} color="#8b5cf6" />
@@ -1646,17 +1646,17 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                             backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1200, backdropFilter: 'blur(4px)'
                         }}>
-                            <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '10px', width: '500px', maxWidth: '90%', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+                        <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', width: '500px', maxWidth: '90%', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
                                 <h3 style={{ marginTop: 0, marginBottom: '4px', fontSize: '1.25rem', color: '#111827' }}>Review Access Request</h3>
                                 <p style={{ color: '#6b7280', fontSize: '0.9rem', marginBottom: '20px' }}>Task: <span style={{ fontWeight: 600, color: '#374151' }}>{accessReviewTask.title}</span></p>
 
-                                <div style={{ backgroundColor: '#fff7ed', padding: '12px', borderRadius: '6px', border: '1px solid #ffedd5', marginBottom: '20px' }}>
+                                <div style={{ backgroundColor: '#fff7ed', padding: '12px', borderRadius: '4px', border: '1px solid #ffedd5', marginBottom: '20px' }}>
                                     <p style={{ margin: 0, fontSize: '0.85rem', color: '#c2410c', fontWeight: 600 }}>Request Reason:</p>
                                     <p style={{ margin: '4px 0 0 0', fontSize: '0.9rem', color: '#9a3412' }}>{accessReviewTask.access_reason}</p>
                                 </div>
 
                                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>Action</label>
-                                <div style={{ display: 'flex', gap: '4px', padding: '4px', backgroundColor: '#f3f4f6', borderRadius: '6px', marginBottom: '20px' }}>
+                                <div style={{ display: 'flex', gap: '4px', padding: '4px', backgroundColor: '#f3f4f6', borderRadius: '4px', marginBottom: '20px' }}>
                                     {['approve', 'reassign', 'close'].map(action => (
                                         <button
                                             key={action}
@@ -1664,7 +1664,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                             style={{
                                                 flex: 1,
                                                 padding: '8px',
-                                                borderRadius: '6px',
+                                                borderRadius: '4px',
                                                 border: 'none',
                                                 cursor: 'pointer',
                                                 backgroundColor: reviewAction === action ? 'white' : 'transparent',
@@ -1686,7 +1686,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                         <select
                                             value={reassignTarget}
                                             onChange={(e) => setReassignTarget(e.target.value)}
-                                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none' }}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #d1d5db', outline: 'none' }}
                                         >
                                             <option value="">Select Employee</option>
                                             {employees.filter(e => e.id !== accessReviewTask.assigned_to).map(emp => (
@@ -1703,7 +1703,7 @@ const AllTasksView = ({ userRole = 'employee', projectRole = 'employee', userId,
                                             value={closureReason}
                                             onChange={(e) => setClosureReason(e.target.value)}
                                             placeholder="Explain why the task is being closed..."
-                                            style={{ width: '100%', minHeight: '80px', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none', fontSize: '0.9rem' }}
+                                            style={{ width: '100%', minHeight: '80px', padding: '10px', borderRadius: '4px', border: '1px solid #d1d5db', outline: 'none', fontSize: '0.9rem' }}
                                         />
                                     </div>
                                 )}

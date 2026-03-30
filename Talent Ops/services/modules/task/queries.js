@@ -70,7 +70,8 @@ export const getTasks = async (orgId, projectId, viewMode, userId, userRole) => 
             const { data: profiles } = await supabase
                 .from('profiles')
                 .select('id, full_name, avatar_url')
-                .in('id', userIds);
+                .in('id', userIds)
+                .eq('org_id', orgId);
 
             profiles?.forEach(p => { profileMap[p.id] = p; });
         }
@@ -164,7 +165,8 @@ export const getTaskAssignees = async (orgId, projectId) => {
             const { data: reviews } = await supabase
                 .from('employee_reviews')
                 .select('user_id, manager_development_skills, development_skills')
-                .in('user_id', memberIds);
+                .in('user_id', memberIds)
+                .eq('org_id', orgId);
 
             (reviews || []).forEach(r => {
                 reviewsMap[r.user_id] = r.manager_development_skills || r.development_skills || {};
@@ -209,7 +211,8 @@ export const getTaskAssignees = async (orgId, projectId) => {
             const { data: reviews } = await supabase
                 .from('employee_reviews')
                 .select('user_id, manager_development_skills, development_skills')
-                .in('user_id', userIds);
+                .in('user_id', userIds)
+                .eq('org_id', orgId);
 
             (reviews || []).forEach(r => {
                 reviewsMap[r.user_id] = r.manager_development_skills || r.development_skills || {};

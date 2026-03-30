@@ -47,12 +47,14 @@ export const LeaveDetailsModal = ({
                     .from('profiles')
                     .select('total_leaves_balance')
                     .eq('id', selectedLeaveRequest.employee_id)
+                    .eq('org_id', orgId)
                     .single();
 
                 const { data: pending } = await supabase
                     .from('leaves')
                     .select('duration_weekdays')
                     .eq('employee_id', selectedLeaveRequest.employee_id)
+                    .eq('org_id', orgId)
                     .eq('status', 'pending')
                     .neq('id', selectedLeaveRequest.id);
 

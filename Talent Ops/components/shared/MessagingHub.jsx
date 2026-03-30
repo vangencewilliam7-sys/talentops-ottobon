@@ -134,7 +134,7 @@ const MessagingHub = () => {
             // INSTANT SYNC: If the message belongs to the current chat window, fetch the messages
             const activeConv = selectedConversationRef.current;
             if (activeConv && activeConv.id === lastIncomingMessage.conversation_id) {
-                getConversationMessages(activeConv.id).then(msgs => {
+                getConversationMessages(activeConv.id, currentUserOrgId).then(msgs => {
                     setMessages(msgs);
                 }).catch(err => console.error('Failed to sync active chat:', err));
                 markAsRead(activeConv.id);
@@ -298,7 +298,7 @@ const MessagingHub = () => {
         setLoading(true);
         markAsRead(conversation.id);
         try {
-            const msgs = await getConversationMessages(conversation.id);
+            const msgs = await getConversationMessages(conversation.id, currentUserOrgId);
             setMessages(msgs);
             msgs.filter(m => m.is_poll).forEach(m => fetchPollVotes(m.id));
             const reactionsMap = {};
@@ -343,7 +343,7 @@ const MessagingHub = () => {
 
     const fetchPollVotes = async (messageId) => {
         try {
-            const votes = await getPollVotes(messageId);
+            const votes = await getPollVotes(messageId, currentUserOrgId);
             setAllPollVotes(prev => ({ ...prev, [messageId]: votes }));
         } catch (error) {
             console.error('Error fetching poll votes:', error);
@@ -470,7 +470,7 @@ const MessagingHub = () => {
 
     const handleVote = async (messageId, optionIndex, allowMultiple) => {
         try {
-            await voteInPoll(messageId, currentUserId, optionIndex, allowMultiple);
+            await voteInPoll(messageId, currentUserId, optionIndex, allowMultiple, currentUserOrgId);
             fetchPollVotes(messageId);
         } catch (error) {
             console.error('Error voting:', error);

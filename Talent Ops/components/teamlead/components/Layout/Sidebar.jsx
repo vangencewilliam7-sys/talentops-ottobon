@@ -3,6 +3,8 @@ import GlobalSidebar from '../../../shared/Layout/GlobalSidebar';
 import { getSidebarConfig } from '../../../shared/Layout/SidebarMenuConfig';
 import { useProject } from '../../../employee/context/ProjectContext';
 
+import { useUser } from '../../../shared/context/UserContext';
+
 const Sidebar = (props) => {
     const { currentProject, setCurrentProject, userProjects, projectRole } = useProject();
     const basePath = '/teamlead-dashboard';

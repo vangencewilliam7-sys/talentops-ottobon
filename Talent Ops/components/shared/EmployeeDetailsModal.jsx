@@ -94,7 +94,7 @@ const EmployeeDetailsModal = ({
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                             <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
                                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Department</p>
-                                <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.dept}</p>
+                                <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.department_display || 'Unassigned'}</p>
                             </div>
                             <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
                                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Manager</p>

@@ -26,7 +26,8 @@ const PayrollPage = ({ userRole, userId, addToast, orgId }) => {
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',
-                table: 'payroll'
+                table: 'payroll',
+                filter: `org_id=eq.${orgId}`
             }, () => {
                 fetchPayrolls();
             })
@@ -55,9 +56,9 @@ const PayrollPage = ({ userRole, userId, addToast, orgId }) => {
                 rpcName = 'get_my_payroll_history'; // Returns ONLY my data
             }
 
-            console.log(`Fetching payrolls using RPC: ${rpcName}`);
+            console.log(`Fetching payrolls using RPC: ${rpcName} for org: ${orgId}`);
 
-            const { data, error } = await supabase.rpc(rpcName);
+            const { data, error } = await supabase.rpc(rpcName, { p_org_id: orgId });
 
             if (error) {
                 console.error('Error fetching payrolls via RPC:', error);

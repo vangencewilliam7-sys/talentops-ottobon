@@ -1,9 +1,11 @@
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-Deno.serve(async (req) => {
+serve(async (req) => {
     // Handle CORS preflight request
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders })
@@ -23,8 +25,13 @@ Deno.serve(async (req) => {
         }
 
         // 2. Prepare Prompt - Persona: High-Performance Productivity Coach
+        const isMilestone = !!employeeContext?.milestone_triggered;
+        const milestoneStr = isMilestone ? `\n        URGENT CONTEXT: This analysis was explicitly requested because the employee hit a critical task milestone: ${employeeContext.milestone_triggered}.
+        Your coaching must specifically address hitting this exact milestone. Give them strict but encouraging advice for exactly this stage of the task.` : '';
+
         const systemPrompt = `You are a High-Performance Productivity Coach for a fast-paced environment.
         Your goal is to keep the employee on track using urgent, human, and encouraging language.
+        ${milestoneStr}
         
         Analyze the metrics and provide an assessment.
         IMPORTANT: If this is a 'Micro-task', be extremely sensitive to time. Use phrases like "Time is running out", "The deadline is seconds away", or "We need to move faster".

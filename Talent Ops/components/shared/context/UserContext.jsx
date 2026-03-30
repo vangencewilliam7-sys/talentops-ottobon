@@ -21,6 +21,7 @@ export const UserProvider = ({ children }) => {
     const [orgId, setOrgId] = useState(null);
     const [teamId, setTeamId] = useState(null); // Project ID
     const [currentTeam, setCurrentTeam] = useState('All'); // For filtering
+    const [orgConfig, setOrgConfig] = useState({});
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -48,18 +49,26 @@ export const UserProvider = ({ children }) => {
                         setUserName(profile.full_name || profile.email || 'User');
                         setUserRole(profile.role || 'User');
                         setOrgId(profile.org_id);
-                        
-                        // Use team_id if available, otherwise check project_members
-                        if (profile.team_id) {
-                            setTeamId(profile.team_id);
-                        } else {
-                            const { data: projectMember } = await supabase
-                                .from('project_members')
-                                .select('project_id')
-                                .eq('user_id', user.id)
+
+                        // Fetch Org Config (Modules)
+                        if (profile.org_id) {
+                            const { data: orgData } = await supabase
+                                .from('orgs')
+                                .select('enabled_modules')
+                                .eq('id', profile.org_id)
                                 .maybeSingle();
-                            setTeamId(projectMember?.project_id || null);
+                            if (orgData) setOrgConfig(orgData.enabled_modules || {});
                         }
+                        
+                        // Fetch project_id from project_members first (accurate project scope)
+                        const { data: projectMember } = await supabase
+                            .from('project_members')
+                            .select('project_id')
+                            .eq('user_id', user.id)
+                            .maybeSingle();
+                        
+                        // Use project_id if available, otherwise fallback to profile.team_id (department)
+                        setTeamId(projectMember?.project_id || profile.team_id || null);
                     }
 
                     // 3. Attendance Monitoring (via RPC instead of direct table access)
@@ -105,6 +114,7 @@ export const UserProvider = ({ children }) => {
         orgId,
         teamId, setTeamId,
         currentTeam, setCurrentTeam,
+        orgConfig,
         loading
     };
 

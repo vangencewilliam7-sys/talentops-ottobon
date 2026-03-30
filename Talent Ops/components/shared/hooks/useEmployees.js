@@ -54,7 +54,8 @@ export const useEmployees = (orgId) => {
                     projectMap[member.user_id].push({
                         id: member.project_id,
                         name: member.projects.name,
-                        role: roleDisplay
+                        role: member.role || 'employee', // Keep raw role for filtering logic
+                        roleDisplay: roleDisplay        // Display version
                     });
                 }
             });
@@ -114,6 +115,7 @@ export const useEmployees = (orgId) => {
                     job_title: emp.job_title,
                     employment_type: emp.employment_type || 'Full-Time',
                     team_id: emp.team_id,
+                    isProjectManager: assignedProjects.some(p => p.role === 'manager' || p.role === 'project_manager' || p.role === 'team_lead'),
                     assignedProjects: assignedProjects, // Export projects array directly
                     department_display: departmentNameDisplay,
                     status: 'Active',

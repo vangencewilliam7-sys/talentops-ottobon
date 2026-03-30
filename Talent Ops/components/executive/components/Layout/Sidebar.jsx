@@ -1,11 +1,11 @@
 import React from 'react';
 import GlobalSidebar from '../../../shared/Layout/GlobalSidebar';
 import { getSidebarConfig } from '../../../shared/Layout/SidebarMenuConfig';
+import { useUser } from '../../../shared/context/UserContext';
 
 const Sidebar = (props) => {
     const basePath = '/executive-dashboard';
     
-    // Executive has fixed project options and no internal project-switcher picker
     const { org, project } = getSidebarConfig('executive', null, basePath);
 
     return (

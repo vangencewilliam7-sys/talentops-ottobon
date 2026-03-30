@@ -22,6 +22,7 @@ import { useEmployees } from '../../shared/hooks/useEmployees';
 import EmployeesFeature from '../../shared/features/EmployeesFeature';
 import { useLeaves } from '../../shared/hooks/useLeaves';
 import LeavesFeature from '../../shared/features/LeavesFeature';
+import PayslipsPage from '../../shared/PayslipsPage';
 
 
 const ModulePage = ({ title, type }) => {
@@ -35,7 +36,7 @@ const ModulePage = ({ title, type }) => {
         refetch: refetchEmployees 
     } = useEmployees(orgId);
 
-    const activeEmployeesMode = (type === 'team_members' || type === 'status')
+    const activeEmployeesMode = (type === 'team_members' || type === 'status' || type === 'workforce')
         ? sharedEmployees.filter(emp => emp.assignedProjects.some(p => p.id === currentProject?.id))
         : sharedEmployees;
 
@@ -144,6 +145,7 @@ const ModulePage = ({ title, type }) => {
     if (title === 'Announcements') return <AnnouncementsPage userRole={userRole} userId={userId} orgId={orgId} />;
     if (type === 'status') return <StatusDemo />;
     if (type === 'project-documents') return <ProjectDocuments />;
+    if (type === 'payroll') return <PayslipsPage userRole={userRole} userId={userId} addToast={addToast} orgId={orgId} />;
 
     // Helper to filter data by team
     const filterData = (data) => {
@@ -173,19 +175,26 @@ const ModulePage = ({ title, type }) => {
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <p style={{ fontWeight: 500 }}>{row.name}</p>
-                                    {row.isProjectManager && (
-                                        <span style={{
-                                            fontSize: '0.65rem',
-                                            fontWeight: '700',
-                                            color: '#fff',
-                                            backgroundColor: '#8b5cf6',
-                                            padding: '2px 8px',
-                                            borderRadius: '6px',
-                                            boxShadow: '0 2px 4px rgba(139,92,246,0.2)'
-                                        }}>
-                                            Project Manager
-                                        </span>
-                                    )}
+                                    {(() => {
+                                        const assignment = row.assignedProjects?.find(p => p.id === currentProject?.id);
+                                        const roleLabel = assignment?.role === 'team_lead' ? 'Team Lead' 
+                                                       : (assignment?.role === 'manager' || assignment?.role === 'project_manager') ? 'Project Manager' 
+                                                       : null;
+                                        
+                                        return roleLabel && (
+                                            <span style={{
+                                                fontSize: '0.65rem',
+                                                fontWeight: '700',
+                                                color: '#fff',
+                                                backgroundColor: roleLabel === 'Team Lead' ? '#3b82f6' : '#8b5cf6',
+                                                padding: '2px 8px',
+                                                borderRadius: '6px',
+                                                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                            }}>
+                                                {roleLabel}
+                                            </span>
+                                        );
+                                    })()}
                                 </div>
                                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{row.email}</p>
                             </div>
@@ -193,7 +202,7 @@ const ModulePage = ({ title, type }) => {
                     )
                 },
                 { header: 'Role', accessor: 'role' },
-                { header: 'Department', accessor: 'dept' },
+                { header: 'Department', accessor: 'department_display' },
                 {
                     header: 'Status', accessor: 'status', render: (row) => {
                         let bgColor, textColor;
@@ -316,7 +325,7 @@ const ModulePage = ({ title, type }) => {
         status: {
             columns: [
                 { header: 'Team Member', accessor: 'name' },
-                { header: 'Department', accessor: 'dept' },
+                { header: 'Department', accessor: 'department_display' },
                 {
                     header: 'Availability', accessor: 'availability', render: (row) => (
                         <span style={{
@@ -601,11 +610,11 @@ const ModulePage = ({ title, type }) => {
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                                         <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
                                             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Department</p>
-                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.departmentName}</p>
+                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.department_display || 'Unassigned'}</p>
                                         </div>
                                         <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Project</p>
-                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.dept}</p>
+                                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Role</p>
+                                            <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.role}</p>
                                         </div>
                                     </div>
                                 </div>

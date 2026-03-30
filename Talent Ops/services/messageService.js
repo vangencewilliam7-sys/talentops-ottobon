@@ -188,9 +188,10 @@ export const getConversationsByCategory = async (userId, category, orgId) => {
  * @param {string} conversationId - ID of the conversation
  * @returns {Promise<Array>} List of messages
  */
-export const getConversationMessages = async (conversationId) => {
+export const getConversationMessages = async (conversationId, orgId = null) => {
     try {
-        const { data, error } = await supabase
+        const resolvedOrgId = orgId || localStorage.getItem('org_id');
+        let query = supabase
             .from('messages')
             .select(`
                 *,
@@ -206,8 +207,14 @@ export const getConversationMessages = async (conversationId) => {
                     user_id
                 )
             `)
-            .eq('conversation_id', conversationId)
-            .order('created_at', { ascending: true });
+            .eq('conversation_id', conversationId);
+        
+        // Only filter by org_id if we actually have one
+        if (resolvedOrgId) {
+            query = query.eq('org_id', resolvedOrgId);
+        }
+        
+        const { data, error } = await query.order('created_at', { ascending: true });
 
         // We also need to fetch profile names for the reactions and replied sender
         // Doing this client-side or via separate query might be cleaner than deep nested joins if RLS is tricky
@@ -251,7 +258,7 @@ export const sendMessage = async (conversationId, userId, content, files = [], o
         // Upload attachments if any
         if (files && files.length > 0) {
             for (const file of files) {
-                await uploadAttachment(file, conversationId, message.id);
+                await uploadAttachment(file, conversationId, message.id, orgId);
             }
         }
 
@@ -305,7 +312,7 @@ export const sendMessage = async (conversationId, userId, content, files = [], o
  * @param {string} messageId - ID of the message
  * @returns {Promise<Object>} Attachment metadata
  */
-export const uploadAttachment = async (file, conversationId, messageId) => {
+export const uploadAttachment = async (file, conversationId, messageId, orgId = null) => {
     try {
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -332,7 +339,8 @@ export const uploadAttachment = async (file, conversationId, messageId) => {
                 file_type: file.type,
                 file_size: file.size,
                 storage_path: filePath,
-                url: publicUrl
+                url: publicUrl,
+                org_id: orgId
             })
             .select()
             .single();
@@ -1244,15 +1252,18 @@ export const getMessageWithReply = async (messageId) => {
  * @param {string} reaction - Emoji reaction (e.g., '👍', '❤️')
  * @returns {Promise<Object>} Created reaction
  */
-export const addReaction = async (messageId, userId, reaction) => {
+export const addReaction = async (messageId, userId, reaction, orgId = null) => {
     try {
+        const insertData = {
+            message_id: messageId,
+            user_id: userId,
+            reaction: reaction
+        };
+        if (orgId) insertData.org_id = orgId;
+
         const { data, error } = await supabase
             .from('message_reactions')
-            .insert([{
-                message_id: messageId,
-                user_id: userId,
-                reaction: reaction
-            }])
+            .insert([insertData])
             .select()
             .single();
 
@@ -1278,14 +1289,17 @@ export const addReaction = async (messageId, userId, reaction) => {
  * @param {string} reaction - Emoji reaction to remove
  * @returns {Promise<void>}
  */
-export const removeReaction = async (messageId, userId, reaction) => {
+export const removeReaction = async (messageId, userId, reaction, orgId = null) => {
     try {
-        const { error } = await supabase
+        let query = supabase
             .from('message_reactions')
             .delete()
             .eq('message_id', messageId)
             .eq('user_id', userId)
             .eq('reaction', reaction);
+        if (orgId) query = query.eq('org_id', orgId);
+
+        const { error } = await query;
 
         if (error) throw error;
     } catch (error) {
@@ -1430,25 +1444,29 @@ export const sendPoll = async (conversationId, senderId, question, options, allo
  * @param {boolean} allowMultiple - Whether multiple answers are allowed
  * @returns {Promise<void>}
  */
-export const voteInPoll = async (messageId, userId, optionIndex, allowMultiple = false) => {
+export const voteInPoll = async (messageId, userId, optionIndex, allowMultiple = false, orgId = null) => {
     try {
         if (!allowMultiple) {
             // Remove any existing votes by this user for this poll
-            await supabase
+            let delQuery = supabase
                 .from('poll_votes')
                 .delete()
                 .eq('message_id', messageId)
                 .eq('user_id', userId);
+            if (orgId) delQuery = delQuery.eq('org_id', orgId);
+            await delQuery;
         }
 
         // Check if this specific vote already exists
-        const { data: existing } = await supabase
+        let existQuery = supabase
             .from('poll_votes')
             .select('id')
             .eq('message_id', messageId)
             .eq('user_id', userId)
-            .eq('option_index', optionIndex)
-            .maybeSingle();
+            .eq('option_index', optionIndex);
+        if (orgId) existQuery = existQuery.eq('org_id', orgId);
+
+        const { data: existing } = await existQuery.maybeSingle();
 
         if (existing) {
             // Toggle off if it exists
@@ -1463,7 +1481,8 @@ export const voteInPoll = async (messageId, userId, optionIndex, allowMultiple =
                 .insert([{
                     message_id: messageId,
                     user_id: userId,
-                    option_index: optionIndex
+                    option_index: optionIndex,
+                    org_id: orgId
                 }]);
             if (error) throw error;
         }
@@ -1478,9 +1497,9 @@ export const voteInPoll = async (messageId, userId, optionIndex, allowMultiple =
  * @param {string} messageId - Poll message ID
  * @returns {Promise<Array>} Array of votes
  */
-export const getPollVotes = async (messageId) => {
+export const getPollVotes = async (messageId, orgId = null) => {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('poll_votes')
             .select(`
                 *,
@@ -1491,6 +1510,9 @@ export const getPollVotes = async (messageId) => {
                 )
             `)
             .eq('message_id', messageId);
+        if (orgId) query = query.eq('org_id', orgId);
+
+        const { data, error } = await query;
 
         if (error) throw error;
         return data || [];

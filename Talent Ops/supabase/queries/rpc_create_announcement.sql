@@ -6,6 +6,7 @@
 -- ==============================================================================
 
 CREATE OR REPLACE FUNCTION create_announcement_event(
+    p_org_id uuid DEFAULT NULL,
     p_title text,
     p_date date,
     p_time time,
@@ -29,7 +30,15 @@ BEGIN
     -- 1. Get current user context
     v_user_id := auth.uid();
     
-    SELECT org_id, role INTO v_org_id, v_user_role
+    -- Use provided org_id or fallback to profile
+    IF p_org_id IS NOT NULL THEN
+        v_org_id := p_org_id;
+    END IF;
+
+    SELECT 
+        CASE WHEN v_org_id IS NULL THEN org_id ELSE v_org_id END, 
+        role 
+    INTO v_org_id, v_user_role
     FROM public.profiles 
     WHERE id = v_user_id;
 
@@ -128,5 +137,5 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION create_announcement_event(text, date, time, text, text, text, json, json) TO authenticated;
+GRANT EXECUTE ON FUNCTION create_announcement_event(uuid, text, date, time, text, text, text, json, json) TO authenticated;
 NOTIFY pgrst, 'reload schema';

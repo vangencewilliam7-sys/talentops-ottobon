@@ -379,7 +379,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
             {/* Premium Header - Reusing the Dashboard Aesthetic */}
             <div style={{
                 background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-                borderRadius: '24px',
+                borderRadius: '8px',
                 padding: '32px 40px',
                 color: 'white',
                 position: 'relative',
@@ -401,7 +401,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                 <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
                     <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', border: '1px solid rgba(255,255,255,0.1)' }}>Project Management</span>
+                            <span style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: '6px 12px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', border: '1px solid rgba(255,255,255,0.1)' }}>Project Management</span>
                             <span style={{ color: 'rgba(255,255,255,0.4)', fontWeight: '800' }}>•</span>
                             <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem', fontWeight: '600' }}>Workflow Tracking</span>
                         </div>
@@ -418,7 +418,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                             background: 'rgba(255, 255, 255, 0.05)',
                             backdropFilter: 'blur(12px)',
                             padding: '16px 24px',
-                            borderRadius: '20px',
+                            borderRadius: '8px',
                             border: '1px solid rgba(255, 255, 255, 0.1)',
                             display: 'flex',
                             alignItems: 'center',
@@ -428,7 +428,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                                 onClick={() => setShowAddTaskModal(true)}
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: '10px',
-                                    padding: '12px 24px', borderRadius: '14px',
+                                    padding: '12px 24px', borderRadius: '6px',
                                     background: 'linear-gradient(135deg, #10b981, #059669)',
                                     color: 'white', border: 'none', cursor: 'pointer',
                                     fontWeight: '800', fontSize: '0.9rem',
@@ -452,7 +452,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                 </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', backgroundColor: 'var(--surface)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', backgroundColor: 'var(--surface)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
                 <div style={{ position: 'relative', minWidth: '200px', flex: 1 }}>
                     <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
                     <input type="text" placeholder="Search tasks..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
@@ -533,7 +533,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                 </select>
             </div>
 
-            <div style={{ backgroundColor: 'var(--surface)', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <div style={{ backgroundColor: 'var(--surface)', borderRadius: '8px', border: '1px solid var(--border)', overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '700px' }}>
                     <thead>
                         <tr style={{ backgroundColor: 'var(--background)', borderBottom: '1px solid var(--border)' }}>
@@ -564,7 +564,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                                         </td>
                                         <td style={{ padding: '16px' }}><LifecycleProgress currentPhase={task.lifecycle_state} subState={task.sub_state} taskStatus={task.status} validations={task.phase_validations} /></td>
                                         <td style={{ padding: '16px' }}>
-                                            <span style={{ padding: '6px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 600, backgroundColor: subStateColor.bg, color: subStateColor.text }}>
+                                            <span style={{ padding: '6px 12px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600, backgroundColor: subStateColor.bg, color: subStateColor.text }}>
                                                 {task.sub_state?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                             </span>
                                         </td>
@@ -578,7 +578,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                                                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                                                     <span style={{
                                                         padding: '6px 12px',
-                                                        borderRadius: '20px',
+                                                        borderRadius: '4px',
                                                         backgroundColor: '#dcfce7',
                                                         color: '#166534',
                                                         fontSize: '0.8rem',
@@ -616,9 +616,9 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
             {/* Proof Upload Modal */}
             {showProofModal && taskForProof && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1001, backdropFilter: 'blur(4px)' }}>
-                    <div style={{ backgroundColor: 'var(--surface)', padding: '32px', borderRadius: '20px', width: '500px', maxWidth: '90%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
+                    <div style={{ backgroundColor: 'var(--surface)', padding: '32px', borderRadius: '8px', width: '500px', maxWidth: '90%', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-                            <div style={{ backgroundColor: '#ede9fe', borderRadius: '12px', padding: '12px' }}>
+                            <div style={{ backgroundColor: '#ede9fe', borderRadius: '6px', padding: '12px' }}>
                                 <Upload size={24} color="#8b5cf6" />
                             </div>
                             <div>
@@ -627,7 +627,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                             </div>
                         </div>
 
-                        <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#fef3c7', borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                        <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#fef3c7', borderRadius: '6px', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                             <AlertCircle size={20} color="#b45309" style={{ flexShrink: 0, marginTop: '2px' }} />
                             <div style={{ fontSize: '0.9rem', color: '#92400e' }}>
                                 <strong>Proof Required:</strong> Upload documentation showing your completed work before requesting validation.
@@ -641,7 +641,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                                 </label>
                                 <div style={{
                                     border: '2px dashed var(--border)',
-                                    borderRadius: '12px',
+                                    borderRadius: '6px',
                                     padding: '24px',
                                     textAlign: 'center',
                                     backgroundColor: proofFile ? '#f0fdf4' : 'var(--background)',
@@ -681,7 +681,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                                     style={{
                                         width: '100%',
                                         padding: '12px',
-                                        borderRadius: '10px',
+                                        borderRadius: '6px',
                                         border: '1px solid var(--border)',
                                         backgroundColor: 'var(--background)',
                                         fontSize: '0.9rem',
@@ -697,7 +697,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.9rem' }}>
                                         Allocated Hours
                                     </label>
-                                    <div style={{ padding: '12px', backgroundColor: '#f3f4f6', borderRadius: '10px', fontSize: '0.9rem', color: '#6b7280' }}>
+                                    <div style={{ padding: '12px', backgroundColor: '#f3f4f6', borderRadius: '6px', fontSize: '0.9rem', color: '#6b7280' }}>
                                         {taskForProof.allocated_hours || 0} hrs
                                     </div>
                                 </div>
@@ -711,7 +711,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                                         step="0.5"
                                         value={actualHours}
                                         onChange={(e) => setActualHours(e.target.value)}
-                                        style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '0.9rem', boxSizing: 'border-box' }}
+                                        style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '0.9rem', boxSizing: 'border-box' }}
                                         placeholder="0.0"
                                     />
                                 </div>
@@ -728,7 +728,7 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
                                         onChange={(e) => setEmployeeJustification(e.target.value)}
                                         placeholder="Please explain why the task took longer than allocated..."
                                         rows={3}
-                                        style={{ width: '100%', padding: '12px', borderRadius: '10px', border: '1px solid #fcd34d', backgroundColor: '#fffbeb', fontSize: '0.9rem', boxSizing: 'border-box' }}
+                                        style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #fcd34d', backgroundColor: '#fffbeb', fontSize: '0.9rem', boxSizing: 'border-box' }}
                                     />
                                 </div>
                             )}
@@ -771,12 +771,12 @@ const TaskLifecyclePage = ({ userRole = 'employee', userId, orgId, addToast, pro
             {/* Task Details Modal */}
             {showTaskModal && selectedTask && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-                    <div style={{ backgroundColor: 'var(--surface)', padding: '32px', borderRadius: '12px', width: '600px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
+                    <div style={{ backgroundColor: 'var(--surface)', padding: '32px', borderRadius: '8px', width: '600px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Task Details</h3>
                             <button onClick={() => setShowTaskModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={24} /></button>
                         </div>
-                        <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
+                        <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: 'var(--background)', borderRadius: '6px' }}>
                             <h4 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '8px' }}>{selectedTask.title}</h4>
                             <p style={{ color: 'var(--text-secondary)' }}>{selectedTask.description || 'No description'}</p>
                         </div>

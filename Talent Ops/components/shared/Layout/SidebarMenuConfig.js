@@ -121,7 +121,7 @@ export const getSidebarConfig = (userRole, projectRole, basePath) => {
                 { icon: Trophy, label: 'Ranking', path: `${basePath}/rankings` },
                 { icon: Ticket, label: 'Raise a Ticket', path: `${basePath}/raise-ticket` },
             ],
-            project: pMenus.consultant // Or dynamic if they manage nested roles
+            project: pMenus.consultant
         };
     }
 

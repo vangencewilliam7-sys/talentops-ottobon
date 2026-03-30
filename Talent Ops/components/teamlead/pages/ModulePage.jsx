@@ -213,7 +213,7 @@ const ModulePage = ({ title, type }) => {
                     )
                 },
                 { header: 'Role', accessor: 'role' },
-                { header: 'Department', accessor: 'dept' },
+                { header: 'Department', accessor: 'department_display' },
                 {
                     header: 'Status', accessor: 'status', render: (row) => (
                         <span style={{
@@ -275,7 +275,7 @@ const ModulePage = ({ title, type }) => {
                     )
                 },
                 { header: 'Role', accessor: 'role' },
-                { header: 'Department', accessor: 'dept' },
+                { header: 'Department', accessor: 'department_display' },
                 {
                     header: 'Status', accessor: 'status', render: (row) => {
                         let bgColor, textColor;
@@ -334,7 +334,7 @@ const ModulePage = ({ title, type }) => {
         status: {
             columns: [
                 { header: 'Team Member', accessor: 'name' },
-                { header: 'Department', accessor: 'dept' },
+                { header: 'Department', accessor: 'department_display' },
                 {
                     header: 'Availability', accessor: 'availability', render: (row) => (
                         <span style={{

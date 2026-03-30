@@ -791,7 +791,7 @@ const ModulePage = ({ title, type }) => {
 
                 { header: 'Job Title', accessor: 'job_title' },
                 { header: 'Department', accessor: 'department_display' },
-                { header: 'Project', accessor: 'dept' },
+                { header: 'Project', accessor: 'department_display' },
                 { header: 'Join Date', accessor: 'joinDate' },
                 {
                     header: 'Actions', accessor: 'actions', render: (row) => (
@@ -849,7 +849,7 @@ const ModulePage = ({ title, type }) => {
             columns: [
                 { header: 'Employee', accessor: 'name' },
                 { header: 'Department', accessor: 'department_display' },
-                { header: 'Project', accessor: 'dept' },
+                { header: 'Project', accessor: 'department_display' },
                 {
                     header: 'Availability', accessor: 'availability', render: (row) => (
                         <span style={{

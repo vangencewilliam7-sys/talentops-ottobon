@@ -71,10 +71,10 @@ export const ATSDataProvider = ({ children }) => {
     }, [user, orgId]);
 
     const updateJob = useCallback(async (jobId, updates) => {
-        const updated = await updateItem('jobs', jobId, updates, user?.id);
+        const updated = await updateItem('jobs', jobId, updates, user?.id, orgId);
         setJobs(prev => prev.map(j => j.id === jobId ? updated : j));
         return updated;
-    }, [user]);
+    }, [user, orgId]);
 
     const deleteJob = useCallback(async (jobId) => {
         await deleteItem('jobs', jobId, user?.id, orgId);
@@ -98,10 +98,10 @@ export const ATSDataProvider = ({ children }) => {
     }, [user, jobs, updateJob, orgId]);
 
     const updateCandidate = useCallback(async (candidateId, updates) => {
-        const updated = await updateItem('candidates', candidateId, updates, user?.id);
+        const updated = await updateItem('candidates', candidateId, updates, user?.id, orgId);
         setCandidates(prev => prev.map(c => c.id === candidateId ? updated : c));
         return updated;
-    }, [user]);
+    }, [user, orgId]);
 
     const deleteCandidate = useCallback(async (candidateId) => {
         const candidate = candidates.find(c => c.id === candidateId);
@@ -157,7 +157,7 @@ export const ATSDataProvider = ({ children }) => {
         const packedNotes = (notes || '') + '\n\n__METADATA__\n' + JSON.stringify(metadata);
         const dbUpdates = { ...rest, notes: packedNotes };
 
-        const updated = await updateItem('interviews', interviewId, dbUpdates, user?.id);
+        const updated = await updateItem('interviews', interviewId, dbUpdates, user?.id, orgId);
 
         const enrichedUpdated = {
             ...updated,
@@ -169,7 +169,7 @@ export const ATSDataProvider = ({ children }) => {
 
         setInterviews(prev => prev.map(i => i.id === interviewId ? enrichedUpdated : i));
         return enrichedUpdated;
-    }, [user, interviews]);
+    }, [user, interviews, orgId]);
 
     const deleteInterview = useCallback(async (interviewId) => {
         await deleteItem('interviews', interviewId, user?.id, orgId);
@@ -252,10 +252,10 @@ export const ATSDataProvider = ({ children }) => {
     }, [user, orgId]);
 
     const updateOffer = useCallback(async (offerId, updates) => {
-        const updated = await updateItem('offers', offerId, updates, user?.id);
+        const updated = await updateItem('offers', offerId, updates, user?.id, orgId);
         setOffers(prev => prev.map(o => o.id === offerId ? updated : o));
         return updated;
-    }, [user]);
+    }, [user, orgId]);
 
     const deleteOffer = useCallback(async (offerId) => {
         await deleteItem('offers', offerId, user?.id, orgId);

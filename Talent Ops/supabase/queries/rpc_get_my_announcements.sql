@@ -4,7 +4,9 @@
 --          Dynamically calculates 'status' to avoid database writes.
 -- ==============================================================================
 
-CREATE OR REPLACE FUNCTION get_my_announcements()
+CREATE OR REPLACE FUNCTION get_my_announcements(
+    p_org_id uuid DEFAULT NULL
+)
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -19,9 +21,16 @@ BEGIN
     -- 1. Get current user context
     v_user_id := auth.uid();
     v_today := CURRENT_DATE;
+    
+    -- Use provided org_id or fallback to profile
+    IF p_org_id IS NOT NULL THEN
+        v_org_id := p_org_id;
+    END IF;
 
-    -- 2. Get User's Org and Team
-    SELECT org_id, team_id::uuid 
+    -- 2. Get User's Org (if not provided) and Team
+    SELECT 
+        CASE WHEN v_org_id IS NULL THEN org_id ELSE v_org_id END, 
+        team_id::uuid 
     INTO v_org_id, v_team_id
     FROM public.profiles 
     WHERE id = v_user_id;
@@ -89,5 +98,5 @@ END;
 $$;
 
 -- Grant permissions
-GRANT EXECUTE ON FUNCTION get_my_announcements() TO authenticated;
+GRANT EXECUTE ON FUNCTION get_my_announcements(uuid) TO authenticated;
 NOTIFY pgrst, 'reload schema';

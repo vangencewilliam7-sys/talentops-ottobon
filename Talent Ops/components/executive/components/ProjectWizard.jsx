@@ -83,12 +83,25 @@ const ProjectWizard = ({ isOpen, onClose, onComplete, addToast }) => {
     const fetchEmployees = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('id, full_name, email, role, department, job_title')
-                .order('full_name');
-            if (error) throw error;
-            setAllEmployees(data || []);
+            // Fetch both profiles and departments to show human-readable names
+            const [profilesRes, deptsRes] = await Promise.all([
+                supabase.from('profiles').select('id, full_name, email, role, department, job_title').eq('org_id', orgId).order('full_name'),
+                supabase.from('departments').select('id, department_name').eq('org_id', orgId)
+            ]);
+            
+            if (profilesRes.error) throw profilesRes.error;
+            
+            const deptsMap = {};
+            (deptsRes.data || []).forEach(d => {
+                deptsMap[d.id] = d.department_name;
+            });
+            
+            const enriched = (profilesRes.data || []).map(emp => ({
+                ...emp,
+                department_display: deptsMap[emp.department] || 'Unassigned'
+            }));
+            
+            setAllEmployees(enriched);
         } catch (error) {
             console.error('Error fetching employees:', error);
             addToast?.('Failed to fetch employees', 'error');
@@ -245,6 +258,7 @@ const ProjectWizard = ({ isOpen, onClose, onComplete, addToast }) => {
 
                 const { error: dbError } = await supabase.from('project_documents').insert({
                     project_id: projectId,
+                    org_id: orgId,
                     title: file.name,
                     file_url: urlData.publicUrl,
                     doc_type: 'requirements',
@@ -340,7 +354,8 @@ const ProjectWizard = ({ isOpen, onClose, onComplete, addToast }) => {
                     return {
                         project_id: project.id,
                         user_id: id,
-                        role: dbRole
+                        role: dbRole,
+                        org_id: orgId
                     };
                 });
 
@@ -431,7 +446,7 @@ const ProjectWizard = ({ isOpen, onClose, onComplete, addToast }) => {
     const filteredEmployees = allEmployees.filter(e =>
         e.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         e.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(e.department)?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        e.department_display?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         String(e.job_title)?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -551,7 +566,7 @@ const ProjectWizard = ({ isOpen, onClose, onComplete, addToast }) => {
                                                         <div className="avatar-xs">{emp.full_name?.charAt(0) || '?'}</div>
                                                         <div>
                                                             <div className="emp-name-lite">{emp.full_name || 'Unknown Employee'}</div>
-                                                            <div className="emp-meta-lite">{emp.job_title || 'Expert'}</div>
+                                                            <div className="emp-meta-lite">{emp.department_display} • {emp.job_title || 'Expert'}</div>
                                                         </div>
                                                     </div>
                                                     {selectedEmployees.map(String).includes(String(emp.id)) ? <Check size={18} color="#7c3aed" /> : <Plus size={18} color="#cbd5e1" />}

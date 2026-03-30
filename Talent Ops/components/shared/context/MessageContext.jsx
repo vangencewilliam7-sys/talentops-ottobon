@@ -118,6 +118,12 @@ export const MessageProvider = ({ children, addToast }) => {
                     if (payload.new.receiver_id !== userId) return;
 
                     console.log('📬 Real-time message received:', payload);
+
+                    // Play sound IMMEDIATELY — before any async work
+                    try {
+                        messageAudio.currentTime = 0;
+                        messageAudio.play().catch(() => {});
+                    } catch (e) {}
                     
                     await fetchConversations();
 
@@ -128,10 +134,13 @@ export const MessageProvider = ({ children, addToast }) => {
 
                     // Context Fetching
                     if (senderId) {
-                        const { data: profile } = await supabase.from('profiles').select('avatar_url').eq('id', senderId).single();
-                        senderAvatar = profile?.avatar_url;
+                        const [profileRes, membershipsRes] = await Promise.all([
+                            supabase.from('profiles').select('avatar_url').eq('id', senderId).single(),
+                            supabase.from('conversation_members').select('conversation_id').eq('user_id', senderId)
+                        ]);
+                        senderAvatar = profileRes.data?.avatar_url;
+                        const memberships = membershipsRes.data;
 
-                        const { data: memberships } = await supabase.from('conversation_members').select('conversation_id').eq('user_id', senderId);
                         if (memberships) {
                             const senderConvIds = memberships.map(c => c.conversation_id);
                             const latestConvs = await fetchConversations();
@@ -181,12 +190,6 @@ export const MessageProvider = ({ children, addToast }) => {
                             addToast(displayMessage, 'info', { label: 'View', onClick: () => navigate('/messages') });
                         }
                     }
-
-                    // Audio feedback
-                    try {
-                        messageAudio.currentTime = 0;
-                        messageAudio.play().catch(() => {});
-                    } catch (e) {}
 
                 }
             )

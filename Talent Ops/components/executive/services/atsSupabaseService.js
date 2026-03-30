@@ -96,9 +96,11 @@ export const addItem = async (table, item, userId, orgId) => {
     return toCamel(data, table);
 };
 
-export const updateItem = async (table, id, updates, userId) => {
+export const updateItem = async (table, id, updates, userId, orgId) => {
     const snakeUpdates = toSnake(updates, table);
-    const { data, error } = await supabase.from(table).update(snakeUpdates).eq('id', id).select().single();
+    let query = supabase.from(table).update(snakeUpdates).eq('id', id);
+    if (orgId) query = query.eq('org_id', orgId);
+    const { data, error } = await query.select().single();
     if (error) throw error;
 
     await addAuditEntry({
@@ -182,10 +184,14 @@ export const uploadResume = async (file, candidateId, orgId) => {
         resume_url: publicUrl,
     };
 
-    const { data: updatedCandidate, error: updateError } = await supabase
+    let updateQuery = supabase
         .from('candidates')
         .update(toSnake(updates))
-        .eq('id', candidateId)
+        .eq('id', candidateId);
+    
+    if (orgId) updateQuery = updateQuery.eq('org_id', orgId);
+
+    const { data: updatedCandidate, error: updateError } = await updateQuery
         .select()
         .single();
 

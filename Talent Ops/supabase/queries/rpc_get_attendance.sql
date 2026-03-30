@@ -33,6 +33,7 @@ BEGIN
         (EXTRACT(HOUR FROM check_in) > 10) as is_late
     FROM public.attendance
     WHERE employee_id = v_user_id
+    AND org_id = (SELECT org_id FROM public.profiles WHERE id = v_user_id)
     AND EXTRACT(MONTH FROM date) = p_month
     AND EXTRACT(YEAR FROM date) = p_year
     ORDER BY date DESC;

@@ -25,7 +25,7 @@ export const requestTaskAccess = async (taskId, orgId, reason, currentUserId, as
 
     // Notify Manager
     if (assignedByUserId) {
-        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', currentUserId).single();
+        const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', currentUserId).eq('org_id', orgId).single();
         const senderName = profile?.full_name || 'Someone';
 
         await sendNotification(
@@ -93,6 +93,7 @@ export const updateTask = async (taskId, updates, orgId) => {
             .from('profiles')
             .select('full_name')
             .eq('id', task.assigned_by || '')
+            .eq('org_id', orgId)
             .single();
             
         const senderName = profile?.full_name || 'Manager';
