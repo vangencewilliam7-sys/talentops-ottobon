@@ -25,18 +25,52 @@ export const useAnnouncements = (userId, orgId) => {
                 }
             }
 
-            const { data, error: rpcError } = await supabase.rpc('get_my_announcements', { p_org_id: orgId });
-            if (rpcError) throw rpcError;
+            console.log(`[useAnnouncements] Fetching for orgId: ${orgId}`);
+            let allEvents = [];
 
-            let allEvents = data || [];
+            try {
+                const { data: rpcResponse, error: rpcError } = await supabase.rpc('get_my_announcements', { p_org_id: orgId });
+                
+                if (rpcError) {
+                    console.warn('[useAnnouncements] RPC fetch failed, attempting table fallback:', rpcError);
+                    
+                    // Fallback to direct table fetch if RPC is missing
+                    const { data: tableAnnouncements, error: tableError } = await supabase
+                        .from('announcements')
+                        .select('*')
+                        .eq('org_id', orgId);
+                    
+                    if (tableError) {
+                        console.error('[useAnnouncements] Table fallback also failed:', tableError);
+                    } else if (tableAnnouncements) {
+                        console.log(`[useAnnouncements] Fallback successfully fetched ${tableAnnouncements.length} items.`);
+                        allEvents = tableAnnouncements.map(a => ({
+                            ...a,
+                            status: new Date(a.event_date) > new Date() ? 'future' : 
+                                    new Date(a.event_date).toDateString() === new Date().toDateString() ? 'active' : 'completed'
+                        }));
+                    }
+                } else if (rpcResponse && rpcResponse.success) {
+                    allEvents = rpcResponse.data || [];
+                }
+            } catch (err) {
+                console.error('[useAnnouncements] Unexpected error in announcement fetch flow:', err);
+            }
 
-            // Fetch Holidays
+            // Fetch Holidays - Crucial that this always runs
             const currentYear = new Date().getFullYear();
-            const { data: holidays } = await supabase
+            console.log(`[useAnnouncements] Fetching holidays for year ${currentYear}...`);
+            const { data: holidays, error: holidayError } = await supabase
                 .from('organization_holidays')
                 .select('*')
                 .eq('org_id', orgId)
                 .gte('holiday_date', `${currentYear}-01-01`);
+
+            if (holidayError) {
+                console.error('[useAnnouncements] Holiday fetch error:', holidayError);
+            } else {
+                console.log(`[useAnnouncements] Successfully fetched ${holidays?.length || 0} holidays.`);
+            }
 
             if (holidays) {
                 const todayStr = new Date().toISOString().split('T')[0];
@@ -77,18 +111,27 @@ export const useAnnouncements = (userId, orgId) => {
         } finally {
             setLoading(false);
         }
-    }, [userId, orgId]);
+    }, [orgId]);
 
     useEffect(() => {
-        if (userId && orgId) {
+        if (orgId) {
             fetchAnnouncements(true);
             
-            // Real-time subscription to auto-refresh announcements
-            const channel = supabase.channel('announcements-changes')
+            // Real-time subscription for both Announcements and Holidays
+            const channel = supabase.channel(`announcements-wide-${orgId}`)
                 .on(
                     'postgres_changes',
-                    { event: '*', schema: 'public', table: 'announcements' },
-                    () => {
+                    { event: '*', schema: 'public', table: 'announcements', filter: `org_id=eq.${orgId}` },
+                    (payload) => {
+                        console.log('[useAnnouncements] Announcement change detected:', payload);
+                        fetchAnnouncements(false);
+                    }
+                )
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: 'organization_holidays', filter: `org_id=eq.${orgId}` },
+                    (payload) => {
+                        console.log('[useAnnouncements] Holiday change detected:', payload);
                         fetchAnnouncements(false);
                     }
                 )
@@ -98,7 +141,7 @@ export const useAnnouncements = (userId, orgId) => {
                 supabase.removeChannel(channel);
             };
         }
-    }, [userId, orgId, fetchAnnouncements]);
+    }, [orgId, fetchAnnouncements]);
 
     const updateAnnouncementStatus = async (eventId, newStatus) => {
         const { error } = await supabase.rpc('update_announcement_status', {

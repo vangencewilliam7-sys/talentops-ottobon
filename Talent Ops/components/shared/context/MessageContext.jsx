@@ -4,8 +4,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { getConversationsByCategory, sendMessage, markAsReadInDB } from '../../../services/messageService';
 import { sendNotification } from '../../../services/notificationService';
 
-const messageAudio = new Audio('/notification.mp3');
+const messageAudio = new Audio('/sound.mp3');
 messageAudio.preload = 'auto';
+console.log('[MessageContext] Initialized sound: /sound.mp3');
 
 const MessageContext = createContext();
 

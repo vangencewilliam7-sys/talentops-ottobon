@@ -276,11 +276,18 @@ const DashboardHome = () => {
                 }
 
                 // Fetch Organization Holidays
-                const { data: orgHolidays } = await supabase
+                console.log(`[DashboardHome] Fetching holidays for org: ${orgId}`);
+                const { data: orgHolidays, error: holidayError } = await supabase
                     .from('organization_holidays')
                     .select('*')
                     .eq('org_id', orgId)
                     .gte('holiday_date', new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0]);
+
+                if (holidayError) {
+                    console.error('[DashboardHome] Holiday fetch error:', holidayError);
+                } else {
+                    console.log(`[DashboardHome] Successfully fetched ${orgHolidays?.length || 0} holidays.`);
+                }
 
                 if (orgHolidays) {
                     const todayStr = formatDate(new Date());

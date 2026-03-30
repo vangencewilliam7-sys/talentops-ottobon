@@ -58,7 +58,7 @@ const PayrollPage = ({ userRole, userId, addToast, orgId }) => {
 
             console.log(`Fetching payrolls using RPC: ${rpcName} for org: ${orgId}`);
 
-            const { data, error } = await supabase.rpc(rpcName, { p_org_id: orgId });
+            const { data, error } = await supabase.rpc(rpcName); // org_id is handled server-side for security
 
             if (error) {
                 console.error('Error fetching payrolls via RPC:', error);

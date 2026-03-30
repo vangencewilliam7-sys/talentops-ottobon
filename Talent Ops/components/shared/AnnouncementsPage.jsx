@@ -1,10 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, Archive, AlertCircle, Plus, CheckCircle2 } from 'lucide-react';
 import { useAnnouncements } from './hooks/useAnnouncements';
+import { useUser } from './context/UserContext';
 import ViewAnnouncementModal from './Announcements/ViewAnnouncementModal';
 import AddAnnouncementModal from './Announcements/AddAnnouncementModal';
 
-const AnnouncementsPage = ({ userRole, userId, orgId }) => {
+const AnnouncementsPage = ({ 
+    userRole: propUserRole, 
+    userId: propUserId, 
+    orgId: propOrgId 
+}) => {
+    // Consume context as fallback for missing props
+    const { 
+        userId: contextUserId, 
+        orgId: contextOrgId, 
+        userRole: contextUserRole 
+    } = useUser();
+
+    // Prioritize props over context
+    const userId = propUserId || contextUserId;
+    const orgId = propOrgId || contextOrgId;
+    const userRole = (propUserRole || contextUserRole || '').toLowerCase();
+
     const { 
         announcements, 
         loading, 
