@@ -220,6 +220,27 @@ const EmployeesFeature = ({ employees, type, title, onAction }) => {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                             <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.department_display}</span>
                                             <span style={{ color: '#cbd5e1', flexShrink: 0 }}>•</span>
+                                            
+                                            {(emp.employment_type?.toLowerCase() === 'intern' || emp.job_title?.toLowerCase() === 'intern') && (
+                                                <>
+                                                    <span style={{ 
+                                                        fontSize: '0.65rem', 
+                                                        fontWeight: '800', 
+                                                        padding: '2px 8px', 
+                                                        borderRadius: '6px',
+                                                        backgroundColor: (emp.is_paid === false || (emp.stipend === 0 && emp.is_paid !== true)) ? '#fee2e2' : '#dcfce7',
+                                                        color: (emp.is_paid === false || (emp.stipend === 0 && emp.is_paid !== true)) ? '#991b1b' : '#166534',
+                                                        textTransform: 'uppercase',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                    }}>
+                                                        {(emp.is_paid === false || (emp.stipend === 0 && emp.is_paid !== true)) ? 'Unpaid Intern' : 'Paid Intern'}
+                                                    </span>
+                                                    <span style={{ color: '#cbd5e1', flexShrink: 0 }}>•</span>
+                                                </>
+                                            )}
+
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                                                 <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: emp.availability === 'Online' ? '#22c55e' : emp.availability === 'On Leave' ? '#ef4444' : '#94a3b8' }}></span>
                                                 <span style={{ fontSize: '0.75rem', fontWeight: '700', color: emp.availability === 'Online' ? '#16a34a' : emp.availability === 'On Leave' ? '#dc2626' : '#64748b' }}>{emp.availability}</span>
@@ -398,7 +419,22 @@ const EmployeesFeature = ({ employees, type, title, onAction }) => {
                                     )}
                                 </div>
                                 <div style={{ overflow: 'hidden' }}>
-                                    <h4 style={{ fontSize: '1rem', fontWeight: '700', color: '#0f172a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.name}</h4>
+                                    <h4 style={{ fontSize: '1rem', fontWeight: '700', color: '#0f172a', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {emp.name}
+                                        {(emp.employment_type?.toLowerCase() === 'intern' || emp.job_title?.toLowerCase() === 'intern') && (
+                                            <span style={{ 
+                                                fontSize: '0.6rem', 
+                                                fontWeight: '800', 
+                                                padding: '2px 6px', 
+                                                borderRadius: '4px',
+                                                backgroundColor: (emp.is_paid === false || (emp.stipend === 0 && emp.is_paid !== true)) ? '#fee2e2' : '#dcfce7',
+                                                color: (emp.is_paid === false || (emp.stipend === 0 && emp.is_paid !== true)) ? '#991b1b' : '#166534',
+                                                textTransform: 'uppercase'
+                                            }}>
+                                                {(emp.is_paid === false || (emp.stipend === 0 && emp.is_paid !== true)) ? 'Unpaid Intern' : 'Paid Intern'}
+                                            </span>
+                                        )}
+                                    </h4>
                                     <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0 }}>{emp.job_title}</p>
                                 </div>
                             </div>

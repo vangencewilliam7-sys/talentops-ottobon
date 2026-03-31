@@ -33,7 +33,7 @@ export const useEmployees = (orgId) => {
 
             // 2. Fetch Employees and Team Assignments
             const [profilesRes, membersRes] = await Promise.all([
-                supabase.from('profiles').select('id, full_name, email, role, department, job_title, join_date, avatar_url, team_id, created_at, employment_type').eq('org_id', orgId),
+                supabase.from('profiles').select('id, full_name, email, role, department, job_title, join_date, avatar_url, team_id, created_at, employment_type, is_paid').eq('org_id', orgId),
                 supabase.from('project_members').select('user_id, project_id, role, projects:project_id(name)').eq('org_id', orgId)
             ]);
 
@@ -127,6 +127,7 @@ export const useEmployees = (orgId) => {
                     projects: assignedProjects.length,
                     tasksCompleted: 0,
                     avatar_url: emp.avatar_url,
+                    is_paid: emp.is_paid,
                     department: emp.department // Keep raw ID for form editing
                 };
             });

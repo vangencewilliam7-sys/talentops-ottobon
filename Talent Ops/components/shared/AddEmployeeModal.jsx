@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Eye, EyeOff } from 'lucide-react';
+import { X, Eye, EyeOff, Circle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
 export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
@@ -21,11 +21,13 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         hra: '',
         allowances: '',
         professional_tax: '',
+        stipend: '',
         joinDate: new Date().toISOString().split('T')[0],
     });
     const [projectRole, setProjectRole] = useState('employee');
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [internStipendType, setInternStipendType] = useState('unpaid'); // 'unpaid' | 'paid'
 
     useEffect(() => {
         if (isOpen) {
@@ -116,10 +118,12 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                         password: formData.password,
                         role: formData.role,
                         monthly_leave_quota: formData.monthly_leave_quota,
-                        basic_salary: parseFloat(formData.basic_salary),
-                        hra: parseFloat(formData.hra),
-                        allowances: parseFloat(formData.allowances) || 0,
-                        professional_tax: parseFloat(formData.professional_tax) || 0,
+                        basic_salary: formData.employment_type === 'intern' ? 0 : parseFloat(formData.basic_salary) || 0,
+                        hra: formData.employment_type === 'intern' ? 0 : parseFloat(formData.hra) || 0,
+                        allowances: formData.employment_type === 'intern' ? 0 : parseFloat(formData.allowances) || 0,
+                        professional_tax: formData.employment_type === 'intern' ? 0 : parseFloat(formData.professional_tax) || 0,
+                        is_paid: formData.employment_type === 'intern' ? (internStipendType === 'paid') : true,
+                        stipend: formData.employment_type === 'intern' ? (parseFloat(formData.stipend) || 0) : 0,
                         join_date: formData.joinDate,
                         employment_type: formData.employment_type,
                         org_id: orgId
@@ -273,8 +277,10 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                 hra: '',
                 allowances: '',
                 professional_tax: '',
+                stipend: '',
                 joinDate: new Date().toISOString().split('T')[0],
             });
+            setInternStipendType('unpaid');
             setSelectedProjects([]);
 
             onSuccess();
@@ -513,6 +519,79 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                             </select>
                         </div>
 
+                        {/* MCQ-style Intern Type Selection — only shown when 'intern' is selected */}
+                        {formData.employment_type === 'intern' && (
+                            <div style={{
+                                marginBottom: 'var(--spacing-md)',
+                                animation: 'fadeIn 0.3s ease-out'
+                            }}>
+                                <label style={{ display: 'block', marginBottom: '12px', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                    Internship Category *
+                                </label>
+                                
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    {/* Unpaid Option */}
+                                    <div 
+                                        onClick={() => setInternStipendType('unpaid')}
+                                        style={{
+                                            padding: '16px',
+                                            borderRadius: '12px',
+                                            border: `2px solid ${internStipendType === 'unpaid' ? '#ef4444' : 'var(--border)'}`,
+                                            backgroundColor: internStipendType === 'unpaid' ? '#fef2f2' : 'var(--background)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px',
+                                            position: 'relative'
+                                        }}
+                                    >
+                                        {internStipendType === 'unpaid' ? (
+                                            <CheckCircle2 size={20} color="#ef4444" />
+                                        ) : (
+                                            <Circle size={20} color="var(--text-secondary)" />
+                                        )}
+                                        <span style={{ 
+                                            fontWeight: 600, 
+                                            fontSize: '0.95rem',
+                                            color: internStipendType === 'unpaid' ? '#991b1b' : 'var(--text-primary)'
+                                        }}>
+                                            Unpaid Intern
+                                        </span>
+                                    </div>
+
+                                    {/* Paid Option */}
+                                    <div 
+                                        onClick={() => setInternStipendType('paid')}
+                                        style={{
+                                            padding: '16px',
+                                            borderRadius: '12px',
+                                            border: `2px solid ${internStipendType === 'paid' ? '#22c55e' : 'var(--border)'}`,
+                                            backgroundColor: internStipendType === 'paid' ? '#f0fdf4' : 'var(--background)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '12px'
+                                        }}
+                                    >
+                                        {internStipendType === 'paid' ? (
+                                            <CheckCircle2 size={20} color="#22c55e" />
+                                        ) : (
+                                            <Circle size={20} color="var(--text-secondary)" />
+                                        )}
+                                        <span style={{ 
+                                            fontWeight: 600, 
+                                            fontSize: '0.95rem',
+                                            color: internStipendType === 'paid' ? '#166534' : 'var(--text-primary)'
+                                        }}>
+                                            Paid Intern
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Department */}
                         <div>
                             <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>Department *</label>
@@ -695,95 +774,215 @@ export const AddEmployeeModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                 Compensation Details
                             </h3>
 
-                            {/* Basic Salary */}
-                            <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>
-                                    Basic Salary *
-                                </label>
-                                <input
-                                    type="number"
-                                    required
-                                    min={0}
-                                    value={formData.basic_salary}
-                                    onChange={(e) => setFormData({ ...formData, basic_salary: e.target.value })}
-                                    placeholder="Enter basic salary"
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '8px',
-                                        border: '1px solid var(--border)',
-                                        backgroundColor: 'var(--background)',
-                                        color: 'var(--text-primary)',
-                                    }}
-                                />
-                            </div>
+                            {formData.employment_type === 'intern' ? (
+                                <div style={{ 
+                                    display: 'flex', 
+                                    flexDirection: 'column', 
+                                    gap: '16px',
+                                    animation: 'fadeIn 0.2s ease-out'
+                                }}>
+                                    {/* Summary Card */}
+                                    <div style={{
+                                        padding: '16px',
+                                        borderRadius: '12px',
+                                        backgroundColor: internStipendType === 'paid' ? '#f0fdf4' : '#fef2f2',
+                                        border: `1px solid ${internStipendType === 'paid' ? '#dcfce7' : '#fee2e2'}`,
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                    }}>
+                                        <div>
+                                            <p style={{ fontSize: '0.7rem', fontWeight: 600, color: internStipendType === 'paid' ? '#166534' : '#991b1b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                Internship Category
+                                            </p>
+                                            <p style={{ fontSize: '1.1rem', fontWeight: 700, color: internStipendType === 'paid' ? '#166534' : '#991b1b' }}>
+                                                {internStipendType === 'paid' ? 'Paid Intern' : 'Unpaid Intern'}
+                                            </p>
+                                        </div>
+                                        <div style={{
+                                            padding: '4px 12px',
+                                            borderRadius: '20px',
+                                            backgroundColor: internStipendType === 'paid' ? '#166534' : '#ef4444',
+                                            color: 'white',
+                                            fontSize: '0.75rem',
+                                            fontWeight: 700
+                                        }}>
+                                            {internStipendType === 'paid' ? 'STIPENDIARY' : 'VOLUNTARY'}
+                                        </div>
+                                    </div>
 
-                            {/* HRA */}
-                            <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>
-                                    HRA (House Rent Allowance) *
-                                </label>
-                                <input
-                                    type="number"
-                                    required
-                                    min={0}
-                                    value={formData.hra}
-                                    onChange={(e) => setFormData({ ...formData, hra: e.target.value })}
-                                    placeholder="Enter HRA amount"
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '8px',
-                                        border: '1px solid var(--border)',
-                                        backgroundColor: 'var(--background)',
-                                        color: 'var(--text-primary)',
-                                    }}
-                                />
-                            </div>
+                                    {/* Stipend Field — back in compensation details */}
+                                    {internStipendType === 'paid' ? (
+                                        <div style={{ animation: 'fadeIn 0.2s ease-out' }}>
+                                            <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                                Monthly Stipend *
+                                            </label>
+                                            <div style={{ position: 'relative' }}>
+                                                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontWeight: 600 }}>₹</span>
+                                                <input
+                                                    type="number"
+                                                    required
+                                                    min={0}
+                                                    value={formData.stipend}
+                                                    onChange={(e) => setFormData({ ...formData, stipend: e.target.value })}
+                                                    placeholder="e.g. 10000"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '12px 12px 12px 32px',
+                                                        borderRadius: '10px',
+                                                        border: '2px solid #86efac',
+                                                        backgroundColor: 'var(--background)',
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: '1rem',
+                                                        fontWeight: 600,
+                                                        outline: 'none',
+                                                        transition: 'border-color 0.2s'
+                                                    }}
+                                                />
+                                            </div>
+                                            <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '6px', fontStyle: 'italic' }}>
+                                                Note: Stipend is independent of basic salary.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div style={{
+                                            padding: '16px',
+                                            borderRadius: '10px',
+                                            backgroundColor: '#fef2f2',
+                                            border: '1px dashed #fecaca',
+                                            color: '#991b1b',
+                                            fontSize: '0.875rem',
+                                            fontWeight: 500,
+                                            textAlign: 'center'
+                                        }}>
+                                            No stipend or compensation will be assigned to this intern.
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                /* ── REGULAR EMPLOYEE: Full salary breakdown ── */
+                                <div style={{ 
+                                    display: 'grid', 
+                                    gridTemplateColumns: '1fr 1fr', 
+                                    gap: '20px',
+                                    animation: 'fadeIn 0.3s ease-out'
+                                }}>
+                                    {/* Basic Salary */}
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                                            Basic Salary *
+                                        </label>
+                                        <div style={{ position: 'relative' }}>
+                                            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontWeight: 600 }}>₹</span>
+                                            <input
+                                                type="number"
+                                                required
+                                                min={0}
+                                                value={formData.basic_salary}
+                                                onChange={(e) => setFormData({ ...formData, basic_salary: e.target.value })}
+                                                placeholder="Amount"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px 12px 12px 32px',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid var(--border)',
+                                                    backgroundColor: 'var(--background)',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: '0.95rem',
+                                                    fontWeight: 500,
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
 
-                            {/* Allowances */}
-                            <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>
-                                    Other Allowances
-                                </label>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    value={formData.allowances}
-                                    onChange={(e) => setFormData({ ...formData, allowances: e.target.value })}
-                                    placeholder="Enter other allowances (optional)"
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '8px',
-                                        border: '1px solid var(--border)',
-                                        backgroundColor: 'var(--background)',
-                                        color: 'var(--text-primary)',
-                                    }}
-                                />
-                            </div>
+                                    {/* HRA */}
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                                            HRA (Monthly) *
+                                        </label>
+                                        <div style={{ position: 'relative' }}>
+                                            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontWeight: 600 }}>₹</span>
+                                            <input
+                                                type="number"
+                                                required
+                                                min={0}
+                                                value={formData.hra}
+                                                onChange={(e) => setFormData({ ...formData, hra: e.target.value })}
+                                                placeholder="Amount"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px 12px 12px 32px',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid var(--border)',
+                                                    backgroundColor: 'var(--background)',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: '0.95rem',
+                                                    fontWeight: 500,
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
 
-                            {/* Professional Tax */}
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>
-                                    Professional Tax
-                                </label>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    value={formData.professional_tax}
-                                    onChange={(e) => setFormData({ ...formData, professional_tax: e.target.value })}
-                                    placeholder="Enter professional tax (optional)"
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        borderRadius: '8px',
-                                        border: '1px solid var(--border)',
-                                        backgroundColor: 'var(--background)',
-                                        color: 'var(--text-primary)',
-                                    }}
-                                />
-                            </div>
+                                    {/* Allowances */}
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                                            Allowances
+                                        </label>
+                                        <div style={{ position: 'relative' }}>
+                                            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontWeight: 600 }}>₹</span>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                value={formData.allowances}
+                                                onChange={(e) => setFormData({ ...formData, allowances: e.target.value })}
+                                                placeholder="Amount"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px 12px 12px 32px',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid var(--border)',
+                                                    backgroundColor: 'var(--background)',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: '0.95rem',
+                                                    fontWeight: 500,
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Professional Tax */}
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
+                                            Prof. Tax
+                                        </label>
+                                        <div style={{ position: 'relative' }}>
+                                            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontWeight: 600 }}>₹</span>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                value={formData.professional_tax}
+                                                onChange={(e) => setFormData({ ...formData, professional_tax: e.target.value })}
+                                                placeholder="Amount"
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '12px 12px 12px 32px',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid var(--border)',
+                                                    backgroundColor: 'var(--background)',
+                                                    color: 'var(--text-primary)',
+                                                    fontSize: '0.95rem',
+                                                    fontWeight: 500,
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Error Message */}

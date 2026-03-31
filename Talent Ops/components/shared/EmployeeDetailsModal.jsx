@@ -31,7 +31,9 @@ const EmployeeDetailsModal = ({
                         </div>
                         <div style={{ flex: 1 }}>
                             <h4 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '4px' }}>{selectedEmployee.name}</h4>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '8px' }}>{selectedEmployee.role}</p>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '8px', textTransform: 'capitalize' }}>
+                                {selectedEmployee.job_title || selectedEmployee.role}
+                            </p>
                             <span style={{
                                 padding: '4px 12px',
                                 borderRadius: '12px',
@@ -106,44 +108,73 @@ const EmployeeDetailsModal = ({
                     {/* Financial Details */}
                     <div style={{ marginBottom: '32px' }}>
                         <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Financial Details</h5>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                            <div style={{ padding: '16px', backgroundColor: '#f0f9ff', borderRadius: '12px', border: '1px solid #e0f2fe' }}>
-                                <p style={{ fontSize: '0.75rem', color: '#075985', marginBottom: '4px', fontWeight: 600 }}>Basic Salary</p>
-                                <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#075985' }}>
-                                    ₹{selectedEmployee.basic_salary ? selectedEmployee.basic_salary.toLocaleString('en-IN') : '0'}
-                                </p>
+                        
+                        {(
+                            selectedEmployee.employment_type?.toLowerCase() === 'intern' || 
+                            selectedEmployee.job_title?.toLowerCase() === 'intern' || 
+                            selectedEmployee.role?.toLowerCase() === 'intern'
+                        ) ? (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+                                {(selectedEmployee.is_paid === false || (selectedEmployee.stipend === 0 && selectedEmployee.is_paid !== true)) ? (
+                                    <div style={{ padding: '24px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '1px solid #fee2e2', textAlign: 'center' }}>
+                                        <p style={{ fontSize: '0.9rem', color: '#991b1b', marginBottom: '4px', fontWeight: 600 }}>INTERNSHIP STATUS</p>
+                                        <p style={{ fontSize: '1.5rem', fontWeight: 800, color: '#991b1b' }}>UNPAID INTERN</p>
+                                        <p style={{ fontSize: '0.8rem', color: '#991b1b', marginTop: '8px' }}>This intern is not receiving any compensation.</p>
+                                    </div>
+                                ) : (
+                                    <div style={{ padding: '24px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div>
+                                            <p style={{ fontSize: '0.9rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>MONTHLY STIPEND</p>
+                                            <p style={{ fontSize: '2rem', fontWeight: 800, color: '#166534' }}>
+                                                ₹{selectedEmployee.stipend ? selectedEmployee.stipend.toLocaleString('en-IN') : '0'}
+                                            </p>
+                                        </div>
+                                        <div style={{ padding: '8px 16px', backgroundColor: '#166534', color: 'white', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700 }}>
+                                            PAID INTERN
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7' }}>
-                                <p style={{ fontSize: '0.75rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>HRA</p>
-                                <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534' }}>
-                                    ₹{selectedEmployee.hra ? selectedEmployee.hra.toLocaleString('en-IN') : '0'}
-                                </p>
+                        ) : (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div style={{ padding: '16px', backgroundColor: '#f0f9ff', borderRadius: '12px', border: '1px solid #e0f2fe' }}>
+                                    <p style={{ fontSize: '0.75rem', color: '#075985', marginBottom: '4px', fontWeight: 600 }}>Basic Salary</p>
+                                    <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#075985' }}>
+                                        ₹{selectedEmployee.basic_salary ? selectedEmployee.basic_salary.toLocaleString('en-IN') : '0'}
+                                    </p>
+                                </div>
+                                <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7' }}>
+                                    <p style={{ fontSize: '0.75rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>HRA</p>
+                                    <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534' }}>
+                                        ₹{selectedEmployee.hra ? selectedEmployee.hra.toLocaleString('en-IN') : '0'}
+                                    </p>
+                                </div>
+                                <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '12px', border: '1px solid #fef08a' }}>
+                                    <p style={{ fontSize: '0.75rem', color: '#b45309', marginBottom: '4px', fontWeight: 600 }}>Allowances</p>
+                                    <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#b45309' }}>
+                                        ₹{selectedEmployee.allowances ? selectedEmployee.allowances.toLocaleString('en-IN') : '0'}
+                                    </p>
+                                </div>
+                                <div style={{ padding: '16px', backgroundColor: '#ede9fe', borderRadius: '12px', border: '1px solid #ddd6fe' }}>
+                                    <p style={{ fontSize: '0.75rem', color: '#6d28d9', marginBottom: '4px', fontWeight: 600 }}>Gross Salary</p>
+                                    <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#6d28d9' }}>
+                                        ₹{selectedEmployee.gross_salary ? selectedEmployee.gross_salary.toLocaleString('en-IN') : '0'}
+                                    </p>
+                                </div>
+                                <div style={{ padding: '16px', backgroundColor: '#fee2e2', borderRadius: '12px', border: '1px solid #fecaca' }}>
+                                    <p style={{ fontSize: '0.75rem', color: '#991b1b', marginBottom: '4px', fontWeight: 600 }}>Professional Tax (Deduction)</p>
+                                    <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#991b1b' }}>
+                                        -₹{selectedEmployee.professional_tax ? selectedEmployee.professional_tax.toLocaleString('en-IN') : '0'}
+                                    </p>
+                                </div>
+                                <div style={{ padding: '16px', backgroundColor: '#d1fae5', borderRadius: '12px', border: '2px solid #10b981' }}>
+                                    <p style={{ fontSize: '0.75rem', color: '#065f46', marginBottom: '4px', fontWeight: 600 }}>Net Salary</p>
+                                    <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#065f46' }}>
+                                        ₹{((selectedEmployee.gross_salary || 0) - (selectedEmployee.professional_tax || 0)).toLocaleString('en-IN')}
+                                    </p>
+                                </div>
                             </div>
-                            <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '12px', border: '1px solid #fef08a' }}>
-                                <p style={{ fontSize: '0.75rem', color: '#b45309', marginBottom: '4px', fontWeight: 600 }}>Allowances</p>
-                                <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#b45309' }}>
-                                    ₹{selectedEmployee.allowances ? selectedEmployee.allowances.toLocaleString('en-IN') : '0'}
-                                </p>
-                            </div>
-                            <div style={{ padding: '16px', backgroundColor: '#ede9fe', borderRadius: '12px', border: '1px solid #ddd6fe' }}>
-                                <p style={{ fontSize: '0.75rem', color: '#6d28d9', marginBottom: '4px', fontWeight: 600 }}>Gross Salary</p>
-                                <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#6d28d9' }}>
-                                    ₹{selectedEmployee.gross_salary ? selectedEmployee.gross_salary.toLocaleString('en-IN') : '0'}
-                                </p>
-                            </div>
-                            <div style={{ padding: '16px', backgroundColor: '#fee2e2', borderRadius: '12px', border: '1px solid #fecaca' }}>
-                                <p style={{ fontSize: '0.75rem', color: '#991b1b', marginBottom: '4px', fontWeight: 600 }}>Professional Tax (Deduction)</p>
-                                <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#991b1b' }}>
-                                    -₹{selectedEmployee.professional_tax ? selectedEmployee.professional_tax.toLocaleString('en-IN') : '0'}
-                                </p>
-                            </div>
-                            <div style={{ padding: '16px', backgroundColor: '#d1fae5', borderRadius: '12px', border: '2px solid #10b981' }}>
-                                <p style={{ fontSize: '0.75rem', color: '#065f46', marginBottom: '4px', fontWeight: 600 }}>Net Salary</p>
-                                <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#065f46' }}>
-                                    ₹{((selectedEmployee.gross_salary || 0) - (selectedEmployee.professional_tax || 0)).toLocaleString('en-IN')}
-                                </p>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Performance Metrics */}

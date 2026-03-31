@@ -567,6 +567,8 @@ const ModulePage = ({ title, type }) => {
                     allowances: allowances,
                     gross_salary: grossSalary,
                     professional_tax: financeData?.professional_tax || 0,
+                    stipend: financeData?.stipend || 0,
+                    is_paid: item.is_paid, // From profile
                     effective_from: financeData?.effective_from || null,
                     effective_to: financeData?.effective_to || null,
                     // Task metrics
@@ -581,7 +583,10 @@ const ModulePage = ({ title, type }) => {
 
                 // Also set employeeSalary for the compensation section
                 if (financeData) {
-                    setEmployeeSalary(financeData);
+                    setEmployeeSalary({
+                        ...financeData,
+                        is_paid: item.is_paid
+                    });
                 }
             } catch (error) {
                 console.error('Error fetching employee details:', error);

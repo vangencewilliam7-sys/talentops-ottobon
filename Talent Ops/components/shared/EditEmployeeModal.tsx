@@ -48,6 +48,8 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
         effective_from: new Date().toISOString().split('T')[0],
         joinDate: '',
         total_leaves_balance: 0,
+        is_paid: true,
+        stipend: '',
     });
     const [projectRole, setProjectRole] = useState('employee');
     const [originalSalary, setOriginalSalary] = useState<any>(null);
@@ -79,6 +81,8 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                 effective_from: new Date().toISOString().split('T')[0],
                 joinDate: '',
                 total_leaves_balance: employee.total_leaves_balance || 0,
+                is_paid: true,
+                stipend: '',
             });
         }
     }, [isOpen, employee, orgId]);
@@ -104,7 +108,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
         try {
             const { data: profile, error } = await supabase
                 .from('profiles')
-                .select('department, team_id, join_date, job_title, employment_type, monthly_leave_quota, total_leaves_balance')
+                .select('department, team_id, join_date, job_title, employment_type, monthly_leave_quota, total_leaves_balance, is_paid')
                 .eq('id', employee.id)
                 .eq('org_id', orgId)
                 .single();
@@ -118,6 +122,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                     joinDate: profile.join_date || '',
                     monthly_leave_quota: profile.monthly_leave_quota || 3,
                     total_leaves_balance: profile.total_leaves_balance || 0,
+                    is_paid: profile.is_paid !== undefined ? profile.is_paid : true,
                 }));
             }
         } catch (err) {
@@ -233,6 +238,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                     hra: data.hra?.toString() || '',
                     allowances: data.allowances?.toString() || '',
                     professional_tax: data.professional_tax?.toString() || '',
+                    stipend: data.stipend?.toString() || '',
                 }));
             }
         } catch (error) {
@@ -265,11 +271,10 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                     job_title: formData.job_title,
                     employment_type: formData.employment_type,
                     department: formData.department_id || null,
-                    monthly_leave_quota: formData.monthly_leave_quota,
-                    join_date: formData.joinDate,
                     total_leaves_balance: formData.total_leaves_balance,
                     org_id: orgId,
                     team_id: selectedProjects[0] || null,
+                    is_paid: formData.is_paid,
                 })
                 .eq('id', employee.id);
 
@@ -426,7 +431,8 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                             effective_from: formData.effective_from,
                             is_active: true,
                             change_reason: changeReason,
-                            org_id: orgId
+                            org_id: orgId,
+                            stipend: formData.employment_type === 'intern' ? parseFloat(formData.stipend || '0') : 0,
                         }]);
 
                     if (insertError) {
@@ -792,6 +798,117 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                                 }}
                             />
                         </div>
+
+                        {/* Intern Stipend / Salary Toggle */}
+                        {formData.employment_type === 'intern' ? (
+                            <div style={{ marginTop: '16px', padding: '16px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                                <label style={{ display: 'block', marginBottom: '12px', fontSize: '0.9rem', fontWeight: 600 }}>
+                                    Internship Payment Status
+                                </label>
+                                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, is_paid: false })}
+                                        style={{
+                                            flex: 1,
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid',
+                                            borderColor: !formData.is_paid ? '#ef4444' : '#d1d5db',
+                                            backgroundColor: !formData.is_paid ? '#fef2f2' : 'white',
+                                            color: !formData.is_paid ? '#ef4444' : '#374151',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Unpaid
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData({ ...formData, is_paid: true })}
+                                        style={{
+                                            flex: 1,
+                                            padding: '10px',
+                                            borderRadius: '6px',
+                                            border: '1px solid',
+                                            borderColor: formData.is_paid ? '#22c55e' : '#d1d5db',
+                                            backgroundColor: formData.is_paid ? '#f0fdf4' : 'white',
+                                            color: formData.is_paid ? '#166534' : '#374151',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        Paid
+                                    </button>
+                                </div>
+
+                                {formData.is_paid && (
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', fontWeight: 500 }}>
+                                            Monthly Stipend (₹)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            value={formData.stipend}
+                                            onChange={(e) => setFormData({ ...formData, stipend: e.target.value })}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px',
+                                                borderRadius: '8px',
+                                                border: '1px solid #d1d5db',
+                                                backgroundColor: 'white',
+                                                color: '#111827',
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+                                <label style={{ display: 'block', marginBottom: '12px', fontSize: '0.9rem', fontWeight: 600 }}>
+                                    Salary Details
+                                </label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem', color: '#6b7280' }}>Basic Salary</label>
+                                        <input
+                                            type="number"
+                                            value={formData.basic_salary}
+                                            onChange={(e) => setFormData({ ...formData, basic_salary: e.target.value })}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem', color: '#6b7280' }}>HRA</label>
+                                        <input
+                                            type="number"
+                                            value={formData.hra}
+                                            onChange={(e) => setFormData({ ...formData, hra: e.target.value })}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem', color: '#6b7280' }}>Allowances</label>
+                                        <input
+                                            type="number"
+                                            value={formData.allowances}
+                                            onChange={(e) => setFormData({ ...formData, allowances: e.target.value })}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.8rem', color: '#6b7280' }}>Professional Tax</label>
+                                        <input
+                                            type="number"
+                                            value={formData.professional_tax}
+                                            onChange={(e) => setFormData({ ...formData, professional_tax: e.target.value })}
+                                            style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #d1d5db' }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Total Leave Balance */}
                         <div>
