@@ -7,7 +7,7 @@ import {
 } from '../../../utils/payslipHelpers';
 import { formatMonthYear, getWorkingDaysInMonth, getDaysInMonth } from '../../../utils/payrollCalculations';
 import { generatePayslipPDF, uploadPayslipPDF } from '../../../utils/pdfGenerator';
-import { X, FileText, Plus, DollarSign } from 'lucide-react';
+import { X, FileText, Plus, DollarSign, Search, User, CheckCircle2 } from 'lucide-react';
 import PayslipPreview from './PayslipPreview';
 import PayrollFormModal from '../PayrollFormModal';
 import './PayslipFormModal.css';
@@ -142,31 +142,21 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId, savedCompaniesPro
 
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, full_name, email, role')
+                .select('id, full_name, email, role, employment_type')
                 .eq('org_id', orgId)
                 .order('full_name');
 
             if (error) {
                 console.error('Error fetching employees:', error);
-                console.error('Error details:', {
-                    message: error.message,
-                    code: error.code,
-                    details: error.details,
-                    hint: error.hint
-                });
                 setError('Failed to load employees: ' + error.message);
                 return;
             }
 
             if (data) {
-                console.log('Employees loaded:', data.length);
-                if (data.length === 0) {
-                    console.warn('⚠️ No employees found in the database. The profiles table might be empty.');
-                    setError('No employees found. Please add employees to the system first.');
-                }
-                setEmployees(data);
+                // Filter out interns
+                const filteredEmployees = data.filter(emp => emp.employment_type !== 'intern');
+                setEmployees(filteredEmployees);
             } else {
-                console.warn('No employees found');
                 setEmployees([]);
             }
         } catch (err) {
@@ -770,30 +760,66 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId, savedCompaniesPro
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', position: 'relative' }}>
                                         <label style={{ fontSize: '0.85rem', fontWeight: 800, color: '#475569' }}>Target Recipient *</label>
 
-                                        <input
-                                            type="text"
-                                            placeholder="Search & Select Employee..."
-                                            value={searchTerm}
-                                            onChange={(e) => {
-                                                setSearchTerm(e.target.value);
-                                                setIsDropdownOpen(true);
-                                                setSelectedEmployee(''); // Clear selection on type
-                                            }}
-                                            onFocus={() => setIsDropdownOpen(true)}
-                                            style={{
-                                                padding: '14px 16px',
-                                                borderRadius: '14px',
-                                                border: '2px solid #e2e8f0',
-                                                fontSize: '0.95rem',
-                                                fontWeight: 600,
-                                                color: '#1e293b',
-                                                backgroundColor: 'white',
-                                                width: '100%',
-                                                outline: 'none',
-                                                transition: 'border-color 0.2s'
-                                            }}
-                                            onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)} // Delay to allow click
-                                        />
+                                        <div style={{ position: 'relative' }}>
+                                            <Search size={18} style={{ 
+                                                position: 'absolute', 
+                                                left: '14px', 
+                                                top: '50%', 
+                                                transform: 'translateY(-50%)', 
+                                                color: '#94a3b8',
+                                                zIndex: 1
+                                            }} />
+                                            <input
+                                                type="text"
+                                                placeholder="Search & Select Employee..."
+                                                value={searchTerm}
+                                                onChange={(e) => {
+                                                    setSearchTerm(e.target.value);
+                                                    setIsDropdownOpen(true);
+                                                    setSelectedEmployee(''); // Clear selection on type
+                                                }}
+                                                onFocus={() => setIsDropdownOpen(true)}
+                                                style={{
+                                                    padding: '14px 14px 14px 44px',
+                                                    borderRadius: '14px',
+                                                    border: '2px solid #e2e8f0',
+                                                    fontSize: '0.95rem',
+                                                    fontWeight: 600,
+                                                    color: '#1e293b',
+                                                    backgroundColor: 'white',
+                                                    width: '100%',
+                                                    outline: 'none',
+                                                    transition: 'border-color 0.2s'
+                                                }}
+                                                onBlur={() => setTimeout(() => setIsDropdownOpen(false), 200)} // Delay to allow click
+                                            />
+                                            {searchTerm && (
+                                                <button 
+                                                    onClick={() => {
+                                                        setSearchTerm('');
+                                                        setSelectedEmployee('');
+                                                    }}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        right: '14px',
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        border: 'none',
+                                                        background: '#f1f5f9',
+                                                        borderRadius: '50%',
+                                                        width: '24px',
+                                                        height: '24px',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        color: '#64748b',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            )}
+                                        </div>
 
                                         {isDropdownOpen && (
                                             <div style={{

@@ -12,7 +12,7 @@ import {
     formatMonthYear,
     checkPayrollExists
 } from '../../utils/payrollCalculations';
-import { X, FileText, CheckSquare, Square, Calculator, AlertTriangle } from 'lucide-react';
+import { X, FileText, CheckSquare, Square, Calculator, AlertTriangle, Search } from 'lucide-react';
 import './payslip/PayslipFormModal.css';
 
 const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
@@ -23,6 +23,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
     const [calculating, setCalculating] = useState(false);
     const [error, setError] = useState('');
     const [progress, setProgress] = useState({ current: 0, total: 0 });
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Form state
     const [selectedMonth, setSelectedMonth] = useState('');
@@ -47,6 +48,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         setPayrollPreview([]);
         setShowPreview(false);
         setError('');
+        setSearchTerm('');
         setProgress({ current: 0, total: 0 });
     };
 
@@ -54,7 +56,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, full_name, email, role')
+                .select('id, full_name, email, role, employment_type')
                 .eq('org_id', orgId)
                 .order('full_name');
 
@@ -65,7 +67,9 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
             }
 
             if (data) {
-                setEmployees(data);
+                // Filter out interns
+                const filteredEmployees = data.filter(emp => emp.employment_type !== 'intern');
+                setEmployees(filteredEmployees);
             }
         } catch (err) {
             console.error('Unexpected error fetching employees:', err);
@@ -73,11 +77,18 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         }
     };
 
+    const filteredEmployees = employees.filter(emp => 
+        emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        emp.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     const handleSelectAll = () => {
         if (selectAll) {
             setSelectedEmployees([]);
         } else {
-            setSelectedEmployees(employees.map(emp => emp.id));
+            // If searching, only select filtered. If not searching, select all.
+            const targetEmployees = searchTerm ? filteredEmployees : employees;
+            setSelectedEmployees(targetEmployees.map(emp => emp.id));
         }
         setSelectAll(!selectAll);
     };
@@ -521,10 +532,67 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                     {selectAll ? <CheckSquare size={22} color="#7c3aed" /> : <Square size={22} color="#94a3b8" />}
                                     <div style={{ flex: 1 }}>
                                         <p style={{ fontWeight: 700, color: selectAll ? '#5b21b6' : '#475569', fontSize: '0.95rem' }}>
-                                            Select All Personnel
+                                            {searchTerm ? 'Select Visible Personnel' : 'Select All Personnel'}
                                         </p>
-                                        <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Total {employees.length} employees found</p>
+                                        <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                                            {searchTerm ? `Showing ${filteredEmployees.length} of ${employees.length} employees` : `Total ${employees.length} employees found`}
+                                        </p>
                                     </div>
+                                </div>
+
+                                {/* Search Bar */}
+                                <div style={{ position: 'relative' }}>
+                                    <Search size={18} style={{ 
+                                        position: 'absolute', 
+                                        left: '14px', 
+                                        top: '50%', 
+                                        transform: 'translateY(-50%)', 
+                                        color: '#94a3b8',
+                                        zIndex: 1
+                                    }} />
+                                    <input
+                                        type="text"
+                                        placeholder="Filter by name or email..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        style={{
+                                            width: '100%',
+                                            padding: '14px 14px 14px 44px',
+                                            borderRadius: '16px',
+                                            border: '2px solid #e2e8f0',
+                                            fontSize: '0.9rem',
+                                            fontWeight: 600,
+                                            color: '#1e293b',
+                                            outline: 'none',
+                                            transition: 'all 0.2s',
+                                            backgroundColor: 'white'
+                                        }}
+                                        onFocus={(e) => e.target.style.borderColor = '#7c3aed'}
+                                        onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                                    />
+                                    {searchTerm && (
+                                        <button 
+                                            onClick={() => setSearchTerm('')}
+                                            style={{
+                                                position: 'absolute',
+                                                right: '14px',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                border: 'none',
+                                                background: '#f1f5f9',
+                                                borderRadius: '50%',
+                                                width: '24px',
+                                                height: '24px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: '#64748b',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    )}
                                 </div>
 
                                 <div style={{
@@ -538,7 +606,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                     flexDirection: 'column',
                                     gap: '8px'
                                 }}>
-                                    {employees.map(emp => (
+                                    {filteredEmployees.map(emp => (
                                         <div
                                             key={emp.id}
                                             onClick={() => handleEmployeeToggle(emp.id)}
@@ -575,6 +643,12 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                                             </div>
                                         </div>
                                     ))}
+                                    {filteredEmployees.length === 0 && (
+                                        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
+                                            <Search size={40} style={{ marginBottom: '12px', opacity: 0.2 }} />
+                                            <p style={{ fontSize: '0.9rem', fontWeight: 600 }}>No employees found matching "{searchTerm}"</p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div style={{
