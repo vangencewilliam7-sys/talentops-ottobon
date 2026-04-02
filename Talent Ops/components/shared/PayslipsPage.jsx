@@ -78,11 +78,14 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
         try {
             const { data, error } = await supabase
                 .from('profiles')
-                .select('id, full_name, email, role')
+                .select('id, full_name, email, role, employment_type')
                 .eq('org_id', orgId)
                 .order('full_name');
 
-            if (data) setEmployees(data);
+            if (data) {
+                const filteredEmployees = data.filter(emp => emp.employment_type !== 'intern');
+                setEmployees(filteredEmployees);
+            }
         } catch (err) {
             console.error('Error fetching employees:', err);
         }
