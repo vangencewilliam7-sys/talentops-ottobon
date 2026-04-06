@@ -34,6 +34,36 @@ const MyLeavesPage = () => {
         setSelectedDates(prev => prev.filter(d => d !== date));
     };
 
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+    // Calculate LOP vs Paid breakdown
+    const calculateBreakdown = () => {
+        const useSpecificDates = selectedDates.length > 0;
+        let totalDays = 0;
+        
+        if (useSpecificDates) {
+            totalDays = selectedDates.length;
+        } else if (leaveFormData.startDate && leaveFormData.endDate) {
+            const start = new Date(leaveFormData.startDate);
+            const end = new Date(leaveFormData.endDate);
+            let count = 0;
+            const cur = new Date(start);
+            while (cur <= end) {
+                const day = cur.getDay();
+                if (day !== 0 && day !== 6) count++;
+                cur.setDate(cur.getDate() + 1);
+            }
+            totalDays = count;
+        }
+
+        const paid = Math.min(totalDays, remainingLeaves);
+        const lop = Math.max(0, totalDays - paid);
+        
+        return { total: totalDays, paid, lop };
+    };
+
+    const breakdown = calculateBreakdown();
+
     // Fetch leaves from Supabase
     useEffect(() => {
         const fetchLeaves = async () => {
@@ -104,16 +134,40 @@ const MyLeavesPage = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            const { data, error } = await supabase
+            // Get profile for quota
+            const { data: profile, error: profileErr } = await supabase
                 .from('profiles')
-                .select('total_leaves_balance, org_id')
+                .select('monthly_leave_quota, org_id')
                 .eq('id', user.id)
                 .single();
 
-            if (data) {
-                setRemainingLeaves(data.total_leaves_balance || 0);
-                setOrgId(data.org_id);
-            }
+            if (profileErr) return;
+            setOrgId(profile.org_id);
+            const monthlyQuota = profile.monthly_leave_quota || 1;
+
+            // Fetch leaves for the current month
+            const now = new Date();
+            const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+            const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+            const { data: monthlyLeaves } = await supabase
+                .from('leaves')
+                .select('duration_weekdays, lop_days, status, reason')
+                .eq('employee_id', user.id)
+                .gte('from_date', firstOfMonth)
+                .lte('from_date', lastOfMonth);
+
+            const takenThisMonth = monthlyLeaves ? monthlyLeaves.reduce((sum, leave) => {
+                if (leave.status === 'approved' || leave.status === 'pending') {
+                    // Don't count LOP as paid leave
+                    if (leave.reason && leave.reason.toLowerCase().includes('loss of pay')) return sum;
+                    const paidDuration = Math.max(0, (leave.duration_weekdays || 1) - (leave.lop_days || 0));
+                    return sum + paidDuration;
+                }
+                return sum;
+            }, 0) : 0;
+
+            setRemainingLeaves(Math.max(0, monthlyQuota - takenThisMonth));
         };
 
         fetchLeaves();
@@ -187,34 +241,12 @@ const MyLeavesPage = () => {
             ? datesToApply.filter(date => isWeekday(date)).length
             : calculateWeekdayDuration(leaveFormData.startDate, leaveFormData.endDate);
 
+        const paidDays = Math.min(weekdaysRequested, remainingLeaves);
+        const lopDays = Math.max(0, weekdaysRequested - paidDays);
+
         try {
-            // Fetch latest balance AND pending leaves to calculate effective balance
-            const { data: userData, error: userError } = await supabase
-                .from('profiles')
-                .select('total_leaves_balance, leaves_taken_this_month')
-                .eq('id', user.id)
-                .single();
-
-            if (userError) throw userError;
-
-            const { data: pendingLeaves, error: pendingError } = await supabase
-                .from('leaves')
-                .select('duration_weekdays')
-                .eq('employee_id', user.id)
-                .eq('status', 'pending');
-
-            if (pendingError) throw pendingError;
-
-            const sumPendingPaid = pendingLeaves?.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0) || 0;
-            const currentBalance = userData.total_leaves_balance || 0;
-            const effectiveBalance = Math.max(0, currentBalance - sumPendingPaid);
-
-            const paidDays = Math.max(0, Math.min(weekdaysRequested, effectiveBalance));
-            const lopDays = weekdaysRequested - paidDays;
-
             const leaveReason = `${leaveFormData.leaveType}: ${leaveFormData.reason}` +
-                (useSpecificDates ? ` (Dates: ${datesToApply.join(', ')})` : '') +
-                (lopDays > 0 ? ` [Loss of Pay: ${lopDays} days]` : '');
+                (useSpecificDates ? ` (Dates: ${datesToApply.join(', ')})` : '');
 
             const leaveRows = useSpecificDates
                 ? datesToApply.map(date => ({
@@ -234,20 +266,20 @@ const MyLeavesPage = () => {
                     to_date: leaveFormData.endDate,
                     reason: leaveReason,
                     status: 'pending',
-                    duration_weekdays: paidDays,
+                    duration_weekdays: weekdaysRequested,
                     lop_days: lopDays
                 }];
 
             // If using specific dates, split paid/lop
             if (useSpecificDates) {
-                let remainingPaid = paidDays;
+                let tempPaidLeft = remainingLeaves;
                 leaveRows.forEach(row => {
                     if (row.duration_weekdays > 0) {
-                        if (remainingPaid > 0) {
-                            remainingPaid--;
+                        if (tempPaidLeft > 0) {
+                            row.lop_days = 0;
+                            tempPaidLeft--;
                         } else {
                             row.lop_days = 1;
-                            row.duration_weekdays = 0;
                         }
                     }
                 });
@@ -493,7 +525,7 @@ const MyLeavesPage = () => {
                 </div>
                 <div>
                     <p style={{ fontSize: '0.9rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                        Your Balance
+                        LEAVE BALANCE
                     </p>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                         <span style={{ fontSize: '1.75rem', fontWeight: '800', color: '#0f172a' }}>{remainingLeaves}</span>
@@ -604,6 +636,28 @@ const MyLeavesPage = () => {
                                     If you add specific dates, the request will be created only for those dates.
                                 </div>
                             </div>
+
+                            {breakdown.total > 0 && (
+                                <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                    <h4 style={{ fontSize: '0.9rem', fontWeight: '800', color: '#0f172a', marginBottom: '12px' }}>Request Summary</h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                            <span style={{ color: '#64748b' }}>Total Days</span>
+                                            <span style={{ fontWeight: 700 }}>{breakdown.total}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#166534' }}>
+                                            <span>Paid Duration</span>
+                                            <span style={{ fontWeight: 700 }}>{breakdown.paid} Day{breakdown.paid !== 1 ? 's' : ''}</span>
+                                        </div>
+                                        {breakdown.lop > 0 && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#991b1b' }}>
+                                                <span>Loss of Pay (LOP)</span>
+                                                <span style={{ fontWeight: 700 }}>{breakdown.lop} Day{breakdown.lop !== 1 ? 's' : ''}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 500, marginBottom: '8px', color: 'var(--text-primary)' }}>Reason</label>

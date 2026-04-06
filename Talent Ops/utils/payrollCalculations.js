@@ -88,7 +88,7 @@ export const calculateApprovedLeaveDays = async (employeeId, month, year, orgId)
             .eq('org_id', orgId)
             .single();
 
-        const monthlyQuota = (profileData && profileData.monthly_leave_quota) ? profileData.monthly_leave_quota : 3; // Default to 3 if not set
+        const monthlyQuota = (profileData && profileData.monthly_leave_quota) ? profileData.monthly_leave_quota : 1; // Default to 1 per user request
 
         if (!leavesData || leavesData.length === 0) return 0;
 

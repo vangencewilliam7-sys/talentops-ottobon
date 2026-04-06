@@ -88,8 +88,8 @@ serve(async (req) => {
                 join_date: join_date || new Date().toISOString().split('T')[0],
                 employment_type: employment_type || 'full_time',
                 is_paid: is_paid !== undefined ? is_paid : true,
-                monthly_leave_quota: monthly_leave_quota || 3,
-                total_leaves_balance: monthly_leave_quota || 3,
+                monthly_leave_quota: monthly_leave_quota || 1,
+                total_leaves_balance: monthly_leave_quota || 1,
             }, { onConflict: 'id' })
 
         if (profileError) {

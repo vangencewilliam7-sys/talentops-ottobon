@@ -43,16 +43,44 @@ export const useLeaves = (orgId, userId, viewMode = 'personal') => {
                     .order('created_at', { ascending: false });
 
                 if (leavesError) throw leavesError;
+                
+                // Get current month and year for balance calculation
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
 
+                let monthlyQuota = 1; // Default to 1 per user request
+                
                 const { data: userData, error: userError } = await supabase
                     .from('profiles')
-                    .select('total_leaves_balance')
+                    .select('monthly_leave_quota, total_leaves_balance')
                     .eq('id', userId)
                     .eq('org_id', orgId)
                     .single();
 
-                if (userError) throw userError;
-                setRemainingLeaves(userData?.total_leaves_balance || 0);
+                if (!userError && userData) {
+                    // Use monthly_leave_quota if available, otherwise default to 1
+                    monthlyQuota = userData.monthly_leave_quota || 1;
+                }
+
+                // Calculate leaves taken/pending in the current month
+                const leavesThisMonth = leavesData ? leavesData.filter(leave => {
+                    const leaveDate = new Date(leave.from_date);
+                    // Only count approved or pending leaves for the current month
+                    return (leave.status === 'approved' || leave.status === 'pending') && 
+                           leaveDate.getMonth() === currentMonth && 
+                           leaveDate.getFullYear() === currentYear &&
+                           !(leave.reason && leave.reason.toLowerCase().includes('loss of pay'));
+                }) : [];
+
+                const daysTakenThisMonth = leavesThisMonth.reduce((sum, leave) => {
+                    const duration = leave.duration_weekdays || 1;
+                    // We only count the 'paid' portion. If lop_days is already set, subtract it.
+                    const paidDuration = Math.max(0, duration - (leave.lop_days || 0));
+                    return sum + paidDuration;
+                }, 0);
+
+                setRemainingLeaves(Math.max(0, monthlyQuota - daysTakenThisMonth));
 
                 if (leavesData) {
                     const mappedLeaves = leavesData.map(leave => {
@@ -168,20 +196,37 @@ export const useLeaves = (orgId, userId, viewMode = 'personal') => {
 
                 // If asking for org stats
                 if (viewMode === 'org' && profilesData && leavesData) {
-                    const approvedLeaves = leavesData.filter(l => l.status === 'approved');
+                    const now = new Date();
+                    const currentMonth = now.getMonth();
+                    const currentYear = now.getFullYear();
+
+                    // Filter for current month only for the 'Leaves Left' calculation
+                    const currentMonthLeaves = leavesData.filter(l => {
+                        const d = new Date(l.from_date);
+                        return d.getMonth() === currentMonth && d.getFullYear() === currentYear && l.status === 'approved';
+                    });
+
                     const stats = profilesData.map(profile => {
-                        const empLeaves = approvedLeaves.filter(l => l.employee_id === profile.id);
-                        const paidDays = empLeaves.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0);
-                        const lopDays = empLeaves.reduce((sum, l) => sum + (l.lop_days || 0), 0);
-                        const totalTaken = paidDays + lopDays;
+                        // Current Month specific stats
+                        const empMonthLeaves = currentMonthLeaves.filter(l => l.employee_id === profile.id);
+                        const monthPaid = empMonthLeaves.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0);
+                        
+                        // All-time stats (for general history)
+                        const empAllLeaves = leavesData.filter(l => l.employee_id === profile.id && l.status === 'approved');
+                        const totalPaid = empAllLeaves.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0);
+                        const totalLop = empAllLeaves.reduce((sum, l) => sum + (l.lop_days || 0), 0);
+
+                        // Policy: 1 day per month
+                        const monthlyQuota = 1; 
+                        const leavesLeft = Math.max(0, monthlyQuota - monthPaid);
 
                         return {
                             id: profile.id,
                             name: profile.full_name,
-                            total_taken: `${totalTaken} Days`,
-                            paid_leaves: `${paidDays} Days`,
-                            lop_days: `${lopDays} Days`,
-                            leaves_left: `${profile.total_leaves_balance || 0} Days`
+                            total_taken: `${totalPaid + totalLop} Days`,
+                            paid_leaves: `${totalPaid} Days`,
+                            lop_days: `${totalLop} Days`,
+                            leaves_left: `${leavesLeft} / ${monthlyQuota} (This Month)`
                         };
                     });
                     setLeaveStats(stats);
@@ -215,10 +260,31 @@ export const useLeaves = (orgId, userId, viewMode = 'personal') => {
         };
     }, [orgId, viewMode, fetchLeaves]);
 
+    const calculateLeaveAttribution = useCallback((startDate, endDate, specificDates = []) => {
+        const quota = remainingLeaves;
+        let totalDays = 0;
+
+        if (specificDates && specificDates.length > 0) {
+            totalDays = specificDates.length;
+        } else if (startDate && endDate) {
+            totalDays = calculateWeekdayDuration(startDate, endDate);
+        }
+
+        const paid = Math.min(totalDays, quota);
+        const lop = Math.max(0, totalDays - paid);
+
+        return {
+            paid,
+            lop,
+            total: totalDays
+        };
+    }, [remainingLeaves]);
+
     return {
         leaves,
         leaveStats,
         remainingLeaves,
+        calculateLeaveAttribution,
         isLoading,
         error,
         refetch: fetchLeaves

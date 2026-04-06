@@ -98,11 +98,27 @@ const ModulePage = ({ title, type }) => {
                 let finalLop = item.lop_days || 0;
 
                 if (action === 'Approve') {
-                    const totalRequestedWeekdays = (item.duration_weekdays || 0) + (item.lop_days || 0);
-                    const currentBalance = profileData.total_leaves_balance || 0;
+                    // Re-calculate the split based on the CURRENT month's approved leaves
+                    const totalRequestedDays = (item.duration_weekdays || 0) + (item.lop_days || 0);
+                    
+                    // Fetch all approved leaves for this month for this employee to get a clean count
+                    const startOfMonth = new Date();
+                    startOfMonth.setDate(1);
+                    startOfMonth.setHours(0,0,0,0);
+                    
+                    const { data: monthApproved } = await supabase
+                        .from('leaves')
+                        .select('duration_weekdays')
+                        .eq('employee_id', item.employee_id)
+                        .eq('status', 'approved')
+                        .gte('from_date', startOfMonth.toISOString().split('T')[0]);
 
-                    finalPaid = Math.max(0, Math.min(totalRequestedWeekdays, currentBalance));
-                    finalLop = totalRequestedWeekdays - finalPaid;
+                    const alreadyTaken = monthApproved?.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0) || 0;
+                    const monthlyQuota = 1;
+                    const availableInMonth = Math.max(0, monthlyQuota - alreadyTaken);
+
+                    finalPaid = Math.max(0, Math.min(totalRequestedDays, availableInMonth));
+                    finalLop = totalRequestedDays - finalPaid;
 
                     const { error: leaveUpdateError } = await supabase
                         .from('leaves')
@@ -116,14 +132,10 @@ const ModulePage = ({ title, type }) => {
 
                     if (leaveUpdateError) throw leaveUpdateError;
 
-                    const newTaken = (profileData.leaves_taken_this_month || 0) + finalPaid;
-                    const newBalance = currentBalance - finalPaid;
-
                     const { error: profileUpdateError } = await supabase
                         .from('profiles')
                         .update({
-                            leaves_taken_this_month: newTaken,
-                            total_leaves_balance: newBalance
+                            leaves_taken_this_month: alreadyTaken + finalPaid
                         })
                         .eq('id', item.employee_id)
                         .eq('org_id', orgId);
@@ -675,10 +687,10 @@ const ModulePage = ({ title, type }) => {
                     </div>
                     <div>
                         <p style={{ fontSize: '0.9rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                            Your Balance
+                            LEAVE BALANCE
                         </p>
                         <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                            <span style={{ fontSize: '1.75rem', fontWeight: '800', color: '#0f172a' }}>{remainingLeaves}</span>
+                            <span style={{ fontSize: '1.75rem', fontWeight: '800', color: '#0f172a' }}>{sharedRemainingLeaves}</span>
                             <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#94a3b8' }}>Days Remaining</span>
                         </div>
                     </div>

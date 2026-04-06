@@ -42,23 +42,36 @@ export const LeaveDetailsModal = ({
                 
                 setPendingTasks(pendingTasksData || []);
 
-                // Fetch live balance
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('total_leaves_balance')
-                    .eq('id', selectedLeaveRequest.employee_id)
-                    .eq('org_id', orgId)
-                    .single();
+                // Fetch dynamic monthly balance
+                const startOfMonth = new Date();
+                startOfMonth.setDate(1);
+                startOfMonth.setHours(0,0,0,0);
+                const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
 
+                const { data: monthApproved } = await supabase
+                    .from('leaves')
+                    .select('duration_weekdays')
+                    .eq('employee_id', selectedLeaveRequest.employee_id)
+                    .eq('org_id', orgId)
+                    .eq('status', 'approved')
+                    .gte('from_date', startOfMonthStr);
+
+                const alreadyTaken = monthApproved?.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0) || 0;
+                
+                // Fetch other pending leaves (excluding the current one) to show impact
                 const { data: pending } = await supabase
                     .from('leaves')
                     .select('duration_weekdays')
                     .eq('employee_id', selectedLeaveRequest.employee_id)
                     .eq('org_id', orgId)
                     .eq('status', 'pending')
-                    .neq('id', selectedLeaveRequest.id);
+                    .neq('id', selectedLeaveRequest.id)
+                    .gte('from_date', startOfMonthStr);
 
-                setEvalBalance(profile?.total_leaves_balance || 0);
+                const monthlyQuota = 1;
+                const currentMonthlyBalance = Math.max(0, monthlyQuota - alreadyTaken);
+                
+                setEvalBalance(currentMonthlyBalance);
                 setEvalPendingPaid(pending?.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0) || 0);
 
             } catch (error) {
@@ -109,18 +122,7 @@ export const LeaveDetailsModal = ({
                             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Breakdown</p>
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                 <span style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0' }}>
-                                    Paid: {(selectedLeaveRequest.duration_weekdays !== null && selectedLeaveRequest.duration_weekdays !== undefined) ? selectedLeaveRequest.duration_weekdays : (() => {
-                                        const start = new Date(selectedLeaveRequest.startDate);
-                                        const end = new Date(selectedLeaveRequest.endDate);
-                                        let count = 0;
-                                        let current = new Date(start);
-                                        while (current <= end) {
-                                            const dayOfWeek = current.getDay();
-                                            if (dayOfWeek !== 0 && dayOfWeek !== 6) count++;
-                                            current.setDate(current.getDate() + 1);
-                                        }
-                                        return count;
-                                    })()} days
+                                    Paid: {selectedLeaveRequest.duration_weekdays || 0} days
                                 </span>
                                 <span style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700, backgroundColor: '#f1f5f9', color: '#64748b', border: '1px solid #cbd5e1' }}>
                                     Weekends: {(() => {
@@ -253,7 +255,7 @@ export const LeaveDetailsModal = ({
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
                             <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '14px', border: '1px solid #e0f2fe' }}>
-                                <p style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>Current Total Leaves</p>
+                                <p style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginBottom: '8px' }}>LEAVE BALANCE (This Month)</p>
                                 <div style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a' }}>{evalBalance} Days</div>
                             </div>
 
