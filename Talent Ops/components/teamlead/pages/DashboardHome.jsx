@@ -341,17 +341,27 @@ const DashboardHome = () => {
 
                 const absentDays = Math.max(0, workingDays - presentDays);
 
-                // Get leave balance
-                const { data: profileData } = await supabase
-                    .from('profiles')
-                    .select('total_leaves_balance')
-                    .eq('id', user.id)
-                    .single();
+                // Fetch dynamic monthly balance
+                const startOfMonth = new Date();
+                startOfMonth.setDate(1);
+                startOfMonth.setHours(0,0,0,0);
+                const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
+
+                const { data: monthApproved } = await supabase
+                    .from('leaves')
+                    .select('duration_weekdays')
+                    .eq('employee_id', user.id)
+                    .eq('org_id', profile.org_id)
+                    .eq('status', 'approved')
+                    .gte('from_date', startOfMonthStr);
+
+                const alreadyTaken = monthApproved?.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0) || 0;
+                const monthlyQuota = 1;
 
                 setAttendanceStats({
                     present: presentDays,
                     absent: absentDays,
-                    leaveBalance: profileData?.total_leaves_balance || 0
+                    leaveBalance: Math.max(0, monthlyQuota - alreadyTaken)
                 });
 
             } catch (error) {

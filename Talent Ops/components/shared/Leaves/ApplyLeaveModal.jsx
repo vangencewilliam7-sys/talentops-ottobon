@@ -42,6 +42,35 @@ const ApplyLeaveModal = ({ onClose, onSuccess, remainingLeaves }) => {
         setSelectedDates(prev => prev.filter(d => d !== date));
     };
 
+    // Calculate LOP vs Paid breakdown
+    const calculateBreakdown = () => {
+        const useSpecificDates = selectedDates.length > 0;
+        let totalDays = 0;
+        
+        if (useSpecificDates) {
+            totalDays = selectedDates.length;
+        } else if (leaveFormData.startDate && leaveFormData.endDate) {
+            // Simple weekday calculation (re-implementing here for local sync)
+            const start = new Date(leaveFormData.startDate);
+            const end = new Date(leaveFormData.endDate);
+            let count = 0;
+            const cur = new Date(start);
+            while (cur <= end) {
+                const day = cur.getDay();
+                if (day !== 0 && day !== 6) count++;
+                cur.setDate(cur.getDate() + 1);
+            }
+            totalDays = count;
+        }
+
+        const paid = Math.min(totalDays, remainingLeaves);
+        const lop = Math.max(0, totalDays - paid);
+        
+        return { total: totalDays, paid, lop };
+    };
+
+    const breakdown = calculateBreakdown();
+
     const handleApplyLeave = async (e) => {
         e.preventDefault();
 
@@ -66,9 +95,14 @@ const ApplyLeaveModal = ({ onClose, onSuccess, remainingLeaves }) => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('User not authenticated');
 
-            const leaveReason = `${leaveFormData.leaveType}: ${leaveFormData.reason}` +
+            // Determine if this is a Loss of Pay request based on the breakdown
+            const finalType = breakdown.lop > 0 && breakdown.paid === 0 ? 'Loss of Pay' : leaveFormData.leaveType;
+            
+            const leaveReason = `${finalType}: ${leaveFormData.reason}` +
                 (useSpecificDates ? ` (Dates: ${datesToApply.join(', ')})` : '');
 
+            // For multi-day requests, we store the aggregate in one row usually, 
+            // but if specific dates are used, it's one row per date.
             const leaveRows = useSpecificDates
                 ? datesToApply.map(date => ({
                     employee_id: user.id,
@@ -76,7 +110,11 @@ const ApplyLeaveModal = ({ onClose, onSuccess, remainingLeaves }) => {
                     from_date: date,
                     to_date: date,
                     reason: leaveReason,
-                    status: 'pending'
+                    status: 'pending',
+                    // Attribution for single date: if quota > 0, it's paid. 
+                    // This is handled by the loop if we want more precision, 
+                    // but for "1/month" it's simpler.
+                    lop_days: 0 // Will handle via simpler logic below for consistency
                 }))
                 : [{
                     employee_id: user.id,
@@ -84,8 +122,23 @@ const ApplyLeaveModal = ({ onClose, onSuccess, remainingLeaves }) => {
                     from_date: leaveFormData.startDate,
                     to_date: leaveFormData.endDate,
                     reason: leaveReason,
-                    status: 'pending'
+                    status: 'pending',
+                    duration_weekdays: breakdown.total,
+                    lop_days: breakdown.lop
                 }];
+            
+            // Adjust attribution for specific dates
+            if (useSpecificDates) {
+                let tempPaidLeft = remainingLeaves;
+                leaveRows.forEach(row => {
+                    if (tempPaidLeft > 0) {
+                        row.lop_days = 0;
+                        tempPaidLeft--;
+                    } else {
+                        row.lop_days = 1;
+                    }
+                });
+            }
 
             const { data, error } = await supabase
                 .from('leaves')
@@ -269,11 +322,35 @@ const ApplyLeaveModal = ({ onClose, onSuccess, remainingLeaves }) => {
                             </h4>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#64748b' }}>Paid Leaves Left</span>
+                                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#64748b' }}>Paid Leaves Available</span>
                                     <span style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0284c7' }}>{remainingLeaves}</span>
                                 </div>
                             </div>
                         </div>
+
+                        {breakdown.total > 0 && (
+                            <div>
+                                <h4 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#0f172a', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <AlertCircle size={18} color="#f59e0b" /> Request Summary
+                                </h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                        <span style={{ fontSize: '0.9rem', color: '#64748b' }}>Total Working Days</span>
+                                        <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>{breakdown.total}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7' }}>
+                                        <span style={{ fontSize: '0.9rem', color: '#166534' }}>Paid Duration</span>
+                                        <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#166534' }}>{breakdown.paid} Day{breakdown.paid !== 1 ? 's' : ''}</span>
+                                    </div>
+                                    {breakdown.lop > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '1px solid #fee2e2' }}>
+                                            <span style={{ fontSize: '0.9rem', color: '#991b1b' }}>Loss of Pay (LOP)</span>
+                                            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#991b1b' }}>{breakdown.lop} Day{breakdown.lop !== 1 ? 's' : ''}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

@@ -76,7 +76,7 @@ const DashboardHome = () => {
 
                     if (attendance) setAttendanceData(attendance);
 
-                    // 3. Fetch Leave Balance from profiles table
+                    // 3. Fetch Leave Balance & Calculate Monthly Available
                     const { data: profileData } = await supabase
                         .from('profiles')
                         .select('total_leaves_balance, monthly_leave_quota, team_id')
@@ -84,9 +84,27 @@ const DashboardHome = () => {
                         .eq('id', user.id)
                         .single();
 
+                    const { data: leavesForMonth } = await supabase
+                        .from('leaves')
+                        .select('from_date, duration_weekdays, lop_days, status, reason')
+                        .eq('employee_id', user.id)
+                        .eq('org_id', orgId)
+                        .gte('from_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0])
+                        .lte('from_date', new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]);
+
                     if (profileData) {
-                        // Use total_leaves_balance
-                        setLeaveBalance(profileData.total_leaves_balance ?? (profileData.monthly_leave_quota || 0));
+                        const monthlyQuota = profileData.monthly_leave_quota || 1;
+                        const takenThisMonth = leavesForMonth ? leavesForMonth.reduce((sum, leave) => {
+                            if (leave.status === 'approved' || leave.status === 'pending') {
+                                // Don't count LOP as paid leave
+                                if (leave.reason && leave.reason.toLowerCase().includes('loss of pay')) return sum;
+                                const paidDuration = Math.max(0, (leave.duration_weekdays || 1) - (leave.lop_days || 0));
+                                return sum + paidDuration;
+                            }
+                            return sum;
+                        }, 0) : 0;
+                        
+                        setLeaveBalance(Math.max(0, monthlyQuota - takenThisMonth));
                     }
 
                     // 4. Fetch All Employees & Team Members
@@ -395,7 +413,7 @@ const DashboardHome = () => {
                     bg="rgba(239, 68, 68, 0.03)"
                 />
                 <StatCard
-                    label="Leave Balance"
+                    label="LEAVE BALANCE"
                     value={attendanceStats.leaveBalance}
                     subLabel="days"
                     icon={<Calendar size={24} />}

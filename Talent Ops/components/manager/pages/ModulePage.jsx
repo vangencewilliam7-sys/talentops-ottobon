@@ -191,13 +191,27 @@ const ModulePage = ({ title, type }) => {
                 let finalLop = item.lop_days || 0;
 
                 if (action === 'Approve') {
-                    // Re-calculate the split based on the CURRENT live balance
-                    // This allows "converting" LOP to Paid if other leaves were rejected in the meantime
-                    const totalRequestedWeekdays = (item.duration_weekdays || 0) + (item.lop_days || 0);
-                    const currentBalance = profileData.total_leaves_balance || 0;
+                    // Re-calculate the split based on the CURRENT month's approved leaves
+                    const totalRequestedDays = (item.duration_weekdays || 0) + (item.lop_days || 0);
+                    
+                    // Fetch all approved leaves for this month for this employee to get a clean count
+                    const startOfMonth = new Date();
+                    startOfMonth.setDate(1);
+                    startOfMonth.setHours(0,0,0,0);
+                    
+                    const { data: monthApproved } = await supabase
+                        .from('leaves')
+                        .select('duration_weekdays')
+                        .eq('employee_id', item.employee_id)
+                        .eq('status', 'approved')
+                        .gte('from_date', startOfMonth.toISOString().split('T')[0]);
 
-                    finalPaid = Math.max(0, Math.min(totalRequestedWeekdays, currentBalance));
-                    finalLop = totalRequestedWeekdays - finalPaid;
+                    const alreadyTaken = monthApproved?.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0) || 0;
+                    const monthlyQuota = 1;
+                    const availableInMonth = Math.max(0, monthlyQuota - alreadyTaken);
+
+                    finalPaid = Math.max(0, Math.min(totalRequestedDays, availableInMonth));
+                    finalLop = totalRequestedDays - finalPaid;
 
                     // Update leave record with final split and status
                     const { error: leaveUpdateError } = await supabase
@@ -212,21 +226,17 @@ const ModulePage = ({ title, type }) => {
 
                     if (leaveUpdateError) throw leaveUpdateError;
 
-                    // Update profile for deduction
-                    const newTaken = (profileData.leaves_taken_this_month || 0) + finalPaid;
-                    const newBalance = currentBalance - finalPaid;
-
+                    // Update profile simple counter (for other parts of system that might use it)
                     const { error: profileUpdateError } = await supabase
                         .from('profiles')
                         .update({
-                            leaves_taken_this_month: newTaken,
-                            total_leaves_balance: newBalance
+                            leaves_taken_this_month: alreadyTaken + finalPaid
                         })
                         .eq('id', item.employee_id)
                         .eq('org_id', orgId);
 
                     if (profileUpdateError) throw profileUpdateError;
-                    console.log(`Approved: Deducted ${finalPaid} paid days. New balance: ${newBalance}`);
+                    console.log(`Approved: Allocated ${finalPaid} paid days in current month.`);
 
                 } else {
                     // For Rejection, we just update status. 

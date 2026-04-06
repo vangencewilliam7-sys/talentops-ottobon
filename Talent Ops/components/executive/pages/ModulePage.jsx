@@ -459,11 +459,28 @@ const ModulePage = ({ title, type }) => {
                 let finalLop = item.lop_days || 0;
 
                 if (action === 'Approve') {
-                    const totalRequestedWeekdays = (item.duration_weekdays || 0) + (item.lop_days || 0);
-                    const currentBalance = profileData.total_leaves_balance || 0;
+                    // Re-calculate the split based on the CURRENT month's approved leaves
+                    const totalRequestedDays = (item.duration_weekdays || 0) + (item.lop_days || 0);
+                    
+                    // Fetch all approved leaves for this month for this employee to get a clean count
+                    const startOfMonth = new Date();
+                    startOfMonth.setDate(1);
+                    startOfMonth.setHours(0,0,0,0);
+                    
+                    const { data: monthApproved } = await supabase
+                        .from('leaves')
+                        .select('duration_weekdays')
+                        .eq('employee_id', item.employee_id)
+                        .eq('org_id', orgId)
+                        .eq('status', 'approved')
+                        .gte('from_date', startOfMonth.toISOString().split('T')[0]);
 
-                    finalPaid = Math.max(0, Math.min(totalRequestedWeekdays, currentBalance));
-                    finalLop = totalRequestedWeekdays - finalPaid;
+                    const alreadyTaken = monthApproved?.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0) || 0;
+                    const monthlyQuota = 1;
+                    const availableInMonth = Math.max(0, monthlyQuota - alreadyTaken);
+
+                    finalPaid = Math.max(0, Math.min(totalRequestedDays, availableInMonth));
+                    finalLop = totalRequestedDays - finalPaid;
 
                     const { error: leaveUpdateError } = await supabase
                         .from('leaves')
@@ -477,14 +494,11 @@ const ModulePage = ({ title, type }) => {
 
                     if (leaveUpdateError) throw leaveUpdateError;
 
-                    const newTaken = (profileData.leaves_taken_this_month || 0) + finalPaid;
-                    const newBalance = currentBalance - finalPaid;
-
+                    // Update profile for sync
                     const { error: profileUpdateError } = await supabase
                         .from('profiles')
                         .update({
-                            leaves_taken_this_month: newTaken,
-                            total_leaves_balance: newBalance
+                            leaves_taken_this_month: alreadyTaken+ finalPaid
                         })
                         .eq('id', item.employee_id)
                         .eq('org_id', orgId);
@@ -673,20 +687,32 @@ const ModulePage = ({ title, type }) => {
         const submitToDb = async () => {
             try {
                 // Calculate initial Paid/LOP split for application record
-                const { data: profile } = await supabase
-                    .from('profiles')
-                    .select('total_leaves_balance')
-                    .eq('id', userId)
-                    .single();
+                // Calculate dynamic monthly balance
+                const startOfMonth = new Date();
+                startOfMonth.setDate(1);
+                startOfMonth.setHours(0,0,0,0);
+                const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
 
+                const { data: monthApproved } = await supabase
+                    .from('leaves')
+                    .select('duration_weekdays')
+                    .eq('employee_id', userId)
+                    .eq('org_id', orgId)
+                    .eq('status', 'approved')
+                    .gte('from_date', startOfMonthStr);
+
+                const alreadyTaken = monthApproved?.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0) || 0;
+                
                 const { data: pendingLeaves } = await supabase
                     .from('leaves')
                     .select('duration_weekdays')
                     .eq('employee_id', userId)
-                    .eq('status', 'pending');
+                    .eq('status', 'pending')
+                    .gte('from_date', startOfMonthStr);
 
                 const pendingPaid = pendingLeaves?.reduce((sum, l) => sum + (l.duration_weekdays || 0), 0) || 0;
-                const effectiveBalance = Math.max(0, (profile?.total_leaves_balance || 0) - pendingPaid);
+                const monthlyQuota = 1;
+                const effectiveBalance = Math.max(0, monthlyQuota - alreadyTaken - pendingPaid);
 
                 const leaveReason = `${leaveFormData.leaveType}: ${leaveFormData.reason}` +
                     (useSpecificDates ? ` (Dates: ${datesToApply.join(', ')})` : '');

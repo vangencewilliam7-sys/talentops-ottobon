@@ -38,7 +38,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
         job_title: '',
         employment_type: 'Full-Time', // Added employment_type
         department_id: '', // Added department_id
-        monthly_leave_quota: 3,
+        monthly_leave_quota: 1,
         basic_salary: '',
         hra: '',
         allowances: '',
@@ -71,7 +71,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                 job_title: '', // Will be updated by fetchEmployeeDepartment
                 employment_type: 'full_time', // Will be updated
                 department_id: '', // Will be updated by fetchEmployeeDepartment
-                monthly_leave_quota: employee.monthly_leave_quota || 3,
+                monthly_leave_quota: employee.monthly_leave_quota || 1,
                 basic_salary: '',
                 hra: '',
                 allowances: '',
@@ -120,7 +120,7 @@ export const EditEmployeeModal: React.FC<EditEmployeeModalProps> = ({ isOpen, on
                     job_title: profile.job_title || '',
                     employment_type: profile.employment_type || 'full_time',
                     joinDate: profile.join_date || '',
-                    monthly_leave_quota: profile.monthly_leave_quota || 3,
+                    monthly_leave_quota: profile.monthly_leave_quota || 1,
                     total_leaves_balance: profile.total_leaves_balance || 0,
                     is_paid: profile.is_paid !== undefined ? profile.is_paid : true,
                 }));
