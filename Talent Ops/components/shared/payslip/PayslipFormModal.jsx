@@ -443,6 +443,7 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId, savedCompaniesPro
                 lopDays: Number(payrollData.lop_days) || 0,
                 lopAmount: lopAmount,
                 netSalary: Number(payrollData.net_salary) || 0,
+                bonus: Number(payrollData.bonus) || 0,
                 presentDays: Number(presentDays) || 0,
                 leaveDays: Number(leaveDays) || 0,
                 totalWorkingDays: Number(totalWorkingDays) || 0
@@ -601,6 +602,7 @@ const PayslipFormModal = ({ isOpen, onClose, onSuccess, orgId, savedCompaniesPro
         lopDays: Number(payrollData.lop_days) || 0,
         lopAmount: previewLopAmount,
         netSalary: Number(payrollData.net_salary) || 0,
+        bonus: Number(payrollData.bonus) || 0,
         presentDays: Number(presentDays) || 0,
         leaveDays: Number(leaveDays) || 0,
         totalWorkingDays: Number(totalWorkingDays) || 0

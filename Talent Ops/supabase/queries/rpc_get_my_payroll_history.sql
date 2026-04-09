@@ -22,6 +22,10 @@ BEGIN
     SELECT json_agg(
         json_build_object(
             'id', p.id,
+            'name', pro.full_name,
+            'email', pro.email,
+            'designation', pro.job_title,
+            'department', d.department_name,
             'month', p.month,
             'year', TO_CHAR(p.created_at, 'YYYY'),
             'basic_salary', p.basic_salary,
@@ -35,10 +39,13 @@ BEGIN
             'created_at', p.created_at,
             'total_working_days', p.total_working_days,
             'present_days', p.present_days,
-            'leave_days', p.leave_days
+            'leave_days', p.leave_days,
+            'adjustment_log', p.adjustment_log
         ) ORDER BY p.created_at DESC
     ) INTO v_results
     FROM public.payroll p
+    JOIN public.profiles pro ON p.employee_id = pro.id
+    LEFT JOIN public.departments d ON pro.department = d.id
     WHERE p.employee_id = v_user_id AND p.org_id = p_org_id;
 
     RETURN json_build_object('success', true, 'data', COALESCE(v_results, '[]'::json));

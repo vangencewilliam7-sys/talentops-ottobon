@@ -12,8 +12,17 @@ import {
     formatMonthYear,
     checkPayrollExists
 } from '../../utils/payrollCalculations';
-import { X, FileText, CheckSquare, Square, Calculator, AlertTriangle, Search } from 'lucide-react';
+import { X, FileText, CheckSquare, Square, Calculator, AlertTriangle, Search, MessageSquare, Info, Activity, Calendar, ArrowLeft, ArrowRight, User, Briefcase, CheckCircle2, Trash2, Plus, AlertCircle } from 'lucide-react';
 import './payslip/PayslipFormModal.css';
+
+const OVERRIDE_REASONS = [
+    "Forgot to Check-In",
+    "Manual Approval (Proof provided)",
+    "Approved Leave (Adjusted)",
+    "Late-Mark Adjustment",
+    "On-Duty / Client Visit",
+    "Other (Please Specify)"
+];
 
 const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
     const [employees, setEmployees] = useState([]);
@@ -32,6 +41,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
     // Calculation preview data
     const [payrollPreview, setPayrollPreview] = useState([]);
     const [showPreview, setShowPreview] = useState(false);
+    const [activeOverrides, setActiveOverrides] = useState([]);
 
     useEffect(() => {
         if (isOpen) {
@@ -47,6 +57,7 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         setSelectedYear(new Date().getFullYear());
         setPayrollPreview([]);
         setShowPreview(false);
+        setActiveOverrides([]);
         setError('');
         setSearchTerm('');
         setProgress({ current: 0, total: 0 });
@@ -67,7 +78,8 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
             }
 
             if (data) {
-                // Filter out interns
+                // Filter out employees who are NOT interns (only full-time/part-time for this payroll)
+                // Also fetch job_title and other profile details needed for calculation transparency
                 const filteredEmployees = data.filter(emp => emp.employment_type !== 'intern');
                 setEmployees(filteredEmployees);
             }
@@ -77,8 +89,8 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         }
     };
 
-    const filteredEmployees = employees.filter(emp => 
-        emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const filteredEmployees = employees.filter(emp =>
+        emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
@@ -141,6 +153,13 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                     continue;
                 }
 
+                // Fetch extra profile data (job_title)
+                const { data: profileExtra } = await supabase
+                    .from('profiles')
+                    .select('job_title')
+                    .eq('id', employeeId)
+                    .single();
+
                 // Calculate working days (M-F pool) and total calendar days (salary divisor)
                 const workingDaysPool = getWorkingDaysInMonth(parseInt(selectedMonth), selectedYear);
                 const totalCalendarDays = getDaysInMonth(parseInt(selectedMonth), selectedYear);
@@ -158,24 +177,44 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                 preview.push({
                     employee_id: employeeId,
                     employee_name: employee.full_name,
+                    job_title: profileExtra?.job_title || 'Employee',
                     basic_salary: financeData.basic_salary,
                     hra: financeData.hra,
                     allowances: financeData.allowances,
                     professional_tax: financeData.professional_tax || 0,
-                    total_working_days: totalCalendarDays, // Show total days in month as the basis
+                    total_working_days: workingDaysPool, // BASIS: Match the logic (Working Days)
+                    calendar_days: totalCalendarDays, // REFERENCE: Total days in month
                     present_days: presentDays,
                     leave_days: leaveDays,
                     lop_days: lopDays,
                     lop_amount: lopAmount,
                     additional_deductions: 0, // User input
+                    bonus: 0,
+                    waiver_credit: 0, // Initial Credit
+                    exceptions: [], // New Granular Exceptions Array
                     net_salary: calculateNetSalary(
                         financeData.basic_salary,
                         financeData.hra,
                         financeData.allowances,
                         financeData.professional_tax || 0,
                         0,
-                        lopAmount
-                    )
+                        lopAmount,
+                        0 // Initial Bonus
+                    ),
+                    original_values: {
+                        present_days: presentDays,
+                        leave_days: leaveDays,
+                        lop_days: lopDays,
+                        total_working_days: workingDaysPool
+                    },
+                    reasons: {
+                        present_days: '',
+                        leave_days: '',
+                        lop_days: '',
+                        total_working_days: '',
+                        bonus: '',
+                        exceptions: '' // Summary log for all exceptions
+                    }
                 });
             } catch (error) {
                 console.error(`Error calculating for ${employee.full_name}:`, error);
@@ -198,90 +237,131 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
         setCalculating(false);
     };
 
+    const recalculateRow = (item, updatedFields = {}) => {
+        const newItem = { ...item, ...updatedFields };
+
+        // 1. Calculate base LOP Amount (from potentially overridden lop_days)
+        const lopAmount = calculateLOPAmount(
+            newItem.basic_salary,
+            newItem.hra,
+            newItem.allowances,
+            newItem.calendar_days,
+            newItem.lop_days
+        );
+
+        // 2. Calculate Waiver Credits (from exceptions array)
+        const dailyRate = (newItem.basic_salary + newItem.hra + newItem.allowances) / newItem.calendar_days;
+        const totalWaivedDays = newItem.exceptions
+            .filter(ex => ex.type === 'waive_lop' || ex.type === 'attendance_waiver')
+            .reduce((sum, ex) => sum + (parseFloat(ex.days) || 0), 0);
+
+        const waiverCredit = Math.round(dailyRate * totalWaivedDays);
+
+        // 3. Financial aggregates
+        const totalBonus = waiverCredit;
+
+        // 4. Final Net
+        const netSalary = calculateNetSalary(
+            newItem.basic_salary,
+            newItem.hra,
+            newItem.allowances,
+            newItem.professional_tax,
+            newItem.additional_deductions,
+            lopAmount,
+            totalBonus
+        );
+
+        return {
+            ...newItem,
+            lop_amount: lopAmount,
+            bonus: totalBonus,
+            net_salary: netSalary
+        };
+    };
+
     const handleDeductionChange = (employeeId, value) => {
         setPayrollPreview(prev => prev.map(item => {
             if (item.employee_id === employeeId) {
-                const additionalDeductions = parseFloat(value) || 0;
-                return {
-                    ...item,
-                    additional_deductions: additionalDeductions,
-                    net_salary: calculateNetSalary(
-                        item.basic_salary,
-                        item.hra,
-                        item.allowances,
-                        item.professional_tax,
-                        additionalDeductions,
-                        item.lop_amount
-                    )
-                };
+                return recalculateRow(item, { additional_deductions: parseFloat(value) || 0 });
             }
             return item;
         }));
     };
 
-    const handleLopDaysChange = (employeeId, value) => {
+    const handleBonusChange = (employeeId, value) => {
         setPayrollPreview(prev => prev.map(item => {
             if (item.employee_id === employeeId) {
-                const lopDays = Math.max(0, parseFloat(value) || 0);
-                const lopAmount = calculateLOPAmount(item.basic_salary, item.hra, item.allowances, item.total_working_days, lopDays);
-
-                return {
-                    ...item,
-                    lop_days: lopDays,
-                    lop_amount: lopAmount,
-                    net_salary: calculateNetSalary(
-                        item.basic_salary,
-                        item.hra,
-                        item.allowances,
-                        item.professional_tax,
-                        item.additional_deductions,
-                        lopAmount
-                    )
-                };
+                return recalculateRow(item, { bonus: parseFloat(value) || 0 });
             }
             return item;
         }));
     };
 
-    const handleWorkingDaysChange = (employeeId, value) => {
+    const handleExceptionAdd = (employeeId, type = 'attendance_waiver') => {
         setPayrollPreview(prev => prev.map(item => {
             if (item.employee_id === employeeId) {
-                const workingDays = Math.max(1, parseInt(value) || 1);
-                // LOP amount stays constant - always based on calendar days in month
-                // Only update the working days field, don't recalculate LOP
-
-                return {
-                    ...item,
-                    total_working_days: workingDays
-                    // LOP amount and net salary remain unchanged
+                const newException = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    type: type,
+                    startDate: '',
+                    endDate: '',
+                    days: 1,
+                    reason: ''
                 };
+                return recalculateRow(item, { exceptions: [...item.exceptions, newException] });
             }
             return item;
         }));
     };
 
-    const handlePresentDaysChange = (employeeId, value) => {
+    const handleExceptionDelete = (employeeId, exceptionId) => {
         setPayrollPreview(prev => prev.map(item => {
             if (item.employee_id === employeeId) {
-                const presentDays = Math.max(0, parseInt(value) || 0);
-                // Present days is informational only - doesn't affect LOP calculation
-                return {
-                    ...item,
-                    present_days: presentDays
-                };
+                return recalculateRow(item, { exceptions: item.exceptions.filter(e => e.id !== exceptionId) });
             }
             return item;
         }));
     };
 
-    const handleLeaveDaysChange = (employeeId, value) => {
+    const handleExceptionChange = (employeeId, exceptionId, field, value) => {
         setPayrollPreview(prev => prev.map(item => {
             if (item.employee_id === employeeId) {
-                const leaveDays = Math.max(0, parseInt(value) || 0);
-                // Leave days is informational only - doesn't affect LOP calculation
+                const updatedExceptions = item.exceptions.map(ex => {
+                    if (ex.id === exceptionId) {
+                        const updated = { ...ex, [field]: value };
+
+                        // Auto-calculate days if dates are changed
+                        if (field === 'startDate' || field === 'endDate') {
+                            if (updated.startDate && updated.endDate) {
+                                const start = new Date(updated.startDate);
+                                const end = new Date(updated.endDate);
+                                if (!isNaN(start) && !isNaN(end) && end >= start) {
+                                    updated.days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+                                }
+                            }
+                        }
+                        return updated;
+                    }
+                    return ex;
+                });
+
+                return recalculateRow(item, {
+                    exceptions: updatedExceptions
+                });
+            }
+            return item;
+        }));
+    };
+
+    const handleReasonChange = (employeeId, field, reason) => {
+        setPayrollPreview(prev => prev.map(item => {
+            if (item.employee_id === employeeId) {
                 return {
                     ...item,
-                    leave_days: leaveDays
+                    reasons: {
+                        ...item.reasons,
+                        [field]: reason
+                    }
                 };
             }
             return item;
@@ -322,9 +402,18 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
                         deductions: item.additional_deductions,
                         lop_days: item.lop_days,
                         net_salary: item.net_salary,
+                        present_days: item.present_days,
+                        leave_days: item.leave_days,
+                        total_working_days: item.total_working_days,
                         generated_by: user?.id,
                         status: 'generated',
-                        org_id: orgId
+                        org_id: orgId,
+                        bonus: item.bonus || 0,
+                        // Save the audit trail of waivers (metadata only)
+                        adjustment_log: {
+                            exceptions: item.exceptions || [],
+                            summary_reason: item.reasons['exceptions'] || ''
+                        }
                     });
 
                 if (error) throw error;
@@ -510,575 +599,856 @@ const PayrollFormModal = ({ isOpen, onClose, onSuccess, orgId }) => {
 
                     {/* Form */}
                     {!showPreview ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
-                            {/* Left Column - Employee Selection */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                <label style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', marginBottom: '-10px', display: 'block' }}>Selection Hub</label>
-
-                                <div
-                                    onClick={handleSelectAll}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '12px',
-                                        padding: '16px',
-                                        backgroundColor: selectAll ? '#f5f3ff' : '#f8fafc',
-                                        borderRadius: '16px',
-                                        cursor: 'pointer',
-                                        border: selectAll ? '2px solid #7c3aed' : '2px solid #e2e8f0',
-                                        transition: 'all 0.2s'
-                                    }}
-                                >
-                                    {selectAll ? <CheckSquare size={22} color="#7c3aed" /> : <Square size={22} color="#94a3b8" />}
-                                    <div style={{ flex: 1 }}>
-                                        <p style={{ fontWeight: 700, color: selectAll ? '#5b21b6' : '#475569', fontSize: '0.95rem' }}>
-                                            {searchTerm ? 'Select Visible Personnel' : 'Select All Personnel'}
-                                        </p>
-                                        <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                                            {searchTerm ? `Showing ${filteredEmployees.length} of ${employees.length} employees` : `Total ${employees.length} employees found`}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Search Bar */}
-                                <div style={{ position: 'relative' }}>
-                                    <Search size={18} style={{ 
-                                        position: 'absolute', 
-                                        left: '14px', 
-                                        top: '50%', 
-                                        transform: 'translateY(-50%)', 
-                                        color: '#94a3b8',
-                                        zIndex: 1
-                                    }} />
-                                    <input
-                                        type="text"
-                                        placeholder="Filter by name or email..."
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        style={{
-                                            width: '100%',
-                                            padding: '14px 14px 14px 44px',
-                                            borderRadius: '16px',
-                                            border: '2px solid #e2e8f0',
-                                            fontSize: '0.9rem',
-                                            fontWeight: 600,
-                                            color: '#1e293b',
-                                            outline: 'none',
-                                            transition: 'all 0.2s',
-                                            backgroundColor: 'white'
-                                        }}
-                                        onFocus={(e) => e.target.style.borderColor = '#7c3aed'}
-                                        onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-                                    />
-                                    {searchTerm && (
-                                        <button 
-                                            onClick={() => setSearchTerm('')}
-                                            style={{
-                                                position: 'absolute',
-                                                right: '14px',
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                border: 'none',
-                                                background: '#f1f5f9',
-                                                borderRadius: '50%',
-                                                width: '24px',
-                                                height: '24px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                color: '#64748b',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            <X size={14} />
-                                        </button>
-                                    )}
-                                </div>
-
-                                <div style={{
-                                    maxHeight: '350px',
-                                    overflowY: 'auto',
-                                    backgroundColor: '#f8fafc',
-                                    borderRadius: '20px',
-                                    padding: '12px',
-                                    border: '1px solid #e2e8f0',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '8px'
-                                }}>
-                                    {filteredEmployees.map(emp => (
-                                        <div
-                                            key={emp.id}
-                                            onClick={() => handleEmployeeToggle(emp.id)}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '12px',
-                                                padding: '14px',
-                                                borderRadius: '14px',
-                                                cursor: 'pointer',
-                                                backgroundColor: selectedEmployees.includes(emp.id) ? 'white' : 'transparent',
-                                                boxShadow: selectedEmployees.includes(emp.id) ? '0 4px 12px rgba(124, 58, 237, 0.08)' : 'none',
-                                                border: selectedEmployees.includes(emp.id) ? '1.5px solid #7c3aed' : '1.5px solid transparent',
-                                                transition: 'all 0.2s'
-                                            }}
-                                        >
-                                            <div style={{
-                                                width: '24px',
-                                                height: '24px',
-                                                borderRadius: '6px',
-                                                border: selectedEmployees.includes(emp.id) ? '2px solid #7c3aed' : '2px solid #cbd5e1',
-                                                backgroundColor: selectedEmployees.includes(emp.id) ? '#7c3aed' : 'transparent',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                color: 'white',
-                                                transition: 'all 0.2s'
-                                            }}>
-                                                {selectedEmployees.includes(emp.id) && <CheckSquare size={16} />}
-                                            </div>
-                                            <div style={{ flex: 1 }}>
-                                                <p style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.9rem', marginBottom: '2px' }}>{emp.full_name}</p>
-                                                <p style={{ fontSize: '0.8rem', color: '#64748b' }}>{emp.email}</p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {filteredEmployees.length === 0 && (
-                                        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#94a3b8' }}>
-                                            <Search size={40} style={{ marginBottom: '12px', opacity: 0.2 }} />
-                                            <p style={{ fontSize: '0.9rem', fontWeight: 600 }}>No employees found matching "{searchTerm}"</p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div style={{
-                                    padding: '12px 20px',
-                                    backgroundColor: '#7c3aed',
-                                    borderRadius: '12px',
-                                    color: 'white',
-                                    fontSize: '0.85rem',
-                                    fontWeight: 700,
-                                    alignSelf: 'flex-start',
-                                    boxShadow: '0 4px 10px rgba(124, 58, 237, 0.2)'
-                                }}>
-                                    {selectedEmployees.length} EMPLOYEES TARGETED
-                                </div>
-                            </div>
-
-                            {/* Right Column - Parameters & Rules */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                                <div style={{ display: 'flex', gap: '20px' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontSize: '0.9rem', fontWeight: 800, color: '#475569', marginBottom: '8px', display: 'block' }}>Target Month</label>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', animation: 'fadeIn 0.3s' }}>
+                            {/* Hub Header Card */}
+                            <div style={{
+                                background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                                padding: '32px',
+                                borderRadius: '24px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
+                            }}>
+                                <div style={{ display: 'flex', gap: '40px' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <label style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Processing Month</label>
                                         <select
                                             value={selectedMonth}
                                             onChange={(e) => setSelectedMonth(e.target.value)}
                                             style={{
-                                                width: '100%',
-                                                padding: '14px 16px',
-                                                borderRadius: '16px',
-                                                border: '2px solid #e2e8f0',
+                                                background: 'rgba(255,255,255,0.05)',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                borderRadius: '12px',
+                                                padding: '12px 20px',
+                                                color: '#f8fafc',
+                                                fontWeight: 700,
                                                 fontSize: '1rem',
-                                                fontWeight: 600,
-                                                color: '#1e293b',
-                                                backgroundColor: 'white',
-                                                cursor: 'pointer',
                                                 outline: 'none',
-                                                transition: 'border-color 0.2s'
+                                                cursor: 'pointer',
+                                                width: '200px'
                                             }}
-                                            onFocus={(e) => e.target.style.borderColor = '#7c3aed'}
-                                            onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
                                         >
-                                            <option value="">Select month...</option>
-                                            {months.map(month => (
-                                                <option key={month.value} value={month.value}>
-                                                    {month.label}
-                                                </option>
+                                            <option value="">Select Month</option>
+                                            {months.map(m => (
+                                                <option key={m.value} value={m.value} style={{ background: '#1e293b' }}>{m.label}</option>
                                             ))}
                                         </select>
                                     </div>
-
-                                    <div style={{ flex: 1 }}>
-                                        <label style={{ fontSize: '0.9rem', fontWeight: 800, color: '#475569', marginBottom: '8px', display: 'block' }}>Fiscal Year</label>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                        <label style={{ fontSize: '0.7rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Fiscal Year</label>
                                         <select
                                             value={selectedYear}
                                             onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                                             style={{
-                                                width: '100%',
-                                                padding: '14px 16px',
-                                                borderRadius: '16px',
-                                                border: '2px solid #e2e8f0',
+                                                background: 'rgba(255,255,255,0.05)',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                borderRadius: '12px',
+                                                padding: '12px 20px',
+                                                color: '#f8fafc',
+                                                fontWeight: 700,
                                                 fontSize: '1rem',
-                                                fontWeight: 600,
-                                                color: '#1e293b',
-                                                backgroundColor: 'white',
-                                                cursor: 'pointer',
-                                                outline: 'none'
+                                                outline: 'none',
+                                                cursor: 'pointer'
                                             }}
                                         >
-                                            {years.map(year => (
-                                                <option key={year} value={year}>
-                                                    {year}
-                                                </option>
+                                            {years.map(y => (
+                                                <option key={y} value={y} style={{ background: '#1e293b' }}>{y}</option>
                                             ))}
                                         </select>
                                     </div>
                                 </div>
 
-                                <div style={{
-                                    padding: '24px',
-                                    backgroundColor: '#f0f9ff',
-                                    borderRadius: '24px',
-                                    border: '1.5px solid #bae6fd',
-                                    boxShadow: '0 4px 15px rgba(186, 230, 253, 0.2)'
-                                }}>
-                                    <h4 style={{
-                                        margin: '0 0 16px 0',
-                                        color: '#0369a1',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '10px',
-                                        fontSize: '1.1rem',
-                                        fontWeight: 800
-                                    }}>
-                                        <div style={{ backgroundColor: 'white', padding: '6px', borderRadius: '8px' }}>
-                                            <Calculator size={20} />
+                                <div style={{ textAlign: 'right' }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#10b981', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10b981', animation: 'pulse 2s infinite' }} />
+                                        SYSTEM READY
+                                    </div>
+                                    <h2 style={{ margin: 0, fontSize: '2rem', fontWeight: 900, color: 'white' }}>{employees.length}</h2>
+                                    <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' }}>Active Records</p>
+                                </div>
+                            </div>
+
+                            {/* Main Selection Area */}
+                            <div style={{ display: 'flex', gap: '32px' }}>
+                                {/* Left Column: Selection Hub */}
+                                <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#1e293b', margin: 0 }}>Selection Hub</h3>
+                                        <div style={{ display: 'flex', gap: '12px' }}>
+                                            <div style={{ position: 'relative' }}>
+                                                <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search personnel..."
+                                                    value={searchTerm}
+                                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                                    style={{
+                                                        padding: '10px 14px 10px 40px',
+                                                        borderRadius: '12px',
+                                                        border: '2px solid #e2e8f0',
+                                                        fontSize: '0.9rem',
+                                                        fontWeight: 600,
+                                                        width: '240px',
+                                                        outline: 'none',
+                                                        transition: 'all 0.2s'
+                                                    }}
+                                                    onFocus={(e) => e.target.style.borderColor = '#4f46e5'}
+                                                    onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={handleSelectAll}
+                                                style={{
+                                                    padding: '10px 20px',
+                                                    borderRadius: '12px',
+                                                    backgroundColor: selectedEmployees.length === filteredEmployees.length ? '#f5f3ff' : 'white',
+                                                    border: '2px solid #4f46e5',
+                                                    color: '#4f46e5',
+                                                    fontWeight: 800,
+                                                    fontSize: '0.9rem',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                {selectedEmployees.length === filteredEmployees.length ? 'Deselect All' : 'Select All'}
+                                            </button>
                                         </div>
-                                        Payroll Calculation Rules
-                                    </h4>
-                                    <div style={{ display: 'grid', gap: '12px' }}>
-                                        {[
-                                            { label: 'Working Days', val: 'Actual calendar days in month' },
-                                            { label: 'Present Days', val: 'Verified biometric/portal records' },
-                                            { label: 'Wait Quota', val: 'Paid leaves within allowance limit' },
-                                            { label: 'LOP Factor', val: 'Absence not covered by quota' },
-                                            { label: 'Net Formula', val: '(Gross Earnings) - (Deductions + LOP)' }
-                                        ].map((rule, idx) => (
-                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
-                                                <span style={{ color: '#0369a1', fontWeight: 700 }}>{rule.label}</span>
-                                                <div style={{ height: '1px', flex: 1, backgroundColor: '#bae6fd', margin: '0 12px', opacity: 0.5 }} />
-                                                <span style={{ color: '#075985', fontWeight: 500 }}>{rule.val}</span>
+                                    </div>
+
+                                    <div style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                                        gap: '12px',
+                                        maxHeight: '400px',
+                                        overflowY: 'auto',
+                                        padding: '4px'
+                                    }}>
+                                        {filteredEmployees.map(emp => (
+                                            <div
+                                                key={emp.id}
+                                                onClick={() => handleEmployeeToggle(emp.id)}
+                                                style={{
+                                                    padding: '16px',
+                                                    borderRadius: '16px',
+                                                    backgroundColor: selectedEmployees.includes(emp.id) ? '#f5f3ff' : 'white',
+                                                    border: `2px solid ${selectedEmployees.includes(emp.id) ? '#4f46e5' : '#e2e8f0'}`,
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '12px'
+                                                }}
+                                            >
+                                                <div style={{
+                                                    width: '40px',
+                                                    height: '40px',
+                                                    borderRadius: '10px',
+                                                    backgroundColor: selectedEmployees.includes(emp.id) ? '#4f46e5' : '#f1f5f9',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    color: selectedEmployees.includes(emp.id) ? 'white' : '#64748b'
+                                                }}>
+                                                    {selectedEmployees.includes(emp.id) ? <CheckSquare size={20} /> : <User size={20} />}
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <p style={{ margin: 0, fontWeight: 800, color: '#1e293b', fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{emp.full_name}</p>
+                                                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>{emp.job_title}</p>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
 
-                                <div style={{ marginTop: 'auto', display: 'flex', gap: '16px' }}>
-                                    <button
-                                        type="button"
-                                        onClick={handleClose}
-                                        style={{
-                                            flex: 1,
-                                            padding: '16px',
-                                            borderRadius: '16px',
-                                            fontWeight: 700,
-                                            border: '2px solid #e2e8f0',
-                                            backgroundColor: 'white',
-                                            color: '#64748b',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s'
-                                        }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
-                                    >
-                                        Discard
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handleCalculatePreview}
-                                        disabled={calculating || selectedEmployees.length === 0 || !selectedMonth}
-                                        style={{
-                                            flex: 1.5,
-                                            padding: '16px',
-                                            borderRadius: '16px',
-                                            fontWeight: 800,
-                                            border: 'none',
-                                            backgroundColor: '#4f46e5',
-                                            backgroundImage: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-                                            color: 'white',
-                                            cursor: selectedEmployees.length === 0 || !selectedMonth ? 'not-allowed' : 'pointer',
-                                            boxShadow: '0 8px 20px rgba(79, 70, 229, 0.3)',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: '10px',
-                                            opacity: selectedEmployees.length === 0 || !selectedMonth ? 0.6 : 1,
-                                            transition: 'all 0.3s'
-                                        }}
-                                        onMouseEnter={(e) => { if (selectedEmployees.length > 0) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 25px rgba(79, 70, 229, 0.4)'; } }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 20px rgba(79, 70, 229, 0.3)'; }}
-                                    >
-                                        <Calculator size={20} />
-                                        {calculating ? 'Processing...' : `Initialize Preview`}
-                                    </button>
+                                {/* Right Column: Summary & Actions */}
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                    <div style={{
+                                        backgroundColor: '#f8fafc',
+                                        borderRadius: '24px',
+                                        padding: '24px',
+                                        border: '1px solid #e2e8f0'
+                                    }}>
+                                        <h4 style={{ margin: '0 0 16px 0', fontSize: '0.9rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Calculation Summary</h4>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Targeted Personnel</span>
+                                                <span style={{ fontSize: '0.85rem', color: '#1e293b', fontWeight: 800 }}>{selectedEmployees.length}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Processing Basis</span>
+                                                <span style={{ fontSize: '0.85rem', color: '#1e293b', fontWeight: 800 }}>Calendar Days</span>
+                                            </div>
+                                            <div style={{ marginTop: '8px', padding: '12px', backgroundColor: '#eff6ff', borderRadius: '12px', border: '1px solid #dbeafe' }}>
+                                                <p style={{ margin: 0, fontSize: '0.75rem', color: '#1e40af', fontWeight: 600, lineHeight: 1.5 }}>
+                                                    Initialize preview to verify attendance, working days, and manual adjustments before final record generation.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={handleCalculatePreview}
+                                            disabled={calculating || selectedEmployees.length === 0 || !selectedMonth}
+                                            style={{
+                                                padding: '18px',
+                                                borderRadius: '16px',
+                                                backgroundColor: '#4f46e5',
+                                                backgroundImage: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                                                color: 'white',
+                                                border: 'none',
+                                                fontWeight: 900,
+                                                fontSize: '1rem',
+                                                cursor: (calculating || selectedEmployees.length === 0 || !selectedMonth) ? 'not-allowed' : 'pointer',
+                                                boxShadow: '0 10px 20px -5px rgba(79, 70, 229, 0.4)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '12px',
+                                                opacity: (calculating || selectedEmployees.length === 0 || !selectedMonth) ? 0.6 : 1,
+                                                transition: 'all 0.3s'
+                                            }}
+                                            onMouseEnter={(e) => { if (selectedEmployees.length > 0) e.target.style.transform = 'translateY(-2px)'; }}
+                                            onMouseLeave={(e) => { if (selectedEmployees.length > 0) e.target.style.transform = 'translateY(0)'; }}
+                                        >
+                                            <Calculator size={20} />
+                                            {calculating ? 'Processing Logic...' : 'Initialize Preview'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={handleClose}
+                                            style={{
+                                                padding: '16px',
+                                                borderRadius: '16px',
+                                                backgroundColor: 'transparent',
+                                                color: '#64748b',
+                                                border: '2px solid #e2e8f0',
+                                                fontWeight: 800,
+                                                fontSize: '0.9rem',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => e.target.style.backgroundColor = '#f8fafc'}
+                                            onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                                        >
+                                            Cancel & Exit
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     ) : (
-                        // Preview Table
-                        <div>
+                        // Elite Preview Screen
+                        <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
+                            {/* Premium Month Banner */}
                             <div style={{
-                                background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-                                padding: '20px 24px',
-                                borderRadius: '20px',
-                                marginBottom: '24px',
+                                background: '#1e293b',
+                                padding: '24px 32px',
+                                borderRadius: '24px',
+                                marginBottom: '32px',
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
-                                border: '1px solid #e2e8f0'
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
                             }}>
-                                <div>
-                                    <p style={{ fontWeight: 800, fontSize: '1.2rem', color: '#1e293b', margin: 0 }}>
-                                        Payroll Preview: {formatMonthYear(parseInt(selectedMonth), selectedYear)}
-                                    </p>
-                                    <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px', fontWeight: 500 }}>
-                                        Finalize LOP adjustments and additional deductions before batch generation
-                                    </p>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                    <div style={{
+                                        padding: '16px',
+                                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                                        borderRadius: '16px',
+                                        color: 'white',
+                                        boxShadow: '0 10px 15px -3px rgba(16, 185, 129, 0.3)'
+                                    }}>
+                                        <Calendar size={28} />
+                                    </div>
+                                    <div>
+                                        <p style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '4px' }}>Processing Cycle</p>
+                                        <h3 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#f8fafc', margin: 0 }}>
+                                            {formatMonthYear(parseInt(selectedMonth), selectedYear)}
+                                        </h3>
+                                    </div>
                                 </div>
-                                <button
-                                    onClick={() => setShowPreview(false)}
-                                    style={{
-                                        padding: '10px 18px',
-                                        borderRadius: '12px',
-                                        fontSize: '0.85rem',
-                                        fontWeight: 700,
-                                        backgroundColor: 'white',
-                                        border: '1.5px solid #e2e8f0',
-                                        color: '#64748b',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        transition: 'all 0.2s'
-                                    }}
-                                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.borderColor = '#e2e8f0'; }}
-                                >
-                                    ← Modify Selection
-                                </button>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                                    <div style={{ textAlign: 'right', borderRight: '1px solid rgba(255,255,255,0.1)', paddingRight: '24px' }}>
+                                        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>Batch Size</p>
+                                        <p style={{ fontSize: '1.2rem', fontWeight: 800, color: '#10b981', margin: 0 }}>{payrollPreview.length} Personnel</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowPreview(false)}
+                                        style={{
+                                            padding: '12px 20px',
+                                            borderRadius: '14px',
+                                            fontSize: '0.9rem',
+                                            fontWeight: 700,
+                                            backgroundColor: 'rgba(255,255,255,0.05)',
+                                            border: '1px solid rgba(255,255,255,0.1)',
+                                            color: '#cbd5e1',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '10px',
+                                            transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = '#cbd5e1'; }}
+                                    >
+                                        <ArrowLeft size={18} /> Modify Selection
+                                    </button>
+                                </div>
                             </div>
 
-                            <div style={{
-                                overflowX: 'auto',
-                                marginBottom: '24px',
-                                borderRadius: '20px',
-                                border: '1px solid #e2e8f0',
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-                            }}>
-                                <table style={{
-                                    width: '100%',
-                                    borderCollapse: 'collapse',
-                                    fontSize: '0.875rem',
-                                    backgroundColor: 'white'
-                                }}>
-                                    <thead>
-                                        <tr style={{ backgroundColor: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                                            <th style={{ padding: '16px', textAlign: 'left', fontWeight: 800, color: '#475569' }}>Employee</th>
-                                            <th style={{ padding: '16px', textAlign: 'right', fontWeight: 800, color: '#475569' }}>Earnings</th>
-                                            <th style={{ padding: '16px', textAlign: 'center', fontWeight: 800, color: '#475569' }}>Days (W/P/L)</th>
-                                            <th style={{ padding: '16px', textAlign: 'center', fontWeight: 800, color: '#475569' }}>LOP Adjustment</th>
-                                            <th style={{ padding: '16px', textAlign: 'right', fontWeight: 800, color: '#475569' }}>Deductions</th>
-                                            <th style={{ padding: '16px', textAlign: 'right', fontWeight: 800, color: '#111827' }}>Net Payable</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {payrollPreview.map((row, index) => (
-                                            <tr key={row.employee_id} style={{
-                                                borderBottom: '1px solid #f1f5f9',
-                                                backgroundColor: index % 2 === 0 ? 'white' : '#fcfcfd',
-                                                transition: 'background-color 0.2s'
-                                            }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f3ff'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = index % 2 === 0 ? 'white' : '#fcfcfd'}>
-                                                <td style={{ padding: '16px' }}>
-                                                    <div style={{ fontWeight: 700, fontSize: '1rem', color: '#1e293b' }}>{row.employee_name}</div>
-                                                    <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Standard Pay Cycle</div>
-                                                </td>
-                                                <td style={{ padding: '16px', textAlign: 'right' }}>
-                                                    <div style={{ fontWeight: 600, fontSize: '1.05rem' }}>₹{(row.basic_salary + row.hra + row.allowances).toLocaleString()}</div>
-                                                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>B: ₹{row.basic_salary.toLocaleString()}</div>
-                                                </td>
-                                                <td style={{ padding: '16px', textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                                        <input
-                                                            type="number"
-                                                            min="1"
-                                                            max="31"
-                                                            value={row.total_working_days}
-                                                            onChange={(e) => handleWorkingDaysChange(row.employee_id, e.target.value)}
-                                                            title="Working Days"
-                                                            style={{
-                                                                width: '50px',
-                                                                padding: '8px 6px',
-                                                                border: '1.5px solid #e2e8f0',
-                                                                borderRadius: '6px',
-                                                                textAlign: 'center',
-                                                                fontSize: '1rem',
-                                                                fontWeight: 600,
-                                                                color: '#1e293b',
-                                                                backgroundColor: 'white'
-                                                            }}
-                                                        />
-                                                        <span style={{ color: '#cbd5e1', fontWeight: 600, fontSize: '1rem' }}>/</span>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max={row.total_working_days}
-                                                            value={row.present_days}
-                                                            onChange={(e) => handlePresentDaysChange(row.employee_id, e.target.value)}
-                                                            title="Present Days"
-                                                            style={{
-                                                                width: '50px',
-                                                                padding: '8px 6px',
-                                                                border: '1.5px solid #d1fae5',
-                                                                borderRadius: '6px',
-                                                                textAlign: 'center',
-                                                                fontSize: '1rem',
-                                                                fontWeight: 700,
-                                                                color: '#059669',
-                                                                backgroundColor: '#f0fdf4'
-                                                            }}
-                                                        />
-                                                        <span style={{ color: '#cbd5e1', fontWeight: 600, fontSize: '1rem' }}>/</span>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max={row.total_working_days}
-                                                            value={row.leave_days}
-                                                            onChange={(e) => handleLeaveDaysChange(row.employee_id, e.target.value)}
-                                                            title="Leave Days"
-                                                            style={{
-                                                                width: '50px',
-                                                                padding: '8px 6px',
-                                                                border: '1.5px solid #dbeafe',
-                                                                borderRadius: '6px',
-                                                                textAlign: 'center',
-                                                                fontSize: '1rem',
-                                                                fontWeight: 600,
-                                                                color: '#2563eb',
-                                                                backgroundColor: '#eff6ff'
-                                                            }}
-                                                        />
+                            {/* Elite Preview Body */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                <style>{`
+                                    .preview-tooltip-container:hover .preview-tooltip-overlay {
+                                        opacity: 1 !important;
+                                        visibility: visible !important;
+                                    }
+                                `}</style>
+
+                                {payrollPreview.map((row) => {
+                                    const isEditing = activeOverrides.includes(row.employee_id);
+
+                                    return (
+                                        <div key={row.employee_id} style={{
+                                            backgroundColor: 'white',
+                                            borderRadius: '24px',
+                                            padding: '32px',
+                                            border: '1px solid #e2e8f0',
+                                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '24px',
+                                            position: 'relative'
+                                        }}>
+                                            {isEditing ? (
+                                                <>
+                                                    {/* Top Header Card */}
+                                                    <div style={{ display: 'flex', gap: '20px' }}>
+                                                        {/* Employee Info Card */}
+                                                        <div style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                            <div style={{
+                                                                width: '48px',
+                                                                height: '48px',
+                                                                borderRadius: '50%',
+                                                                backgroundColor: '#eef2ff',
+                                                                color: '#4f46e5',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                fontWeight: 800,
+                                                                fontSize: '1.2rem',
+                                                            }}>
+                                                                {row.employee_name.charAt(0)}
+                                                            </div>
+                                                            <div style={{ flex: 1 }}>
+                                                                <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>{row.employee_name}</h3>
+                                                                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                                                                    ID: {row.employee_id.substring(0, 8).toUpperCase()} <span style={{ margin: '0 8px' }}>•</span> {row.job_title}
+                                                                </div>
+                                                            </div>
+                                                            <div style={{ textAlign: 'right', paddingLeft: '16px', borderLeft: '1px solid #e2e8f0' }}>
+                                                                <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 600 }}>Payroll Period</div>
+                                                                <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a' }}>
+                                                                    {months.find(m => m.value === selectedMonth)?.label} {selectedYear}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Validation Alert Card */}
+                                                        <div style={{ flex: 1, border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px', display: 'flex', alignItems: 'center', gap: '16px', position: 'relative' }}>
+                                                            <CheckCircle2 size={24} color="#16a34a" />
+                                                            <div style={{ fontSize: '0.85rem', color: '#1e293b', fontWeight: 500, lineHeight: 1.5, flex: 1 }}>
+                                                                Calculations adhere to regulatory formulas.<br />
+                                                                Manual overrides are active for this preview.
+                                                            </div>
+                                                            <button
+                                                                onClick={() => setActiveOverrides(prev => prev.filter(id => id !== row.employee_id))}
+                                                                style={{ padding: '8px 16px', backgroundColor: '#1e293b', color: 'white', borderRadius: '8px', border: 'none', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
+                                                            >
+                                                                Save Override
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                </td>
-                                                <td style={{ padding: '16px', textAlign: 'center' }}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            step="0.5"
-                                                            value={row.lop_days}
-                                                            onChange={(e) => handleLopDaysChange(row.employee_id, e.target.value)}
-                                                            style={{
-                                                                width: '70px',
-                                                                padding: '8px',
-                                                                border: '1.5px solid #e2e8f0',
+
+                                                    <h3 style={{ margin: '0', fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>Payroll Adjustments & Exceptions</h3>
+
+                                                    <div style={{ display: 'flex', gap: '24px' }}>
+                                                        {/* Step 1: Attendance Correction Ledger */}
+                                                        <div style={{ flex: 1.5, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>STEP 1: ATTENDANCE CORRECTION LEDGER</div>
+                                                                <button
+                                                                    onClick={() => handleExceptionAdd(row.employee_id, 'attendance_waiver')}
+                                                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                                                                >
+                                                                    <Plus size={14} /> Add Correction
+                                                                </button>
+                                                            </div>
+
+                                                            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0f172a' }}>LOGGED ATTENDANCE (Static DB)</div>
+                                                            <div style={{ fontSize: '0.85rem', color: '#334155', display: 'flex', flexDirection: 'row', gap: '16px', padding: '12px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                                                <span>Present: <span style={{ fontWeight: 800 }}>{row.original_values.present_days}</span></span>
+                                                                <span style={{ color: '#cbd5e1' }}>|</span>
+                                                                <span>Absent/LOP: <span style={{ fontWeight: 800 }}>{row.original_values.lop_days}</span></span>
+                                                            </div>
+
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                {row.exceptions.filter(ex => ex.type === 'attendance_waiver').length === 0 ? (
+                                                                    <div style={{ padding: '24px', border: '1px dashed #cbd5e1', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: '#64748b' }}>
+                                                                        <AlertCircle size={20} />
+                                                                        <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>No attendance corrections.</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    row.exceptions.filter(ex => ex.type === 'attendance_waiver').map((ex) => (
+                                                                        <div key={ex.id} style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', position: 'relative' }}>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#2563eb', textTransform: 'uppercase' }}>Attendance Waiver</span>
+                                                                                <button
+                                                                                    onClick={() => handleExceptionDelete(row.employee_id, ex.id)}
+                                                                                    style={{ color: '#ef4444', padding: '4px', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                                                >
+                                                                                    <Trash2 size={16} />
+                                                                                </button>
+                                                                            </div>
+
+                                                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                                <input
+                                                                                    type="date"
+                                                                                    value={ex.startDate}
+                                                                                    onChange={(e) => handleExceptionChange(row.employee_id, ex.id, 'startDate', e.target.value)}
+                                                                                    style={{ flex: 1, padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.75rem', outline: 'none' }}
+                                                                                />
+                                                                                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>→</span>
+                                                                                <input
+                                                                                    type="date"
+                                                                                    value={ex.endDate}
+                                                                                    onChange={(e) => handleExceptionChange(row.employee_id, ex.id, 'endDate', e.target.value)}
+                                                                                    style={{ flex: 1, padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.75rem', outline: 'none' }}
+                                                                                />
+                                                                            </div>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                                                                                <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>Impact: <span style={{ color: '#0f172a', fontWeight: 800 }}>{ex.days} Days</span></span>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Step 2: LOP Waiver Ledger */}
+                                                        <div style={{ flex: 1.5, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>STEP 2: LOP WAIVER LEDGER</div>
+                                                                <button
+                                                                    onClick={() => handleExceptionAdd(row.employee_id, 'waive_lop')}
+                                                                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', backgroundColor: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                                                                >
+                                                                    <Plus size={14} /> Add Waiver
+                                                                </button>
+                                                            </div>
+
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                                {row.exceptions.filter(ex => ex.type === 'waive_lop').length === 0 ? (
+                                                                    <div style={{ padding: '24px', border: '1px dashed #cbd5e1', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', color: '#64748b' }}>
+                                                                        <AlertCircle size={20} />
+                                                                        <span style={{ fontSize: '0.8rem', fontWeight: 500 }}>No LOP waivers.</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    row.exceptions.filter(ex => ex.type === 'waive_lop').map((ex) => (
+                                                                        <div key={ex.id} style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '16px', position: 'relative' }}>
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                                <span style={{ fontSize: '0.7rem', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' }}>Financial LOP Waiver</span>
+                                                                                <button
+                                                                                    onClick={() => handleExceptionDelete(row.employee_id, ex.id)}
+                                                                                    style={{ color: '#ef4444', padding: '4px', background: 'none', border: 'none', cursor: 'pointer' }}
+                                                                                >
+                                                                                    <Trash2 size={16} />
+                                                                                </button>
+                                                                            </div>
+
+                                                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                                <input
+                                                                                    type="date"
+                                                                                    value={ex.startDate}
+                                                                                    onChange={(e) => handleExceptionChange(row.employee_id, ex.id, 'startDate', e.target.value)}
+                                                                                    style={{ flex: 1, padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.75rem', outline: 'none' }}
+                                                                                />
+                                                                                <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>→</span>
+                                                                                <input
+                                                                                    type="date"
+                                                                                    value={ex.endDate}
+                                                                                    onChange={(e) => handleExceptionChange(row.employee_id, ex.id, 'endDate', e.target.value)}
+                                                                                    style={{ flex: 1, padding: '8px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.75rem', outline: 'none' }}
+                                                                                />
+                                                                            </div>
+
+                                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                                                                                <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 600 }}>Impact: <span style={{ color: '#0f172a', fontWeight: 800 }}>{ex.days} Days</span></span>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Step 3: Record Reason */}
+                                                        <div style={{ flex: 1, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#1e293b' }}>STEP 3: LOG REASON</div>
+                                                            <div style={{ fontSize: '0.8rem', color: '#0f172a' }}>Mandatory internal context for auditing these adjustments.</div>
+                                                            <textarea
+                                                                value={row.reasons['exceptions'] || ''}
+                                                                onChange={(e) => handleReasonChange(row.employee_id, 'exceptions', e.target.value)}
+                                                                placeholder="e.g. Scanner error on 12th, Manager approved travel waiver for 15-17th..."
+                                                                style={{ flex: 1, width: '100%', padding: '16px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.9rem', color: '#0f172a', outline: 'none', resize: 'none' }}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* UNIFIED WAIVER AUDIT RECEIPT */}
+                                                    <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b' }}>
+                                                            <Calculator size={20} style={{ color: '#2563eb' }} />
+                                                            <span style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Unified Waiver Audit Receipt</span>
+                                                        </div>
+
+                                                        <div style={{ backgroundColor: '#1e293b', color: '#f8fafc', padding: '24px', borderRadius: '16px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)', display: 'flex', gap: '32px' }}>
+                                                            {/* Part A: Rate Breakdown */}
+                                                            <div style={{ flex: 1, borderRight: '1px solid #334155', paddingRight: '32px' }}>
+                                                                <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 800, marginBottom: '12px', textTransform: 'uppercase' }}>Daily Rate Calculation</div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                    <div style={{ fontSize: '1rem', fontFamily: 'monospace', color: '#e2e8f0' }}>₹{(row.basic_salary + row.hra + row.allowances).toLocaleString()} <span style={{ color: '#64748b', fontSize: '0.75rem' }}>/ {row.calendar_days} Days</span></div>
+                                                                    <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#fbbf24' }}>= ₹{Math.round((row.basic_salary + row.hra + row.allowances) / row.calendar_days).toLocaleString()}<span style={{ fontSize: '0.8rem', fontWeight: 500, color: '#94a3b8' }}> / Day</span></div>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Part B: Unified Impact */}
+                                                            <div style={{ flex: 1.2, borderRight: '1px solid #334155', paddingRight: '32px' }}>
+                                                                <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 800, marginBottom: '12px', textTransform: 'uppercase' }}>Consolidated Waiver Impact</div>
+                                                                <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+                                                                    <div style={{ flex: 1, backgroundColor: '#334155', padding: '8px 12px', borderRadius: '8px' }}>
+                                                                        <div style={{ fontSize: '0.6rem', color: '#94a3b8', marginBottom: '2px' }}>ATTENDANCE</div>
+                                                                        <div style={{ fontSize: '0.9rem', fontWeight: 800 }}>+{row.exceptions.filter(ex => ex.type === 'attendance_waiver').reduce((sum, ex) => sum + (ex.days || 0), 0)} Days</div>
+                                                                    </div>
+                                                                    <div style={{ flex: 1, backgroundColor: '#334155', padding: '8px 12px', borderRadius: '8px' }}>
+                                                                        <div style={{ fontSize: '0.6rem', color: '#94a3b8', marginBottom: '2px' }}>LOP WAIVER</div>
+                                                                        <div style={{ fontSize: '0.9rem', fontWeight: 800 }}>+{row.exceptions.filter(ex => ex.type === 'waive_lop').reduce((sum, ex) => sum + (ex.days || 0), 0)} Days</div>
+                                                                    </div>
+                                                                </div>
+                                                                <div style={{ fontSize: '0.9rem', fontWeight: 700, color: '#e2e8f0' }}>
+                                                                    Total: <span style={{ color: '#60a5fa' }}>{row.exceptions.reduce((sum, ex) => sum + (ex.days || 0), 0)} Days</span> Adjusted
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Part C: Final Result */}
+                                                            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end' }}>
+                                                                <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 800, marginBottom: '4px' }}>TOTAL WAIVED CREDIT</div>
+                                                                <div style={{ fontSize: '2rem', fontWeight: 900, color: '#4ade80', letterSpacing: '-0.02em' }}>
+                                                                    +₹{(Math.round((row.basic_salary + row.hra + row.allowances) / row.calendar_days) * row.exceptions.reduce((sum, ex) => sum + (ex.days || 0), 0)).toLocaleString()}
+                                                                </div>
+                                                                <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>(Added as Bonus)</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+
+                                                    {/* Adjusted Payroll Preview Card */}
+                                                    <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                                        <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#0f172a' }}>ADJUSTED PAYROLL PREVIEW (RECALCULATED)</div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            <h2 style={{ margin: 0, fontSize: '1.8rem', fontWeight: 800, color: '#0f172a' }}>Final Net Payable</h2>
+                                                            <div style={{ backgroundColor: '#dcfce7', color: '#16a34a', padding: '6px 16px', borderRadius: '8px', border: '1px solid #bbf7d0', fontSize: '1.5rem', fontWeight: 800 }}>
+                                                                ₹{row.net_salary.toLocaleString('en-IN', { minimumFractionDigits: 0 })}
+                                                            </div>
+                                                            <div style={{ marginLeft: '12px', fontSize: '0.85rem', color: '#475569', display: 'flex', alignItems: 'center' }}>
+                                                                (Gross {(row.basic_salary + row.hra + row.allowances) / 1000}k {row.bonus > 0 && `+ Bonus ${row.bonus / 1000}k `}- Total Ded {(row.professional_tax + row.lop_amount + row.additional_deductions)} = {row.net_salary})
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ fontSize: '0.85rem', color: '#475569' }}>
+                                                            <span style={{ fontWeight: 600 }}>Gross ₹{(row.basic_salary + row.hra + row.allowances).toLocaleString('en-IN')}</span> |
+                                                            {row.bonus > 0 && <span style={{ fontWeight: 600, color: '#16a34a' }}> Bonus +₹{row.bonus.toLocaleString('en-IN')} | </span>}
+                                                            <span> LOP ({row.lop_days} days) -₹{row.lop_amount.toLocaleString('en-IN')} | </span>
+                                                            <span> PT -₹{row.professional_tax.toLocaleString('en-IN')}</span>
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {/* Default Ledger View */}
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                                            <div style={{
+                                                                width: '64px',
+                                                                height: '64px',
+                                                                borderRadius: '20px',
+                                                                backgroundColor: '#f8fafc',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                color: '#3b26d9',
+                                                                fontWeight: 800,
+                                                                fontSize: '1.5rem',
+                                                                border: '1px solid #eef2ff'
+                                                            }}>
+                                                                {row.employee_name.charAt(0)}
+                                                            </div>
+                                                            <div>
+                                                                <h3 style={{ margin: '0 0 4px 0', fontSize: '1.2rem', fontWeight: 800, color: '#0f172a' }}>{row.employee_name}</h3>
+                                                                <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>
+                                                                    {row.job_title} <span style={{ margin: '0 4px' }}>•</span> ID: {row.employee_id.substring(0, 8).toUpperCase()}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                            <button
+                                                                onClick={() => setActiveOverrides(prev => [...prev, row.employee_id])}
+                                                                style={{ padding: '8px 16px', backgroundColor: 'transparent', color: '#475569', borderRadius: '8px', border: '1px solid #cbd5e1', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                                                            >
+                                                                Manual Override ⚙️
+                                                            </button>
+
+                                                            <div style={{
+                                                                backgroundColor: '#dcfce7',
+                                                                padding: '16px 24px',
+                                                                borderRadius: '20px',
+                                                                textAlign: 'right',
+                                                                border: '1px solid #bbf7d0'
+                                                            }}>
+                                                                <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: 800, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.05em' }}>FINAL NET PAYABLE</p>
+                                                                <h2 style={{ margin: '4px 0 0 0', fontSize: '2rem', fontWeight: 900, color: '#15803d' }}>
+                                                                    ₹{row.net_salary.toLocaleString('en-IN', { minimumFractionDigits: 0 })}
+                                                                </h2>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Gray Ledger Block */}
+                                                    <div style={{
+                                                        backgroundColor: '#f8fafc',
+                                                        borderRadius: '20px',
+                                                        padding: '24px',
+                                                        display: 'flex',
+                                                        gap: '30px',
+                                                        border: '1px solid #f1f5f9',
+                                                        position: 'relative'
+                                                    }}>
+                                                        {/* Left Column: Earnings */}
+                                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 800 }}>
+                                                                <span style={{ fontSize: '0.7rem', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>EARNINGS LEDGER</span>
+                                                                <span style={{ fontSize: '1rem', color: '#0f172a' }}>₹{(row.basic_salary + row.hra + row.allowances).toLocaleString('en-IN')}</span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.8rem' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569' }}>
+                                                                    <span>Basic Salary</span>
+                                                                    <span style={{ fontWeight: 700, color: '#0f172a' }}>₹{row.basic_salary.toLocaleString('en-IN')}</span>
+                                                                </div>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569' }}>
+                                                                    <span>HRA</span>
+                                                                    <span style={{ fontWeight: 700, color: '#0f172a' }}>₹{row.hra.toLocaleString('en-IN')}</span>
+                                                                </div>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569' }}>
+                                                                    <span>Special Allowances</span>
+                                                                    <span style={{ fontWeight: 700, color: '#0f172a' }}>₹{row.allowances.toLocaleString('en-IN')}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Divider */}
+                                                        <div style={{ width: '1px', backgroundColor: '#e2e8f0', borderLeft: '1px dashed #cbd5e1' }}></div>
+
+                                                        {/* Middle Column: Bonus/Adjustments */}
+                                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 800 }}>
+                                                                <span style={{ fontSize: '0.7rem', color: '#047857', textTransform: 'uppercase', letterSpacing: '0.05em' }}>BONUS LEDGER</span>
+                                                                <span style={{ fontSize: '1rem', color: '#047857' }}>₹{(row.bonus || 0).toLocaleString('en-IN')}</span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.8rem' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#047857' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                        <span>Bonus Amount</span>
+                                                                        <Info size={12} color="#059669" />
+                                                                    </div>
+                                                                    <span style={{ fontWeight: 800 }}>+₹{(row.bonus || 0).toLocaleString('en-IN')}</span>
+                                                                </div>
+                                                                <div style={{ marginTop: 'auto', padding: '12px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7', fontSize: '0.75rem', color: '#166534', lineHeight: 1.5 }}>
+                                                                    This total reflects consolidated attendance and LOP waivers for this period.
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Divider */}
+                                                        <div style={{ width: '1px', backgroundColor: '#e2e8f0', borderLeft: '1px dashed #cbd5e1' }}></div>
+
+                                                        {/* Right Column: Deductions */}
+                                                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 800 }}>
+                                                                <span style={{ fontSize: '0.7rem', color: '#7f1d1d', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DEDUCTIONS LEDGER</span>
+                                                                <span style={{ fontSize: '1rem', color: '#7f1d1d' }}>-₹{(row.professional_tax + row.lop_amount + row.additional_deductions).toLocaleString('en-IN')}</span>
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.8rem' }}>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#475569' }}>
+                                                                    <span>Professional Tax</span>
+                                                                    <span style={{ fontWeight: 700, color: '#0f172a' }}>-₹{row.professional_tax.toLocaleString('en-IN')}</span>
+                                                                </div>
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#475569', position: 'relative' }}>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                        <span>Loss of Pay ({row.lop_days}d)</span>
+                                                                        <div className="preview-tooltip-container" style={{ display: 'flex', alignItems: 'center' }}>
+                                                                            <Info size={14} color="#94a3b8" style={{ cursor: 'help' }} />
+                                                                            <div className="preview-tooltip-overlay" style={{
+                                                                                position: 'absolute',
+                                                                                top: '24px',
+                                                                                left: '0',
+                                                                                backgroundColor: 'white',
+                                                                                border: '1px solid #e2e8f0',
+                                                                                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                                                                                padding: '10px 14px',
+                                                                                borderRadius: '8px',
+                                                                                fontSize: '0.75rem',
+                                                                                fontWeight: 600,
+                                                                                color: '#1e293b',
+                                                                                zIndex: 10,
+                                                                                whiteSpace: 'nowrap',
+                                                                                opacity: 0,
+                                                                                visibility: 'hidden',
+                                                                                transition: 'all 0.2s'
+                                                                            }}>
+                                                                                (₹{(row.basic_salary + row.hra + row.allowances).toLocaleString('en-IN')} Gross ÷ {row.calendar_days} days) * {row.lop_days} days = ₹{row.lop_amount.toLocaleString('en-IN')}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    <span style={{ fontWeight: 700, color: '#0f172a' }}>-₹{row.lop_amount.toLocaleString('en-IN')}</span>
+                                                                </div>
+
+                                                                {/* Additional Adjustment Input */}
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                                                                    <span style={{ color: '#475569' }}>Additional Ded.</span>
+                                                                    <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'white', border: '1px solid #fecaca', borderRadius: '8px', padding: '4px 8px', width: '80px' }}>
+                                                                        <span style={{ color: '#fca5a5', fontSize: '0.75rem', marginRight: '2px' }}>₹</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={row.additional_deductions}
+                                                                            onChange={(e) => handleDeductionChange(row.employee_id, e.target.value)}
+                                                                            style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontWeight: 800, color: '#7f1d1d', fontSize: '0.8rem', outline: 'none' }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Footer Row */}
+                                                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#16a34a', fontSize: '0.75rem', fontWeight: 800 }}>
+                                                            <CheckCircle2 size={16} />
+                                                            SYSTEM CALCULATED & VERIFIED ACCORDING TO ATTENDANCE POLICY
+                                                        </div>
+                                                        <div className="preview-tooltip-container" style={{ position: 'relative' }}>
+                                                            <Info size={16} color="#94a3b8" style={{ cursor: 'help' }} />
+                                                            <div className="preview-tooltip-overlay" style={{
+                                                                position: 'absolute',
+                                                                bottom: '30px',
+                                                                right: '0',
+                                                                backgroundColor: 'white',
+                                                                border: '1px solid #e2e8f0',
+                                                                boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+                                                                padding: '12px 16px',
                                                                 borderRadius: '8px',
-                                                                textAlign: 'center',
-                                                                fontSize: '1rem',
-                                                                color: row.lop_days > 0 ? '#e11d48' : '#1e293b',
-                                                                fontWeight: 700,
-                                                                backgroundColor: row.lop_days > 0 ? '#fff1f2' : 'white'
-                                                            }}
-                                                        />
-                                                        <span style={{ fontSize: '0.85rem', color: '#e11d48', fontWeight: 600 }}>₹{row.lop_amount.toLocaleString()}</span>
+                                                                fontSize: '0.75rem',
+                                                                fontWeight: 500,
+                                                                color: '#334155',
+                                                                zIndex: 10,
+                                                                whiteSpace: 'nowrap',
+                                                                opacity: 0,
+                                                                visibility: 'hidden',
+                                                                transition: 'all 0.2s',
+                                                                textAlign: 'left',
+                                                                lineHeight: 1.5
+                                                            }}>
+                                                                Calculations adhere to regulatory formulas.<br />
+                                                                Manual overrides are active for this preview.
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </td>
-                                                <td style={{ padding: '16px', textAlign: 'right' }}>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        step="1"
-                                                        value={row.additional_deductions}
-                                                        onChange={(e) => handleDeductionChange(row.employee_id, e.target.value)}
-                                                        style={{
-                                                            width: '110px',
-                                                            padding: '10px 12px',
-                                                            border: '1.5px solid #e2e8f0',
-                                                            borderRadius: '8px',
-                                                            textAlign: 'right',
-                                                            fontSize: '1rem',
-                                                            fontWeight: 600
-                                                        }}
-                                                    />
-                                                </td>
-                                                <td style={{ padding: '16px', textAlign: 'right' }}>
-                                                    <div style={{ fontWeight: 800, fontSize: '1.25rem', color: '#059669' }}>
-                                                        ₹{row.net_salary?.toLocaleString()}
-                                                    </div>
-                                                    <div style={{ fontSize: '0.85rem', color: '#64748b' }}>Verified Calculation</div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
 
-                            {/* Batch Generation Footer */}
+                            {/* Floating Action Bar */}
                             <div style={{
+                                marginTop: '40px',
                                 padding: '24px 32px',
                                 background: '#f8fafc',
                                 borderRadius: '24px',
                                 display: 'flex',
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
-                                border: '1px solid #e2e8f0'
+                                border: '1px solid #e2e8f0',
+                                boxShadow: '0 -10px 15px -3px rgba(0, 0, 0, 0.05)'
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                                     <div style={{
-                                        width: '48px',
-                                        height: '48px',
-                                        borderRadius: '14px',
-                                        backgroundColor: '#dcfce7',
+                                        width: '56px',
+                                        height: '56px',
+                                        borderRadius: '16px',
+                                        backgroundColor: '#eff6ff',
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        color: '#059669'
+                                        color: '#3b82f6',
+                                        border: '1px solid #dbeafe'
                                     }}>
-                                        <Calculator size={24} />
+                                        <Info size={28} />
                                     </div>
                                     <div>
-                                        <p style={{ margin: 0, fontWeight: 700, color: '#1e293b' }}>Confirm Generation</p>
-                                        <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>{payrollPreview.length} records will be processed</p>
+                                        <p style={{ margin: 0, fontWeight: 800, color: '#1e293b', fontSize: '1.1rem' }}>Ready for Generation</p>
+                                        <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
+                                            Confirming {payrollPreview.length} records totaling ₹{payrollPreview.reduce((sum, row) => sum + row.net_salary, 0).toLocaleString()}
+                                        </p>
                                     </div>
                                 </div>
-                                <div style={{ display: 'flex', gap: '12px' }}>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPreview(false)}
-                                        style={{
-                                            padding: '14px 24px',
-                                            borderRadius: '16px',
-                                            fontWeight: 700,
-                                            border: '2px solid #e2e8f0',
-                                            backgroundColor: 'white',
-                                            color: '#64748b',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        Edit Parameters
-                                    </button>
+
+                                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                                     <button
                                         type="button"
                                         onClick={handleGeneratePayroll}
-                                        disabled={loading}
+                                        disabled={loading || payrollPreview.some(row =>
+                                            row.exceptions.length > 0 && !row.reasons['exceptions']
+                                        )}
                                         style={{
-                                            padding: '14px 28px',
+                                            padding: '16px 32px',
                                             borderRadius: '16px',
-                                            fontWeight: 800,
+                                            fontWeight: 900,
+                                            fontSize: '1rem',
                                             border: 'none',
-                                            background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                                            background: (loading || payrollPreview.some(row =>
+                                                row.exceptions.length > 0 && !row.reasons['exceptions']
+                                            )) ? '#94a3b8' : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
                                             color: 'white',
-                                            cursor: 'pointer',
-                                            boxShadow: '0 10px 15px -3px rgba(5, 150, 105, 0.4)',
+                                            cursor: (loading || payrollPreview.some(row =>
+                                                row.exceptions.length > 0 && !row.reasons['exceptions']
+                                            )) ? 'not-allowed' : 'pointer',
+                                            boxShadow: '0 10px 25px -5px rgba(124, 58, 237, 0.4)',
                                             display: 'flex',
                                             alignItems: 'center',
-                                            gap: '10px',
+                                            gap: '12px',
                                             transition: 'all 0.3s'
                                         }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(5, 150, 105, 0.5)'; }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(5, 150, 105, 0.4)'; }}
+                                        onMouseEnter={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                                        onMouseLeave={(e) => { if (!e.currentTarget.disabled) e.currentTarget.style.transform = 'translateY(0)'; }}
                                     >
-                                        <FileText size={20} />
-                                        {loading ? `Generating ${progress.current}/${progress.total}...` : `Generate Final Payroll`}
+                                        <CheckSquare size={20} />
+                                        {loading ? `Processing...` : `Finalize & Generate Records`}
                                     </button>
                                 </div>
                             </div>
