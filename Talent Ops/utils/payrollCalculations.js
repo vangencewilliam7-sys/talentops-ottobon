@@ -174,10 +174,10 @@ export const calculateLOPAmount = (basicSalary, hra, allowances, totalDays, lopD
 /**
  * Calculate net salary
  */
-export const calculateNetSalary = (basicSalary, hra, allowances, professionalTax, additionalDeductions, lopAmount) => {
+export const calculateNetSalary = (basicSalary, hra, allowances, professionalTax, additionalDeductions, lopAmount, bonus = 0) => {
     const grossSalary = Number(basicSalary) + Number(hra) + Number(allowances);
     const totalDeductions = Number(professionalTax) + Number(additionalDeductions) + Number(lopAmount);
-    return Math.round(grossSalary - totalDeductions);
+    return Math.round((grossSalary - totalDeductions) + Number(bonus));
 };
 
 

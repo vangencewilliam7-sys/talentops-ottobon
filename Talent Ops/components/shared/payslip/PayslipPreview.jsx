@@ -146,182 +146,199 @@ const PayslipPreview = ({ payslipData, companySettings, onBack, onSave, loading 
                 </div>
 
                 <div style={{
-                    padding: '60px 40px',
+                    padding: '32px',
+                    backgroundColor: '#fafaf9',
                     overflowY: 'auto',
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center'
+                    flex: 1
                 }}>
-                    {/* Company Header - Logo on left, info on right */}
                     <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '20px',
-                        marginBottom: '25px'
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        padding: '24px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                        margin: '0 auto',
+                        maxWidth: '900px'
                     }}>
-                        {companySettings?.logo_url && (
-                            <div style={{ flexShrink: 0 }}>
-                                <img
-                                    src={companySettings.logo_url}
-                                    alt="Company Logo"
-                                    style={{
-                                        width: '80px',
-                                        height: '80px',
-                                        objectFit: 'contain'
-                                    }}
-                                />
+                        {/* Company Settings Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px', borderBottom: '1px solid #f1f5f9', paddingBottom: '20px' }}>
+                            {companySettings?.logo_url ? (
+                                <img src={companySettings.logo_url} alt="Logo" style={{ width: '48px', height: '48px', objectFit: 'contain' }} />
+                            ) : (
+                                <div style={{
+                                    width: '32px', height: '32px', 
+                                    borderRadius: '6px', border: '2px solid #1e293b', 
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontWeight: '800', fontSize: '1.2rem', color: '#1e293b'
+                                }}>S</div>
+                            )}
+                            <div>
+                                <h1 style={{ fontSize: '1.25rem', fontWeight: '800', margin: '0 0 4px 0', color: '#1e293b' }}>
+                                    {companySettings?.company_name || 'Talent Ops'}
+                                </h1>
+                                <p style={{ fontSize: '0.8rem', color: '#64748b', margin: 0 }}>Payroll (Preview)</p>
                             </div>
-                        )}
-                        <div style={{ textAlign: 'center', flex: 1 }}>
-                            <h1 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 10px 0' }}>
-                                {companySettings?.company_name || 'Talent Ops'}
-                            </h1>
-                            {companySettings?.company_address && (
-                                <p style={{ fontSize: '11px', margin: '6px 0', color: '#333', lineHeight: '1.5' }}>
-                                    {companySettings.company_address}
-                                </p>
-                            )}
-                            {(companySettings?.company_email || companySettings?.company_phone) && (
-                                <p style={{ fontSize: '11px', margin: '6px 0', color: '#333' }}>
-                                    {[companySettings.company_email, companySettings.company_phone]
-                                        .filter(Boolean)
-                                        .join('    ')}
-                                </p>
-                            )}
                         </div>
-                    </div>
 
-                    {/* Title */}
-                    <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                        <h2 style={{ fontSize: '14px', fontWeight: 'bold', margin: 0 }}>
-                            Pay slip for the month of {payslipData.month}
-                        </h2>
-                    </div>
+                        {/* Employee Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                            <div>
+                                <h3 style={{ fontSize: '1.6rem', fontWeight: '800', color: '#1e293b', margin: '0 0 8px 0' }}>
+                                    {payslipData.employeeName}
+                                </h3>
+                            </div>
+                            <span style={{ 
+                                color: '#64748b', fontSize: '0.7rem', fontWeight: '800', 
+                                backgroundColor: '#f1f5f9', padding: '6px 12px', 
+                                borderRadius: '16px', letterSpacing: '0.05em', border: '1px dashed #cbd5e1' 
+                            }}>
+                                PRE-COMMIT PREVIEW
+                            </span>
+                        </div>
 
-                    {/* Employee Details Table */}
-                    <table style={{
-                        width: '100%',
-                        border: '1px solid #000',
-                        borderCollapse: 'collapse',
-                        marginBottom: '20px',
-                        fontSize: '11px'
-                    }}>
-                        <tbody>
-                            <tr>
-                                <td style={{ padding: '8px', border: '1px solid #000', width: '25%' }}>Employee Code</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', width: '25%' }}>: {payslipData.employeeId}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', width: '25%' }}>Company:</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', width: '25%' }}>{companySettings?.company_name || 'Talent Ops'}</td>
-                            </tr>
-                            <tr>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Base Location</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>: {payslipData.employeeLocation || 'N/A'}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Email:</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>{payslipData.employeeEmail}</td>
-                            </tr>
-                            <tr>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Date of Joining</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>: {payslipData.dateOfJoining && payslipData.dateOfJoining !== 'N/A' ? new Date(payslipData.dateOfJoining).toLocaleDateString('en-IN') : 'N/A'}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Employee Name:</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>{payslipData.employeeName}</td>
-                            </tr>
-                            <tr>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Working Days</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>: {payslipData.totalWorkingDays || 0}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Designation:</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>{payslipData.employeeRole}</td>
-                            </tr>
-                            <tr>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Present Days</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>: {payslipData.presentDays || 0}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Leave Days:</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>{payslipData.leaveDays || 0}</td>
-                            </tr>
-                            <tr>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>LOP Days</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>: {payslipData.lopDays || 0}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Payslip Number:</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>{payslipData.payslipNumber}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                        <div style={{ display: 'flex', gap: '32px', borderBottom: '1px solid #f1f5f9', paddingBottom: '20px', marginBottom: '20px' }}>
+                            <div style={{ fontSize: '0.9rem', color: '#475569' }}>
+                                Designation: <span style={{ fontWeight: '600', color: '#1e293b' }}>{payslipData.employeeRole || 'Employee'}</span>
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: '#475569' }}>
+                                Employee ID: <span style={{ fontWeight: '600', color: '#1e293b' }}>{payslipData.employeeId ? `EMP-${payslipData.employeeId.substring(0,4).toUpperCase()}` : 'N/A'}</span>
+                            </div>
+                            <div style={{ fontSize: '0.9rem', color: '#475569' }}>
+                                Month: <span style={{ fontWeight: '600', color: '#1e293b' }}>{payslipData.month}</span>
+                            </div>
+                        </div>
 
-                    {/* Earnings/Deductions Table */}
-                    <table style={{
-                        width: '100%',
-                        border: '1px solid #000',
-                        borderCollapse: 'collapse',
-                        marginBottom: '20px',
-                        fontSize: '11px'
-                    }}>
-                        <thead>
-                            <tr>
-                                <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'left', fontWeight: 'bold' }} colSpan="2">Earnings</th>
-                                <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'left', fontWeight: 'bold' }} colSpan="2">Deductions</th>
-                            </tr>
-                            <tr>
-                                <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'left', fontWeight: 'bold' }}>Particulars</th>
-                                <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'right', fontWeight: 'bold' }}>Rate / Month (₹)</th>
-                                <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'left', fontWeight: 'bold' }}>Particulars</th>
-                                <th style={{ padding: '8px', border: '1px solid #000', textAlign: 'right', fontWeight: 'bold' }}>Amount (₹)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Basic Salary</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>{payslipData.basicSalary.toLocaleString('en-IN')}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Professional Tax</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>{(payslipData.professionalTax || 0).toLocaleString('en-IN')}</td>
-                            </tr>
-                            <tr>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>House Rent Allowance (HRA)</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>{payslipData.hra.toLocaleString('en-IN')}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>LOP ({payslipData.lopDays || 0} days)</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>{(payslipData.lopAmount || 0).toLocaleString('en-IN')}</td>
-                            </tr>
-                            <tr>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Allowances</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>{payslipData.allowances.toLocaleString('en-IN')}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}></td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}></td>
-                            </tr>
-                            <tr style={{ fontWeight: 'bold' }}>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Total Earnings</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>{totalEarnings.toLocaleString('en-IN')}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Total Deductions</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>{totalDeductions.toLocaleString('en-IN')}</td>
-                            </tr>
-                            <tr style={{ fontWeight: 'bold', fontSize: '12px' }}>
-                                <td style={{ padding: '8px', border: '1px solid #000' }}>Net Salary:</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }}>₹ {netSalary.toLocaleString('en-IN')}</td>
-                                <td style={{ padding: '8px', border: '1px solid #000', textAlign: 'right' }} colSpan="2">₹ {netSalary.toLocaleString('en-IN')}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                        {/* Earnings, Adjustments and Deductions Grid */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '20px' }}>
+                            
+                            {/* Earnings Box */}
+                            <div style={{ 
+                                border: '1px solid #e5e7eb', 
+                                borderRadius: '8px', 
+                                padding: '16px',
+                                backgroundColor: '#ffffff',
+                                display: 'flex',
+                                flexDirection: 'column'
+                            }}>
+                                <h4 style={{ margin: '0 0 16px 0', fontSize: '0.8rem', fontWeight: '800', color: '#111827', letterSpacing: '0.05em' }}>EARNINGS</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#374151', marginBottom: '6px' }}>
+                                            <span>Basic Salary</span>
+                                            <span style={{ fontWeight: '500' }}>₹{payslipData.basicSalary?.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#374151', marginBottom: '6px' }}>
+                                            <span>HRA</span>
+                                            <span style={{ fontWeight: '500' }}>₹{payslipData.hra?.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#374151' }}>
+                                            <span>Special Allowances</span>
+                                            <span style={{ fontWeight: '500' }}>₹{payslipData.allowances?.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ color: '#111827', fontSize: '0.9rem', fontWeight: '800' }}>Gross Earnings</span>
+                                        <span style={{ color: '#111827', fontSize: '0.95rem', fontWeight: '800' }}>
+                                            ₹{totalEarnings.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
 
-                    {/* In Words */}
-                    <div style={{
-                        marginBottom: '15px',
-                        marginTop: '15px',
-                        paddingBottom: '8px',
-                        borderBottom: '1px solid #000',
-                        fontSize: '11px'
-                    }}>
-                        In words: {numberToWords(Math.floor(netSalary))}
-                    </div>
+                            {/* Adjustments Box */}
+                            <div style={{ 
+                                border: '1px solid #d1fae5', 
+                                borderRadius: '8px', 
+                                padding: '16px',
+                                backgroundColor: '#f0fdf4',
+                                display: 'flex',
+                                flexDirection: 'column'
+                            }}>
+                                <h4 style={{ margin: '0 0 16px 0', fontSize: '0.8rem', fontWeight: '800', color: '#065f46', letterSpacing: '0.05em' }}>BONUS & WAIVERS</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#059669' }}>
+                                            <span>Waive Off Amount</span>
+                                            <span style={{ fontWeight: '600' }}>₹{(payslipData.waiverCredit || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #bbf7d0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ color: '#065f46', fontSize: '0.9rem', fontWeight: '800' }}>Total Adjustment</span>
+                                        <span style={{ color: '#059669', fontSize: '0.95rem', fontWeight: '800' }}>
+                                            ₹{(payslipData.waiverCredit || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
 
-                    {/* Footer */}
-                    <div style={{
-                        textAlign: 'center',
-                        marginTop: '30px',
-                        fontSize: '10px',
-                        fontStyle: 'italic',
-                        color: '#666'
-                    }}>
-                        <p style={{ margin: '8px 0' }}>This is a computer-generated payslip and does not require a signature.</p>
-                        <p style={{ margin: '8px 0' }}>Generated on: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                            {/* Deductions Box */}
+                            <div style={{ 
+                                border: '1px solid #fecaca', 
+                                borderRadius: '8px', 
+                                padding: '16px',
+                                backgroundColor: '#fffdfd',
+                                display: 'flex',
+                                flexDirection: 'column'
+                            }}>
+                                <h4 style={{ margin: '0 0 16px 0', fontSize: '0.8rem', fontWeight: '800', color: '#991b1b', letterSpacing: '0.05em' }}>DEDUCTIONS</h4>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#374151', marginBottom: '6px' }}>
+                                            <span>Professional Tax</span>
+                                            <span style={{ fontWeight: '500', color: '#dc2626' }}>-₹{(payslipData.professionalTax || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                                        </div>
+                                        
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#374151', marginBottom: '6px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span>LOP ({payslipData.lopDays}d)</span>
+                                            </div>
+                                            <span style={{ fontWeight: '500', color: '#dc2626' }}>
+                                                -₹{(payslipData.lopAmount || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                            </span>
+                                        </div>
+
+                                        {(payslipData.deductions > 0) && (
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#374151' }}>
+                                                <span>Other Deductions</span>
+                                                <span style={{ fontWeight: '500', color: '#dc2626' }}>-₹{(payslipData.deductions || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div style={{ marginTop: 'auto', paddingTop: '12px', borderTop: '1px solid #fecaca', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ color: '#991b1b', fontSize: '0.9rem', fontWeight: '800' }}>Total Deds</span>
+                                        <span style={{ color: '#dc2626', fontSize: '0.95rem', fontWeight: '800' }}>
+                                            -₹{totalDeductions.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        {/* Net Salary Footer Box */}
+                        <div style={{ 
+                            background: '#111827', 
+                            borderRadius: '12px', 
+                            padding: '24px 32px', 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center',
+                            color: 'white',
+                            marginTop: '20px'
+                        }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <p style={{ margin: 0, color: '#9ca3af', fontSize: '0.85rem' }}>Processing Cycle: {payslipData.month}</p>
+                                <h4 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '700', color: 'white' }}>Net Payable Salary</h4>
+                                <p style={{ margin: '4px 0 0 0', color: '#6ee7b7', fontSize: '0.75rem', fontStyle: 'italic' }}>
+                                    In words: {numberToWords(Math.floor(netSalary))}
+                                </p>
+                            </div>
+                            <div>
+                                <span style={{ fontSize: '2.5rem', fontWeight: '800', color: '#4ade80' }}>
+                                    ₹{netSalary.toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

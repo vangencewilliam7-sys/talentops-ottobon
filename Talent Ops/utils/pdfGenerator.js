@@ -351,21 +351,34 @@ export const generatePayslipPDF = async (payslipData, companySettings) => {
         ['Allowances', safeNumber(payslipData.allowances, 0)]
     ];
 
+    // Bonuses & Adjustments
+    const bonuses = [
+        ['Waive Off Amount', safeNumber(payslipData.bonus, 0)]
+    ];
+
     // Deductions
     const deductions = [
         ['Professional Tax', safeNumber(payslipData.professionalTax, 0)],
         [`LOP (${safeNumber(payslipData.lopDays, 0)} days)`, safeNumber(payslipData.lopAmount, 0)]
     ];
 
-    const maxRows = Math.max(earnings.length, deductions.length);
+    const maxRows = Math.max(earnings.length, deductions.length, bonuses.length);
 
     for (let i = 0; i < maxRows; i++) {
         pdf.rect(marginLeft, yPos, tableWidth, defaultRowHeight);
 
-        // Earnings
+        // Earnings (First 3 rows) then Bonuses
         if (i < earnings.length) {
             pdf.text(earnings[i][0], marginLeft + 2, yPos + 5);
             pdf.text(earnings[i][1].toLocaleString('en-IN'), marginLeft + col1Width - 8, yPos + 5, { align: 'right' });
+        } else if (i < earnings.length + bonuses.length) {
+            const bonusIndex = i - earnings.length;
+            pdf.setFont('helvetica', 'bold');
+            pdf.setTextColor(0, 100, 0); // Dark Green for adjustments
+            pdf.text(bonuses[bonusIndex][0], marginLeft + 2, yPos + 5);
+            pdf.text(bonuses[bonusIndex][1].toLocaleString('en-IN'), marginLeft + col1Width - 8, yPos + 5, { align: 'right' });
+            pdf.setFont('helvetica', 'normal');
+            pdf.setTextColor(0, 0, 0);
         }
 
         // Deductions
@@ -380,12 +393,13 @@ export const generatePayslipPDF = async (payslipData, companySettings) => {
 
     // Total Earnings / Total Deductions
     const totalEarnings = safeNumber(payslipData.basicSalary, 0) + safeNumber(payslipData.hra, 0) + safeNumber(payslipData.allowances, 0);
+    const totalBonuses = safeNumber(payslipData.bonus, 0);
     const totalDeductions = safeNumber(payslipData.deductions, 0) + safeNumber(payslipData.lopAmount, 0) + safeNumber(payslipData.professionalTax, 0);
 
     pdf.setFont('helvetica', 'bold');
     pdf.rect(marginLeft, yPos, tableWidth, defaultRowHeight);
-    pdf.text('Total Earnings', marginLeft + 2, yPos + 5);
-    pdf.text(safeNumber(totalEarnings, 0).toLocaleString('en-IN'), marginLeft + col1Width - 8, yPos + 5, { align: 'right' });
+    pdf.text('Total Earnings + Adjustments', marginLeft + 2, yPos + 5);
+    pdf.text((totalEarnings + totalBonuses).toLocaleString('en-IN'), marginLeft + col1Width - 8, yPos + 5, { align: 'right' });
     pdf.text('Total Deductions', marginLeft + col1Width + 2, yPos + 5);
     pdf.text(safeNumber(totalDeductions, 0).toLocaleString('en-IN'), marginLeft + tableWidth - 8, yPos + 5, { align: 'right' });
     pdf.line(marginLeft + col1Width, yPos, marginLeft + col1Width, yPos + defaultRowHeight);

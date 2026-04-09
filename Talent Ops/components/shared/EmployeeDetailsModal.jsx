@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Mail, Phone, MapPin, Calendar } from 'lucide-react';
+import { X, Mail, Phone, MapPin, Calendar, Briefcase, User, TrendingUp, Layers, CheckCircle2, DollarSign, ShieldCheck, Info, IndianRupee } from 'lucide-react';
 
 const EmployeeDetailsModal = ({ 
     selectedEmployee, 
@@ -7,201 +7,313 @@ const EmployeeDetailsModal = ({
 }) => {
     if (!selectedEmployee) return null;
 
+    const isIntern = (
+        selectedEmployee.employment_type?.toLowerCase() === 'intern' || 
+        selectedEmployee.job_title?.toLowerCase() === 'intern' || 
+        selectedEmployee.role?.toLowerCase() === 'intern'
+    );
+
+    // Tightened logic: Paid means they have a positive stipend
+    const isPaidIntern = isIntern && (selectedEmployee.stipend > 0);
+
+    // Reuseable Detail Card Component
+    const DetailCard = ({ icon: Icon, label, value, color = "#7c3aed", bgColor = "#f5f3ff" }) => (
+        <div style={{ 
+            padding: '16px', 
+            backgroundColor: 'white', 
+            borderRadius: '16px', 
+            border: '1px solid #e2e8f0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            transition: 'all 0.2s',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+        }}>
+            <div style={{ 
+                width: '40px', 
+                height: '40px', 
+                borderRadius: '12px', 
+                backgroundColor: bgColor, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                color: color
+            }}>
+                <Icon size={20} />
+            </div>
+            <div>
+                <p style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>{label}</p>
+                <p style={{ fontSize: '0.95rem', fontWeight: '700', color: '#1e293b', margin: '2px 0 0 0' }}>{value}</p>
+            </div>
+        </div>
+    );
+
+    // Small Metric Card for Performance
+    const MetricCard = ({ icon: Icon, label, value, color }) => (
+        <div style={{ 
+            padding: '20px', 
+            backgroundColor: '#ffffff', 
+            borderRadius: '20px', 
+            border: '1px solid #f1f5f9',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '8px'
+        }}>
+            <div style={{ color: color, marginBottom: '4px' }}>
+                <Icon size={24} />
+            </div>
+            <p style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>{label}</p>
+            <p style={{ fontSize: '1.5rem', fontWeight: '900', color: '#1e293b', margin: 0 }}>{value}</p>
+        </div>
+    );
+
     return (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div className="no-scrollbar" style={{ backgroundColor: 'var(--surface)', borderRadius: '16px', width: '600px', maxWidth: '90%', maxHeight: '90vh', overflowY: 'auto', boxShadow: 'var(--shadow-lg)' }}>
-                {/* Header */}
-                <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Employee Details</h3>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+        <div style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            backgroundColor: 'rgba(10, 10, 11, 0.6)', 
+            backdropFilter: 'blur(10px)',
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            zIndex: 1000 
+        }} onClick={onClose}>
+            <div 
+                className="no-scrollbar" 
+                style={{ 
+                    backgroundColor: 'white', 
+                    borderRadius: '32px', 
+                    width: '750px', 
+                    maxWidth: '95%', 
+                    maxHeight: '90vh', 
+                    overflowY: 'auto', 
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                    position: 'relative',
+                    animation: 'modalSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)'
+                }}
+                onClick={e => e.stopPropagation()}
+            >
+                <style>
+                    {`
+                        @keyframes modalSlideUp {
+                            from { transform: translateY(30px); opacity: 0; }
+                            to { transform: translateY(0); opacity: 1; }
+                        }
+                    `}
+                </style>
+
+                {/* Header Section */}
+                <div style={{ 
+                    padding: '32px 32px 24px 32px', 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'flex-start'
+                }}>
+                    <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+                        <div style={{ 
+                            width: '100px', 
+                            height: '100px', 
+                            borderRadius: '30px', 
+                            backgroundColor: '#f1f5f9', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            overflow: 'hidden',
+                            border: '4px solid white',
+                            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'
+                        }}>
+                            {selectedEmployee.avatar_url ? (
+                                <img src={selectedEmployee.avatar_url} alt={selectedEmployee.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                                <span style={{ fontSize: '2.5rem', fontWeight: '900', color: '#94a3b8' }}>{selectedEmployee.name.charAt(0)}</span>
+                            )}
+                        </div>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
+                                <h3 style={{ fontSize: '2rem', fontWeight: '900', color: '#1e293b', margin: 0, letterSpacing: '-0.02em' }}>{selectedEmployee.name}</h3>
+                                <div style={{ 
+                                    padding: '4px 12px', 
+                                    borderRadius: '10px', 
+                                    fontSize: '0.75rem', 
+                                    fontWeight: '800', 
+                                    backgroundColor: selectedEmployee.status === 'Active' ? '#dcfce7' : '#f1f5f9',
+                                    color: selectedEmployee.status === 'Active' ? '#15803d' : '#64748b',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em'
+                                }}>
+                                    {selectedEmployee.status}
+                                </div>
+                            </div>
+                            <p style={{ fontSize: '1.1rem', color: '#64748b', fontWeight: '600', margin: 0 }}>{selectedEmployee.job_title || selectedEmployee.role}</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={onClose}
+                        style={{ 
+                            width: '44px', 
+                            height: '44px', 
+                            borderRadius: '14px', 
+                            backgroundColor: '#f8fafc', 
+                            border: 'none', 
+                            cursor: 'pointer', 
+                            color: '#94a3b8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
+                        }}
+                    >
                         <X size={24} />
                     </button>
                 </div>
 
-                {/* Employee Info */}
-                <div style={{ padding: '32px' }}>
-                    {/* Profile Section */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '32px' }}>
-                        <div style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', fontWeight: 'bold', color: '#075985', overflow: 'hidden' }}>
-                            {selectedEmployee.avatar_url ? (
-                                <img src={selectedEmployee.avatar_url} alt={selectedEmployee.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : (
-                                selectedEmployee.name.charAt(0)
-                            )}
+                <div style={{ padding: '0 32px 40px 32px' }}>
+                    {/* Contact Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '32px' }}>
+                        <DetailCard icon={Mail} label="Email" value={selectedEmployee.email} bgColor="#edf2ff" color="#4338ca" />
+                        <DetailCard icon={Phone} label="Phone" value={selectedEmployee.phone || 'N/A'} bgColor="#f0fdf4" color="#15803d" />
+                        <DetailCard icon={Briefcase} label="Department" value={selectedEmployee.department_display || 'Unassigned'} bgColor="#fff7ed" color="#c2410c" />
+                        <DetailCard icon={Calendar} label="Join Date" value={selectedEmployee.joinDate || 'N/A'} bgColor="#fdf2f8" color="#be185d" />
+                    </div>
+
+                    {/* Financial section */}
+                    <div style={{ marginBottom: '40px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+                            <div style={{ width: '32px', height: '2px', backgroundColor: '#f1f5f9' }} />
+                            <h5 style={{ fontSize: '0.8rem', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.12em', margin: 0 }}>
+                                Financial Details
+                            </h5>
+                            <div style={{ flex: 1, height: '2px', backgroundColor: '#f1f5f9' }} />
                         </div>
-                        <div style={{ flex: 1 }}>
-                            <h4 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '4px' }}>{selectedEmployee.name}</h4>
-                            <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', marginBottom: '8px', textTransform: 'capitalize' }}>
-                                {selectedEmployee.job_title || selectedEmployee.role}
-                            </p>
-                            <span style={{
-                                padding: '4px 12px',
-                                borderRadius: '12px',
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                backgroundColor: selectedEmployee.status === 'Active' ? '#dcfce7' : '#fee2e2',
-                                color: selectedEmployee.status === 'Active' ? '#166534' : '#991b1b'
+
+                        {isIntern ? (
+                            <div style={{ 
+                                backgroundColor: isPaidIntern ? '#f0fdf4' : '#f8fafc', 
+                                borderRadius: '24px', 
+                                padding: '32px',
+                                border: `1.5px solid ${isPaidIntern ? '#dcfce7' : '#e2e8f0'}`,
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
                             }}>
-                                {selectedEmployee.status}
-                            </span>
-                        </div>
-                    </div>
-
-                    {/* Contact Information */}
-                    <div style={{ marginBottom: '32px' }}>
-                        <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Contact Information</h5>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Mail size={18} color="#075985" />
-                                </div>
                                 <div>
-                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Email</p>
-                                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.email}</p>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Phone size={18} color="#075985" />
-                                </div>
-                                <div>
-                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Phone</p>
-                                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.phone || 'N/A'}</p>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <MapPin size={18} color="#075985" />
-                                </div>
-                                <div>
-                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Location</p>
-                                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.location || 'N/A'}</p>
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Calendar size={18} color="#075985" />
-                                </div>
-                                <div>
-                                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '2px' }}>Join Date</p>
-                                    <p style={{ fontSize: '0.9rem', fontWeight: 500 }}>{selectedEmployee.joinDate}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Work Information */}
-                    <div style={{ marginBottom: '32px' }}>
-                        <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Work Information</h5>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                            <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Department</p>
-                                <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.department_display || 'Unassigned'}</p>
-                            </div>
-                            <div style={{ padding: '16px', backgroundColor: 'var(--background)', borderRadius: '12px' }}>
-                                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Manager</p>
-                                <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedEmployee.manager || 'N/A'}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Financial Details */}
-                    <div style={{ marginBottom: '32px' }}>
-                        <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Financial Details</h5>
-                        
-                        {(
-                            selectedEmployee.employment_type?.toLowerCase() === 'intern' || 
-                            selectedEmployee.job_title?.toLowerCase() === 'intern' || 
-                            selectedEmployee.role?.toLowerCase() === 'intern'
-                        ) ? (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
-                                {(selectedEmployee.is_paid === false || (selectedEmployee.stipend === 0 && selectedEmployee.is_paid !== true)) ? (
-                                    <div style={{ padding: '24px', backgroundColor: '#fef2f2', borderRadius: '12px', border: '1px solid #fee2e2', textAlign: 'center' }}>
-                                        <p style={{ fontSize: '0.9rem', color: '#991b1b', marginBottom: '4px', fontWeight: 600 }}>INTERNSHIP STATUS</p>
-                                        <p style={{ fontSize: '1.5rem', fontWeight: 800, color: '#991b1b' }}>UNPAID INTERN</p>
-                                        <p style={{ fontSize: '0.8rem', color: '#991b1b', marginTop: '8px' }}>This intern is not receiving any compensation.</p>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                        <IndianRupee size={20} color={isPaidIntern ? '#16a34a' : '#64748b'} />
+                                        <span style={{ fontSize: '0.85rem', fontWeight: '800', color: isPaidIntern ? '#16a34a' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            INTERNSHIP STATUS
+                                        </span>
                                     </div>
-                                ) : (
-                                    <div style={{ padding: '24px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div>
-                                            <p style={{ fontSize: '0.9rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>MONTHLY STIPEND</p>
-                                            <p style={{ fontSize: '2rem', fontWeight: 800, color: '#166534' }}>
-                                                ₹{selectedEmployee.stipend ? selectedEmployee.stipend.toLocaleString('en-IN') : '0'}
-                                            </p>
-                                        </div>
-                                        <div style={{ padding: '8px 16px', backgroundColor: '#166534', color: 'white', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700 }}>
-                                            PAID INTERN
-                                        </div>
-                                    </div>
-                                )}
+                                    <h4 style={{ fontSize: '2.2rem', fontWeight: '900', color: '#1e293b', margin: 0 }}>
+                                        {isPaidIntern ? `₹${selectedEmployee.stipend?.toLocaleString('en-IN')}` : 'UNPAID INTERN'}
+                                    </h4>
+                                    <p style={{ fontSize: '0.95rem', color: '#64748b', fontWeight: '600', margin: '4px 0 0 0' }}>
+                                        {isPaidIntern ? 'Monthly Stipend' : 'No compensation program'}
+                                    </p>
+                                </div>
+                                <div style={{ 
+                                    padding: '12px 24px', 
+                                    borderRadius: '14px', 
+                                    backgroundColor: isPaidIntern ? 'rgba(22, 163, 74, 0.1)' : 'rgba(100, 116, 139, 0.1)', 
+                                    color: isPaidIntern ? '#16a34a' : '#64748b', 
+                                    fontWeight: '800', 
+                                    fontSize: '0.8rem',
+                                    letterSpacing: '0.05em',
+                                    border: `1px solid ${isPaidIntern ? 'rgba(22, 163, 74, 0.2)' : 'rgba(100, 116, 139, 0.2)'}`,
+                                    textTransform: 'uppercase'
+                                }}>
+                                    {isPaidIntern ? 'Compensated' : 'Non-Compensated'}
+                                </div>
                             </div>
                         ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                <div style={{ padding: '16px', backgroundColor: '#f0f9ff', borderRadius: '12px', border: '1px solid #e0f2fe' }}>
-                                    <p style={{ fontSize: '0.75rem', color: '#075985', marginBottom: '4px', fontWeight: 600 }}>Basic Salary</p>
-                                    <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#075985' }}>
-                                        ₹{selectedEmployee.basic_salary ? selectedEmployee.basic_salary.toLocaleString('en-IN') : '0'}
-                                    </p>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                                    <div style={{ padding: '20px', borderRadius: '20px', border: '1.5px solid #f1f5f9', backgroundColor: 'white' }}>
+                                        <p style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: '800', textTransform: 'uppercase', margin: 0, letterSpacing: '0.05em' }}>Basic Salary</p>
+                                        <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#1e293b', margin: '4px 0 0 0' }}>₹{selectedEmployee.basic_salary?.toLocaleString('en-IN') || '0'}</p>
+                                    </div>
+                                    <div style={{ padding: '20px', borderRadius: '20px', border: '1.5px solid #f1f5f9', backgroundColor: 'white' }}>
+                                        <p style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: '800', textTransform: 'uppercase', margin: 0, letterSpacing: '0.05em' }}>HRA</p>
+                                        <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#1e293b', margin: '4px 0 0 0' }}>₹{selectedEmployee.hra?.toLocaleString('en-IN') || '0'}</p>
+                                    </div>
+                                    <div style={{ padding: '20px', borderRadius: '20px', border: '1.5px solid #f1f5f9', backgroundColor: 'white' }}>
+                                        <p style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: '800', textTransform: 'uppercase', margin: 0, letterSpacing: '0.05em' }}>Allowances</p>
+                                        <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#1e293b', margin: '4px 0 0 0' }}>₹{selectedEmployee.allowances?.toLocaleString('en-IN') || '0'}</p>
+                                    </div>
                                 </div>
-                                <div style={{ padding: '16px', backgroundColor: '#f0fdf4', borderRadius: '12px', border: '1px solid #dcfce7' }}>
-                                    <p style={{ fontSize: '0.75rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>HRA</p>
-                                    <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534' }}>
-                                        ₹{selectedEmployee.hra ? selectedEmployee.hra.toLocaleString('en-IN') : '0'}
-                                    </p>
-                                </div>
-                                <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '12px', border: '1px solid #fef08a' }}>
-                                    <p style={{ fontSize: '0.75rem', color: '#b45309', marginBottom: '4px', fontWeight: 600 }}>Allowances</p>
-                                    <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#b45309' }}>
-                                        ₹{selectedEmployee.allowances ? selectedEmployee.allowances.toLocaleString('en-IN') : '0'}
-                                    </p>
-                                </div>
-                                <div style={{ padding: '16px', backgroundColor: '#ede9fe', borderRadius: '12px', border: '1px solid #ddd6fe' }}>
-                                    <p style={{ fontSize: '0.75rem', color: '#6d28d9', marginBottom: '4px', fontWeight: 600 }}>Gross Salary</p>
-                                    <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#6d28d9' }}>
-                                        ₹{selectedEmployee.gross_salary ? selectedEmployee.gross_salary.toLocaleString('en-IN') : '0'}
-                                    </p>
-                                </div>
-                                <div style={{ padding: '16px', backgroundColor: '#fee2e2', borderRadius: '12px', border: '1px solid #fecaca' }}>
-                                    <p style={{ fontSize: '0.75rem', color: '#991b1b', marginBottom: '4px', fontWeight: 600 }}>Professional Tax (Deduction)</p>
-                                    <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#991b1b' }}>
-                                        -₹{selectedEmployee.professional_tax ? selectedEmployee.professional_tax.toLocaleString('en-IN') : '0'}
-                                    </p>
-                                </div>
-                                <div style={{ padding: '16px', backgroundColor: '#d1fae5', borderRadius: '12px', border: '2px solid #10b981' }}>
-                                    <p style={{ fontSize: '0.75rem', color: '#065f46', marginBottom: '4px', fontWeight: 600 }}>Net Salary</p>
-                                    <p style={{ fontSize: '1.25rem', fontWeight: 700, color: '#065f46' }}>
-                                        ₹{((selectedEmployee.gross_salary || 0) - (selectedEmployee.professional_tax || 0)).toLocaleString('en-IN')}
-                                    </p>
+                                <div style={{ 
+                                    padding: '24px 32px', 
+                                    borderRadius: '24px', 
+                                    backgroundColor: '#17141f', 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'center',
+                                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25)'
+                                }}>
+                                    <div>
+                                        <p style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.12em', margin: 0 }}>Net Salary</p>
+                                        <h4 style={{ fontSize: '2.4rem', fontWeight: '900', color: '#ffffff', margin: '4px 0 0 0', letterSpacing: '-0.01em' }}>
+                                            ₹{((selectedEmployee.gross_salary || 0) - (selectedEmployee.professional_tax || 0)).toLocaleString('en-IN')}
+                                        </h4>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            gap: '8px', 
+                                            color: '#fb7185', 
+                                            fontSize: '0.9rem', 
+                                            fontWeight: '800',
+                                            marginBottom: '4px',
+                                            justifyContent: 'flex-end'
+                                        }}>
+                                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#fb7185' }} />
+                                            Professional Tax: ₹{selectedEmployee.professional_tax?.toLocaleString('en-IN') || '0'}
+                                        </div>
+                                        <p style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: '600', margin: 0 }}>Final Disbursement Amount</p>
+                                    </div>
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    {/* Performance Metrics */}
-                    <div>
-                        <h5 style={{ fontSize: '1rem', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)' }}>Performance Metrics</h5>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                            <div style={{ padding: '16px', backgroundColor: '#dcfce7', borderRadius: '12px', textAlign: 'center' }}>
-                                <p style={{ fontSize: '0.75rem', color: '#166534', marginBottom: '4px', fontWeight: 600 }}>PERFORMANCE</p>
-                                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#166534' }}>{selectedEmployee.performance || 'N/A'}</p>
-                            </div>
-                            <div style={{ padding: '16px', backgroundColor: '#e0f2fe', borderRadius: '12px', textAlign: 'center' }}>
-                                <p style={{ fontSize: '0.75rem', color: '#075985', marginBottom: '4px', fontWeight: 600 }}>PROJECTS</p>
-                                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#075985' }}>{selectedEmployee.projects || 0}</p>
-                            </div>
-                            <div style={{ padding: '16px', backgroundColor: '#fef3c7', borderRadius: '12px', textAlign: 'center' }}>
-                                <p style={{ fontSize: '0.75rem', color: '#b45309', marginBottom: '4px', fontWeight: 600 }}>TASKS DONE</p>
-                                <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#b45309' }}>{selectedEmployee.tasksCompleted || 0}</p>
-                            </div>
-                        </div>
+                    {/* Metrics Section */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                        <MetricCard icon={TrendingUp} label="PERFORMANCE" value={selectedEmployee.performance || 'N/A'} color="#7c3aed" />
+                        <MetricCard icon={Layers} label="PROJECTS" value={selectedEmployee.projects || '0'} color="#0891b2" />
+                        <MetricCard icon={CheckCircle2} label="TASKS DONE" value={selectedEmployee.tasksCompleted || '0'} color="#059669" />
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
+                {/* Footer Controls */}
+                <div style={{ 
+                    padding: '24px 32px', 
+                    borderTop: '1px solid #f8fafc', 
+                    display: 'flex', 
+                    justifyContent: 'flex-end',
+                    backgroundColor: '#ffffff',
+                    borderRadius: '0 0 32px 32px'
+                }}>
+                    <button 
                         onClick={onClose}
-                        style={{ padding: '10px 20px', borderRadius: '8px', fontWeight: 600, backgroundColor: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}
+                        style={{ 
+                            padding: '14px 40px', 
+                            borderRadius: '18px', 
+                            backgroundColor: '#1e293b', 
+                            color: 'white', 
+                            border: 'none', 
+                            fontWeight: '900', 
+                            fontSize: '1rem',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#0f172a'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = '#1e293b'; e.currentTarget.style.transform = 'translateY(0)'; }}
                     >
                         Close
                     </button>

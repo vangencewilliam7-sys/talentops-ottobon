@@ -1,22 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabaseClient';
-import { Download, FileText, Calendar, DollarSign, Plus, Eye } from 'lucide-react';
+import { Download, FileText, Calendar, IndianRupee, Plus, Eye } from 'lucide-react';
 import DataTable from '../employee/components/UI/DataTable';
 import PayslipFormModal from './payslip/PayslipFormModal';
 import DocumentViewer from './DocumentViewer';
+
 
 const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
     const [payslips, setPayslips] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showAddModal, setShowAddModal] = useState(false);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
-    const [savedCompanies, setSavedCompanies] = useState([]); // Lifted state for company details
-    const [employees, setEmployees] = useState([]); // Lifted state for employee dropdown
+    const [savedCompanies, setSavedCompanies] = useState([]);
+    const [employees, setEmployees] = useState([]);
+
+    // Hierarchical Navigation State
+    const [view, setView] = useState('years'); // 'years', 'months', 'records'
+    const [selectedYear, setSelectedYear] = useState(null);
+    const [selectedMonth, setSelectedMonth] = useState(null);
 
     // Document Viewer state
     const [previewUrl, setPreviewUrl] = useState('');
     const [previewFileName, setPreviewFileName] = useState('');
     const [showPreview, setShowPreview] = useState(false);
+
 
     // Safe toast function
     const showToast = (message, type) => {
@@ -213,6 +220,25 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
         }
     };
 
+    // Build hierarchical mapping: { "2026": { "March": [...], "April": [...] }, "2025": { ... } }
+    const hierarchy = useMemo(() => {
+        const h = {};
+        payslips.forEach(p => {
+            if (!p.month) return;
+            // Expected month format: "Month Year" (e.g., "March 2026")
+            const parts = p.month.split(' ');
+            if (parts.length < 2) return;
+            const monthName = parts[0];
+            const yearStr = parts[1];
+
+            if (!h[yearStr]) h[yearStr] = {};
+            if (!h[yearStr][monthName]) h[yearStr][monthName] = [];
+            h[yearStr][monthName].push(p);
+        });
+        return h;
+    }, [payslips]);
+
+
     const handleView = (payslip) => {
         if (payslip.storage_url) {
             setPreviewUrl(payslip.storage_url);
@@ -368,22 +394,6 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
     // Determine if user can add payslips
     const canAddPayslips = userRole && (userRole.toLowerCase().includes('executive') || userRole.toLowerCase().includes('manager'));
 
-    if (loading) {
-        return (
-            <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '60px 20px',
-                color: 'var(--text-secondary)'
-            }}>
-                <FileText size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
-                <p style={{ fontSize: '1.1rem' }}>Loading payslips...</p>
-            </div>
-        );
-    }
-
     return (
         <div style={{ padding: '24px', background: '#f8fafc', minHeight: '100vh' }}>
             {/* Compact Header - Matching Leave Requests Style */}
@@ -463,59 +473,174 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
                 </div>
             </div>
 
-            {/* Payslips Table */}
-            {payslips.length > 0 ? (
-                <div style={{
-                    background: 'white',
-                    borderRadius: '8px',
-                    padding: '20px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-                    border: '1px solid #e2e8f0'
-                }}>
-                    <DataTable
-                        title="Comprehensive Payslip Ledger"
-                        columns={columns}
-                        data={payslips}
-                    />
+            {/* Drill-down Navigation */}
+            {loading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: 'var(--text-secondary)' }}>
+                    <FileText size={48} style={{ marginBottom: '16px', opacity: 0.5 }} />
+                    <p style={{ fontSize: '1.1rem' }}>Synchronizing payslip repository...</p>
                 </div>
-            ) : (
-                <div style={{
-                    backgroundColor: 'white',
-                    borderRadius: '8px',
-                    padding: '120px 20px',
-                    textAlign: 'center',
-                    border: '2px dashed #e2e8f0',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
-                    minHeight: '400px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}>
-                    <div style={{
-                        width: '64px',
-                        height: '64px',
-                        backgroundColor: '#f8fafc',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: '20px'
-                    }}>
+            ) : payslips.length === 0 ? (
+                <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '120px 20px', textAlign: 'center', border: '2px dashed #e2e8f0', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)', minHeight: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '64px', height: '64px', backgroundColor: '#f8fafc', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
                         <FileText size={32} color="#cbd5e1" />
                     </div>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>
-                        No Records Found
-                    </h3>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1e293b', marginBottom: '6px' }}>No Documentation Found</h3>
                     <p style={{ color: '#64748b', fontSize: '0.9rem', maxWidth: '400px', margin: '0 auto' }}>
                         {userRole === 'employee' || userRole === 'team_lead'
-                            ? 'Your financial vault is currently empty. Direct deposits will appear here.'
-                            : 'The payslip repository is empty. Initialize your first generation above.'}
+                            ? 'Your financial vault is currently empty. Direct deposits will appear here once generated.'
+                            : 'The payslip repository is empty. Initialize the document generation above.'}
                     </p>
+                </div>
+            ) : (
+                <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
+                    {/* Breadcrumbs */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', fontSize: '0.85rem', color: '#64748b', fontWeight: '600' }}>
+                        <span 
+                            onClick={() => setView('years')} 
+                            style={{ cursor: 'pointer', color: view === 'years' ? '#22d3ee' : 'inherit' }}
+                        >
+                            Payslip Root
+                        </span>
+                        {(view === 'months' || view === 'records') && (
+                            <>
+                                <span>/</span>
+                                <span 
+                                    onClick={() => setView('months')} 
+                                    style={{ cursor: 'pointer', color: view === 'months' ? '#22d3ee' : 'inherit' }}
+                                >
+                                    {selectedYear}
+                                </span>
+                            </>
+                        )}
+                        {view === 'records' && (
+                            <>
+                                <span>/</span>
+                                <span style={{ color: '#22d3ee' }}>{selectedMonth}</span>
+                            </>
+                        )}
+                    </div>
+
+                    {/* View Levels */}
+                    {view === 'years' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
+                            {Object.keys(hierarchy).sort((a, b) => b - a).map(year => {
+                                const totalRecords = Object.values(hierarchy[year]).reduce((acc, curr) => acc + curr.length, 0);
+                                return (
+                                    <div 
+                                        key={year}
+                                        onClick={() => { setSelectedYear(year); setView('months'); }}
+                                        style={{
+                                            background: 'white',
+                                            padding: '24px',
+                                            borderRadius: '12px',
+                                            border: '1px solid #e2e8f0',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-4px)';
+                                            e.currentTarget.style.borderColor = '#22d3ee';
+                                            e.currentTarget.style.boxShadow = '0 12px 20px -5px rgba(0, 0, 0, 0.05)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.borderColor = '#e2e8f0';
+                                            e.currentTarget.style.boxShadow = 'none';
+                                        }}
+                                    >
+                                        <div>
+                                            <h3 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#1e293b', marginBottom: '4px' }}>{year}</h3>
+                                            <p style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: '600' }}>{totalRecords} Documents Recorded</p>
+                                        </div>
+                                        <div style={{ padding: '12px', background: '#ecfeff', borderRadius: '10px', color: '#0891b2' }}>
+                                            <FileText size={24} />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {view === 'months' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
+                            {Object.keys(hierarchy[selectedYear]).sort((a, b) => {
+                                const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                                return months.indexOf(a) - months.indexOf(b);
+                            }).map(month => (
+                                <div 
+                                    key={month}
+                                    onClick={() => { setSelectedMonth(month); setView('records'); }}
+                                    style={{
+                                        background: 'white',
+                                        padding: '20px',
+                                        borderRadius: '10px',
+                                        border: '1px solid #e2e8f0',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.background = '#f8fafc';
+                                        e.currentTarget.style.borderColor = '#22d3ee';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.background = 'white';
+                                        e.currentTarget.style.borderColor = '#e2e8f0';
+                                    }}
+                                >
+                                    <span style={{ fontWeight: '700', color: '#334155' }}>{month}</span>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#0891b2', background: '#ecfeff', padding: '4px 8px', borderRadius: '6px' }}>
+                                        {hierarchy[selectedYear][month].length} Items
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {view === 'records' && (
+                        <div style={{ animation: 'fadeIn 0.4s ease-out' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: '16px' }}>
+                                <button 
+                                    onClick={() => setView('months')}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#0891b2',
+                                        fontWeight: '700',
+                                        cursor: 'pointer',
+                                        fontSize: '0.85rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                    }}
+                                >
+                                    &larr; Back to {selectedYear}
+                                </button>
+                            </div>
+                            <div style={{ background: 'white', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)', border: '1px solid #e2e8f0' }}>
+                                <DataTable
+                                    title={`Payslip Ledger: ${selectedMonth} ${selectedYear}`}
+                                    columns={columns}
+                                    data={hierarchy[selectedYear][selectedMonth]}
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
-            {/* New Payslip Form Modal */}
+            <style>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(8px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
+        
             <PayslipFormModal
                 isOpen={showAddModal}
                 onClose={() => setShowAddModal(false)}
@@ -526,19 +651,16 @@ const PayslipsPage = ({ userRole, userId, addToast, orgId }) => {
                 onRefreshCompanies={fetchSavedCompanies}
             />
 
-            {/* Document Preview Modal */}
-            {
-                showPreview && previewUrl && (
-                    <DocumentViewer
-                        url={previewUrl}
-                        fileName={previewFileName || "Payslip"}
-                        onClose={() => { setShowPreview(false); setPreviewUrl(''); setPreviewFileName(''); }}
-                    />
-                )
-            }
-
+            {showPreview && previewUrl && (
+                <DocumentViewer
+                    url={previewUrl}
+                    fileName={previewFileName || "Payslip"}
+                    onClose={() => { setShowPreview(false); setPreviewUrl(''); setPreviewFileName(''); }}
+                />
+            )}
         </div>
     );
 };
 
 export default PayslipsPage;
+
