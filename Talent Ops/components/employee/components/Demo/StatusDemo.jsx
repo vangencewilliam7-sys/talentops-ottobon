@@ -5,42 +5,41 @@ import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const StatusDemo = () => {
-    const { userName, userStatus, userTask, lastActive, userId } = useUser();
+    const { userName, userStatus, userTask, lastActive, userId, orgId } = useUser();
 
     // Mock Status Data for the List
     const statusData = [
         { name: userName, dept: 'Engineering', availability: userStatus, task: userTask || 'No active task', lastActive: lastActive }
     ];
 
-    const getSunday = (d) => {
+    const getMonthStart = (d) => {
         const date = new Date(d);
+        date.setDate(1);
         date.setHours(0, 0, 0, 0);
-        const day = date.getDay();
-        const diff = date.getDate() - day;
-        return new Date(date.setDate(diff));
+        return date;
     };
 
-    const [currentWeekStart, setCurrentWeekStart] = useState(getSunday(new Date()));
+    const [currentMonthStart, setCurrentMonthStart] = useState(getMonthStart(new Date()));
     const [stats, setStats] = useState({
         avgHours: '0h',
         peakDay: '—',
         arrival: '—',
         streak: '0 Days'
     });
-    const [weeklyData, setWeeklyData] = useState([]);
+    const [monthlyData, setMonthlyData] = useState([]);
     const [joinDate, setJoinDate] = useState(null);
     const [loading, setLoading] = useState(false);
 
-    const handlePrevWeek = () => {
-        const newDate = new Date(currentWeekStart);
-        newDate.setDate(currentWeekStart.getDate() - 7);
-        setCurrentWeekStart(newDate);
+    const handlePrevMonth = () => {
+        const newDate = new Date(currentMonthStart);
+        newDate.setMonth(currentMonthStart.getMonth() - 1);
+        setCurrentMonthStart(newDate);
     };
 
-    const handleNextWeek = () => {
-        const newDate = new Date(currentWeekStart);
-        newDate.setDate(currentWeekStart.getDate() + 7);
-        setCurrentWeekStart(newDate);
+    const handleNextMonth = () => {
+        const newDate = new Date(currentMonthStart);
+        newDate.setMonth(currentMonthStart.getMonth() + 1);
+        setCurrentMonthStart(newDate);
     };
 
     // Helper: Get all dates in a range
@@ -68,219 +67,178 @@ const StatusDemo = () => {
             if (!userId) return;
             setLoading(true);
 
-            // Define Time Range: Weekly (Sun - Sat)
-            const weekStart = new Date(currentWeekStart);
-            const weekEnd = new Date(currentWeekStart);
-            weekEnd.setDate(weekEnd.getDate() + 6);
+            // 1. Helper: Robust Local Date & Time Parsing
+            const formatDate = (d) => {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
 
-            const fetchStart = weekStart.toISOString().split('T')[0];
-            const fetchEnd = weekEnd.toISOString().split('T')[0];
+            const parseTime = (dateStr, timeVal) => {
+                if (!timeVal) return null;
+                try {
+                    let t = String(timeVal).trim();
+                    if (t.includes('+')) t = t.split('+')[0];
+                    if (t.includes('T') || t.includes('-')) return new Date(t.replace(' ', 'T'));
+                    
+                    if (t.split(':').length === 2) t += ':00';
+                    const d = new Date(`${dateStr}T${t}`);
+                    return isNaN(d.getTime()) ? null : d;
+                } catch (e) { return null; }
+            };
 
             try {
-                // Fetch Data
-                let { data: attendance } = await supabase
-                    .from('attendance')
-                    .select('*')
-                    .eq('employee_id', userId)
-                    .gte('date', fetchStart)
-                    .lte('date', fetchEnd);
+                // 2. Define Query Range (Selected Month +/- 5 days for boundary safety)
+                const monthStart = new Date(currentMonthStart);
+                const monthEnd = new Date(currentMonthStart.getFullYear(), currentMonthStart.getMonth() + 1, 0);
+                
+                const fetchStart = new Date(monthStart);
+                fetchStart.setDate(fetchStart.getDate() - 5);
+                const fetchEnd = new Date(monthEnd);
+                fetchEnd.setDate(fetchEnd.getDate() + 5);
 
-                const { data: leaves } = await supabase
-                    .from('leaves')
-                    .select('*')
-                    .eq('employee_id', userId)
-                    .eq('status', 'Approved')
-                    .or(`from_date.lte.${fetchEnd},to_date.gte.${fetchStart}`);
+                const startStr = formatDate(fetchStart);
+                const endStr = formatDate(fetchEnd);
+                const todayStr = formatDate(new Date());
 
-                // --- DATE HELPERS ---
-                const getLocalDateStr = (date) => {
-                    const offset = date.getTimezoneOffset() * 60000;
-                    return new Date(date.getTime() - offset).toISOString().split('T')[0];
-                };
-                const todayLocalStr = getLocalDateStr(new Date());
+                // 3. Parallel Data Fetching
+                const [attRes, leavesRes] = await Promise.all([
+                    supabase.from('attendance').select('*').eq('employee_id', userId).gte('date', startStr).lte('date', endStr).order('date', { ascending: true }),
+                    supabase.from('leaves').select('*').eq('employee_id', userId).or(`from_date.gte.${startStr},to_date.lte.${endStr}`)
+                ]);
 
-                // --- SELF-HEALING LOGIC ---
-                // Fix stale records strictly from BEFORE today (Local Time)
-                const staleRecords = attendance?.filter(a => a.date < todayLocalStr && !a.check_out) || [];
+                if (attRes.error) console.error('Attendance Fetch Error:', attRes.error);
 
+                let attendance = attRes.data || [];
+                const leaves = leavesRes.data || [];
+
+                // 4. Self-Healing: Auto-close stale sessions from previous days
+                const staleRecords = attendance.filter(a => String(a.date) < todayStr && !(a.check_out || a.clock_out));
                 if (staleRecords.length > 0) {
                     await Promise.all(staleRecords.map(async (record) => {
-                        const clockOutTime = '23:59:00';
-                        const start = new Date(`${record.date}T${record.check_in}`);
-                        const end = new Date(`${record.date}T${clockOutTime}`);
-                        const diffMs = end - start;
-                        const totalHours = (diffMs / (1000 * 60 * 60)).toFixed(2);
+                        const inTime = record.check_in || record.clock_in;
+                        const start = parseTime(record.date, inTime);
+                        if (!start) return;
 
-                        await supabase
-                            .from('attendance')
-                            .update({
-                                check_out: clockOutTime,
-                                total_hours: totalHours,
-                                status: 'present'
-                            })
-                            .eq('id', record.id);
+                        const end = new Date(`${record.date}T23:59:00`);
+                        const hours = Math.max(0, (end - start) / (1000 * 60 * 60));
+
+                        await supabase.from('attendance').update({
+                            check_out: '23:59:00',
+                            clock_out: '23:59:00',
+                            total_hours: hours.toFixed(2),
+                            status: 'present'
+                        }).eq('id', record.id);
                     }));
 
-                    // Re-fetch attendance after healing to ensure local data is fresh
-                    const { data: refreshedAttendance } = await supabase
-                        .from('attendance')
-                        .select('*')
-                        .eq('employee_id', userId)
-                        .gte('date', fetchStart)
-                        .lte('date', fetchEnd);
-
-                    if (refreshedAttendance) {
-                        // Update the local attendance variable used for calculation
-                        attendance = refreshedAttendance;
-                    }
+                    // Local refresh after healing
+                    const { data: refreshed } = await supabase.from('attendance').select('*').eq('employee_id', userId).gte('date', startStr).lte('date', endStr);
+                    if (refreshed) attendance = refreshed;
                 }
 
-                // Process Day Logic (Aggregate Multiple Sessions)
+                // 5. Build Monthly Visualization Dataset
                 const processDay = (date) => {
-                    const dateStr = getLocalDateStr(date);
+                    const dateISO = formatDate(date);
+                    const dayRecords = attendance.filter(a => String(a.date) === dateISO);
+                    const leave = leaves.find(l => dateISO >= l.from_date && dateISO <= l.to_date);
 
-                    // Find ALL records for this day
-                    const dayRecords = attendance?.filter(a => a.date === dateStr) || [];
-                    const leave = leaves?.find(l => dateStr >= l.from_date && dateStr <= l.to_date);
-
-                    let totalHours = 0;
-                    let isAnyActive = false;
+                    let dayTotalHours = 0;
+                    let isActiveNow = false;
                     let firstClockIn = null;
-                    dayRecords.forEach(att => {
-                        if (att.check_in && (!firstClockIn || att.check_in < firstClockIn)) {
-                            firstClockIn = att.check_in;
-                        }
-                        if (att.check_out && att.total_hours) {
-                            totalHours += parseFloat(att.total_hours);
-                        } else if (att.check_in && !att.check_out) {
-                            // Active Session
-                            const isToday = dateStr === todayLocalStr;
-                            const start = new Date(`${dateStr}T${att.check_in}`);
 
-                            if (isToday) {
-                                isAnyActive = true;
-                                const now = new Date();
-                                const diff = (now - start) / (1000 * 60 * 60);
-                                if (diff > 0) totalHours += diff;
+                    dayRecords.forEach(att => {
+                        const inVal = att.check_in || att.clock_in;
+                        const outVal = att.check_out || att.clock_out;
+                        const hoursStored = att.total_hours || att.total_duration || att.hours;
+
+                        if (inVal && (!firstClockIn || String(inVal) < firstClockIn)) {
+                            firstClockIn = String(inVal).includes('T') ? String(inVal).split('T')[1].split('+')[0] : String(inVal);
+                        }
+
+                        const start = parseTime(dateISO, inVal);
+                        if (start) {
+                            if (outVal) {
+                                const end = parseTime(dateISO, outVal);
+                                if (end && end > start) {
+                                    dayTotalHours += (end - start) / (1000 * 60 * 60);
+                                } else if (hoursStored) {
+                                    dayTotalHours += parseFloat(hoursStored) || 0;
+                                }
                             } else {
-                                // Stale session visual fallback (Auto-closing...)
-                                const end = new Date(`${dateStr}T23:59:00`);
-                                const diff = (end - start) / (1000 * 60 * 60);
-                                if (diff > 0) totalHours += diff;
+                                // Live Session Calculation
+                                const now = (dateISO === todayStr) ? new Date() : new Date(`${dateISO}T23:59:00`);
+                                const diff = (now - start) / (1000 * 60 * 60);
+                                if (diff > 0) {
+                                    dayTotalHours += diff;
+                                    if (dateISO === todayStr) isActiveNow = true;
+                                }
                             }
                         }
                     });
 
-                    let tooltipStatus = 'Absent';
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
+                    let displayStatus = 'Absent';
+                    const comparisonDate = new Date();
+                    comparisonDate.setHours(0,0,0,0);
 
-                    // Status Determination
-                    if (date > today) {
-                        tooltipStatus = 'Upcoming';
-                    } else if (joinDate && date < joinDate) {
-                        tooltipStatus = 'Not Joined';
-                    } else if (dayRecords.length > 0) {
-                        if (isAnyActive) {
-                            tooltipStatus = 'Active Now';
-                        } else {
-                            const hasStale = dayRecords.some(r => !r.check_out && dateStr !== todayLocalStr);
-                            tooltipStatus = hasStale ? 'Auto-closing...' : 'Present';
-                        }
-                    } else if (leave) {
-                        tooltipStatus = 'On Leave';
-                    }
+                    if (date > comparisonDate) displayStatus = 'Upcoming';
+                    else if (joinDate && date < joinDate) displayStatus = 'Not Joined';
+                    else if (dayRecords.length > 0) {
+                        displayStatus = isActiveNow ? 'Active Now' : (dayRecords.some(r => !(r.check_out || r.clock_out) && String(r.date) !== todayStr) ? 'Auto-closing...' : 'Present');
+                    } else if (leave) displayStatus = 'On Leave';
 
                     return {
-                        dateStr,
-                        hours: Number(totalHours.toFixed(2)),
+                        dateStr: dateISO,
+                        hours: Number(dayTotalHours.toFixed(2)) || 0,
                         dayName: date.toLocaleDateString('en-US', { weekday: 'short' }),
-                        tooltipStatus,
+                        dayNum: date.getDate(),
+                        tooltipStatus: displayStatus,
                         firstClockIn
                     };
                 };
 
-                // --- WEEKLY DATA ---
-                const wDates = getDatesInRange(weekStart, weekEnd);
-                const wData = wDates
-                    .filter(d => d.getDay() !== 0 && d.getDay() !== 6)
-                    .map(d => processDay(d));
+                const currentMonthDates = getDatesInRange(monthStart, monthEnd);
+                const visualData = currentMonthDates.map(d => processDay(d));
+                setMonthlyData(visualData);
 
-                setWeeklyData(wData);
+                // 6. Final Statistics Aggregation
+                const activeWorkedDays = visualData.filter(d => d.hours > 0);
+                const totalHoursSum = activeWorkedDays.reduce((acc, curr) => acc + curr.hours, 0);
+                const peakItem = [...visualData].sort((a,b) => b.hours - a.hours)[0];
 
-                // --- CALCULATE DYNAMIC METRICS ---
-                const activeDays = wData.filter(d => d.hours > 0);
-                const avgHoursValue = activeDays.length > 0
-                    ? (activeDays.reduce((acc, curr) => acc + curr.hours, 0) / activeDays.length).toFixed(1)
-                    : '0';
-
-                const peakDayItem = [...wData].sort((a, b) => b.hours - a.hours)[0];
-
-                // Arrival Logic: Average of first clock-ins
-                let avgArrival = '—';
-                if (activeDays.length > 0) {
-                    const arrivals = activeDays
-                        .filter(d => d.firstClockIn)
-                        .map(d => {
-                            const [h, m] = d.firstClockIn.split(':').map(Number);
-                            return h * 60 + m;
-                        });
-                    if (arrivals.length > 0) {
-                        const avgMinutes = arrivals.reduce((a, b) => a + b, 0) / arrivals.length;
-                        const h = Math.floor(avgMinutes / 60);
-                        const m = Math.floor(avgMinutes % 60);
-                        avgArrival = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-                    }
+                // Average Arrival Time
+                let avgArrivalStr = '—';
+                const arrivalMinutes = activeWorkedDays.filter(d => d.firstClockIn).map(d => {
+                    const parts = d.firstClockIn.split(':');
+                    return (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0);
+                });
+                if (arrivalMinutes.length > 0) {
+                    const avgMins = arrivalMinutes.reduce((a,b) => a+b, 0) / arrivalMinutes.length;
+                    avgArrivalStr = `${Math.floor(avgMins/60).toString().padStart(2,'0')}:${Math.floor(avgMins%60).toString().padStart(2,'0')}`;
                 }
 
-                // Streak Logic: Find consecutive present days (today or yesterday backwards)
+                // Streak - Using unified attendance pool for efficiency
                 let streakCount = 0;
-                // Fetch all recent attendance for streak (last 30 days)
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-                const { data: streakData } = await supabase
-                    .from('attendance')
-                    .select('date')
-                    .eq('employee_id', userId)
-                    .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
-                    .order('date', { ascending: false });
+                const distinctWorkedDates = Array.from(new Set(attendance.map(d => String(d.date))));
+                let streakDate = new Date();
+                if (!distinctWorkedDates.includes(formatDate(streakDate))) streakDate.setDate(streakDate.getDate() - 1);
 
-                if (streakData) {
-                    const uniqueDates = Array.from(new Set(streakData.map(d => d.date)));
-                    const checkDate = new Date();
-                    // If not clocked in today, check from yesterday
-                    const todayStr = getLocalDateStr(checkDate);
-                    let startIdx = 0;
-
-                    if (uniqueDates[0] !== todayStr) {
-                        checkDate.setDate(checkDate.getDate() - 1);
-                    }
-
-                    for (let i = 0; i < 30; i++) {
-                        const dStr = getLocalDateStr(checkDate);
-                        // Skip weekends
-                        if (checkDate.getDay() === 0 || checkDate.getDay() === 6) {
-                            checkDate.setDate(checkDate.getDate() - 1);
-                            continue;
-                        }
-                        if (uniqueDates.includes(dStr)) {
-                            streakCount++;
-                            checkDate.setDate(checkDate.getDate() - 1);
-                        } else {
-                            break;
-                        }
-                    }
+                for(let i=0; i<45; i++) {
+                    const ds = formatDate(streakDate);
+                    if(streakDate.getDay() === 0 || streakDate.getDay() === 6) { streakDate.setDate(streakDate.getDate() - 1); continue; }
+                    if(distinctWorkedDates.some(ud => ud.includes(ds))) { streakCount++; streakDate.setDate(streakDate.getDate() - 1); }
+                    else break;
                 }
 
                 setStats({
-                    avgHours: `${avgHoursValue}h`,
-                    peakDay: peakDayItem?.hours > 0 ? peakDayItem.dayName : '—',
-                    arrival: avgArrival,
+                    avgHours: activeWorkedDays.length > 0 ? `${(totalHoursSum / activeWorkedDays.length).toFixed(1)}h` : '0h',
+                    peakDay: (peakItem && peakItem.hours > 0) ? `${peakItem.dayNum} ${peakItem.dayName}` : '—',
+                    arrival: avgArrivalStr,
                     streak: `${streakCount} Days`
                 });
 
             } catch (err) {
-                console.error(err);
+                console.error('StatusDemo Calculation Error:', err);
             } finally {
                 setLoading(false);
             }
@@ -308,12 +266,10 @@ const StatusDemo = () => {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [userId, currentWeekStart, joinDate]);
+    }, [userId, currentMonthStart, joinDate]);
 
-    // Format Week Range Display
-    const weekEnd = new Date(currentWeekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    const dateRangeStr = `${currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    // Format Month Display
+    const dateRangeStr = currentMonthStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
     // Custom Tooltip for Chart
     const CustomTooltip = ({ active, payload, label }) => {
@@ -321,7 +277,7 @@ const StatusDemo = () => {
             const data = payload[0].payload;
             return (
                 <div style={{ backgroundColor: '#ffffff', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-                    <p style={{ fontWeight: 'bold', marginBottom: '4px', color: '#1e293b' }}>{label}</p>
+                    <p style={{ fontWeight: 'bold', marginBottom: '4px', color: '#1e293b' }}>{data.dayNum} {data.dayName}</p>
                     <p style={{ fontSize: '0.9rem', color: '#6366f1' }}>Hours: {data.hours}h</p>
                     <p style={{ fontSize: '0.8rem', color: '#64748b' }}>Status: {data.tooltipStatus}</p>
                 </div>
@@ -360,7 +316,7 @@ const StatusDemo = () => {
                             Your Activity Hub
                         </h1>
                         <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.85rem', fontWeight: '400' }}>
-                            Real-time monitoring of your presence, task engagement, and weekly attendance footprint.
+                            Real-time monitoring of your presence, task engagement, and monthly attendance footprint.
                         </p>
                     </div>
 
@@ -470,7 +426,7 @@ const StatusDemo = () => {
                     </div>
                 </div>
 
-                {/* Performance Footprint (Weekly Log) */}
+                {/* Performance Footprint (Monthly Log) */}
                 <div style={{
                     backgroundColor: '#ffffff',
                     borderRadius: '8px',
@@ -486,10 +442,10 @@ const StatusDemo = () => {
                             <p style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: '500' }}>{dateRangeStr}</p>
                         </div>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                            <button onClick={handlePrevWeek} style={{ width: '36px', height: '36px', borderRadius: '4px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                            <button onClick={handlePrevMonth} style={{ width: '36px', height: '36px', borderRadius: '4px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
                                 <ChevronLeft size={18} color="#64748b" />
                             </button>
-                            <button onClick={handleNextWeek} style={{ width: '36px', height: '36px', borderRadius: '4px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+                            <button onClick={handleNextMonth} style={{ width: '36px', height: '36px', borderRadius: '4px', border: '1px solid #e2e8f0', backgroundColor: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
                                 <ChevronRight size={18} color="#64748b" />
                             </button>
                         </div>
@@ -502,7 +458,7 @@ const StatusDemo = () => {
                             </div>
                         ) : (
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={weeklyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <AreaChart data={monthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="presenceGradient" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3} />
@@ -511,11 +467,12 @@ const StatusDemo = () => {
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                     <XAxis
-                                        dataKey="dayName"
+                                        dataKey="dayNum"
                                         axisLine={false}
                                         tickLine={false}
-                                        tick={{ fill: '#94a3b8', fontSize: 12, fontWeight: '700' }}
+                                        tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: '700' }}
                                         dy={15}
+                                        interval={1}
                                     />
                                     <YAxis
                                         axisLine={false}
@@ -563,7 +520,7 @@ const StatusDemo = () => {
                 </div>
             </div>
 
-            {/* Daily Signal Log - Compact Version */}
+            {/* Daily Signal Log - Compact Scrollable Version */}
             <div style={{
                 backgroundColor: '#ffffff',
                 borderRadius: '8px',
@@ -574,14 +531,21 @@ const StatusDemo = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                     <div>
                         <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0f172a', marginBottom: '4px', letterSpacing: '-0.02em' }}>Signal Stream</h3>
-                        <p style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: '500' }}>Your historical presence records for the week</p>
+                        <p style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: '500' }}>Your historical presence records for the month</p>
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
-                    {weeklyData.map((day, idx) => (
+                <div className="no-scrollbar" style={{ 
+                    display: 'flex', 
+                    gap: '12px', 
+                    overflowX: 'auto', 
+                    paddingBottom: '8px',
+                    maskImage: 'linear-gradient(to right, black 95%, transparent)'
+                }}>
+                    {monthlyData.map((day, idx) => (
                         <div key={idx} style={{
                             padding: '16px',
+                            minWidth: '110px',
                             borderRadius: '6px',
                             backgroundColor: day.hours > 0 ? '#f0f9ff' : '#f8fafc',
                             border: `1px solid ${day.hours > 0 ? '#bae6fd' : '#e2e8f0'}`,
@@ -591,20 +555,20 @@ const StatusDemo = () => {
                             gap: '8px',
                             transition: 'all 0.3s ease'
                         }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>{day.dayName}</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>{day.dayNum} {day.dayName}</span>
                             <div style={{
-                                width: '40px',
-                                height: '40px',
+                                width: '36px',
+                                height: '36px',
                                 borderRadius: '6px',
                                 backgroundColor: day.hours > 0 ? '#0ea5e9' : '#e2e8f0',
                                 color: 'white',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                fontSize: '1rem',
+                                fontSize: '0.9rem',
                                 fontWeight: '700'
                             }}>
-                                {day.hours > 0 ? <Clock size={20} /> : '—'}
+                                {day.hours > 0 ? <Clock size={18} /> : '—'}
                             </div>
                             <div style={{ textAlign: 'center' }}>
                                 <p style={{ fontSize: '1rem', fontWeight: '700', color: '#0f172a', margin: 0 }}>{day.hours}h</p>
@@ -619,3 +583,4 @@ const StatusDemo = () => {
 };
 
 export default StatusDemo;
+
