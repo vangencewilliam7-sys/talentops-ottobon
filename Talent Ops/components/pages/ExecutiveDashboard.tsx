@@ -46,6 +46,13 @@ export const ExecutiveDashboard = () => {
         <RoleGuard allowedRoles={['executive', 'admin']}>
             <UserProvider>
                 <ToastProvider>
+                    <style dangerouslySetInnerHTML={{ __html: `
+                        html, body { 
+                            overflow: auto !important; 
+                            height: auto !important; 
+                            position: static !important;
+                        }
+                    `}} />
                     <ATSDataProvider>
                         <Layout>
                             <Routes>

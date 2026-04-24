@@ -26,6 +26,15 @@ export function LandingPage() {
     const scrollTo = (location.state as any)?.scrollTo;
 
     useEffect(() => {
+        // FORCE SCROLLING
+        document.body.style.overflow = 'auto';
+        document.documentElement.style.overflow = 'auto';
+        document.body.style.position = 'static';
+        
+        console.log('LandingPage Mounted. Scroll enabled.');
+    }, []);
+
+    useEffect(() => {
         if (scrollTo) {
             // Clear the state so refresh doesn't re-scroll
             window.history.replaceState({}, '');
@@ -50,6 +59,13 @@ export function LandingPage() {
     }, [scrollTo]);
     return (
         <SmoothScroll>
+            <style dangerouslySetInnerHTML={{ __html: `
+                html, body { 
+                    overflow: auto !important; 
+                    height: auto !important; 
+                    position: static !important;
+                }
+            `}} />
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}

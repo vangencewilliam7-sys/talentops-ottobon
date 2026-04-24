@@ -24,6 +24,13 @@ import '../teamlead/index.css';
 export const TeamLeadDashboard = () => {
     return (
         <RoleGuard allowedRoles={['team_lead']}>
+            <style dangerouslySetInnerHTML={{ __html: `
+                html, body { 
+                    overflow: auto !important; 
+                    height: auto !important; 
+                    position: static !important;
+                }
+            `}} />
             <UserProvider>
                 <ToastProvider>
                     <ProjectProvider>

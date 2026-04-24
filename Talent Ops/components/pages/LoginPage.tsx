@@ -98,18 +98,18 @@ export const LoginPage = () => {
                     }
                 }
 
-                // 3. SELF-HEALING: If still no profile, create from auth metadata
-                if (!profile && data.user.user_metadata) {
-                    console.log('Creating profile from auth metadata...');
+                // 3. SECURE REDIRECT: Always prioritize Database Role over Auth Metadata
+                if (!profile) {
+                    console.log('No profile found, checking auth metadata...');
                     const meta = data.user.user_metadata;
                     const { data: newProfile, error: createError } = await supabase
                         .from('profiles')
                         .insert([{
                             id: data.user.id,
                             email: data.user.email,
-                            full_name: meta.full_name || data.user.email?.split('@')[0],
-                            role: meta.role || 'employee',
-                            org_id: meta.org_id
+                            full_name: meta?.full_name || data.user.email?.split('@')[0],
+                            role: 'employee', // Only default to employee for brand new users
+                            org_id: meta?.org_id
                         }])
                         .select()
                         .single();
@@ -131,9 +131,11 @@ export const LoginPage = () => {
                 switch (role) {
                     case 'executive':
                     case 'admin':
+                        console.log('Redirecting to Executive Workspace...');
                         navigate('/executive-dashboard');
                         break;
                     case 'super_admin':
+                        console.log('Redirecting to Global Control Center...');
                         navigate('/super-admin');
                         break;
                     case 'manager':
@@ -146,6 +148,7 @@ export const LoginPage = () => {
                         navigate('/employee-dashboard');
                         break;
                     default:
+                        console.warn('Unknown role, defaulting to employee:', role);
                         navigate('/employee-dashboard');
                 }
             }
@@ -224,7 +227,13 @@ export const LoginPage = () => {
                         </div>
                     </form>
 
-                    <div className="mt-8 pt-4 w-full text-center">
+                    <div className="mt-6 w-full text-center">
+                        <p className="text-[12px] text-gray-400">
+                            Don't have an account? Please contact your administrator.
+                        </p>
+                    </div>
+
+                    <div className="mt-8 pt-4 w-full text-center border-t border-gray-50">
                         <Link
                             to="/"
                             className="text-[11px] font-semibold text-gray-400 hover:text-gray-900 transition-colors tracking-wide uppercase"

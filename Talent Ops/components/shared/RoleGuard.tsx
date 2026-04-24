@@ -28,7 +28,7 @@ const RoleGuard: React.FC<RoleGuardProps> = ({ allowedRoles, children }) => {
                     .select('role')
                     .eq('id', user.id)
                     .single();
-
+                
                 if (error || !profile?.role) {
                     console.error('Error fetching role:', error);
                     navigate('/login');

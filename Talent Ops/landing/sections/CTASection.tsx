@@ -1,9 +1,11 @@
 import React, { useRef } from 'react'
 import { ArrowRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useScrollReveal } from '../hooks/useScrollReveal'
 
 export function CTASection() {
     const sectionRef = useRef<HTMLElement>(null)
+    const navigate = useNavigate()
     useScrollReveal(sectionRef)
 
     return (
@@ -24,7 +26,10 @@ export function CTASection() {
                         </p>
 
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-                            <button className="bg-[#3b82f6] text-white px-12 py-5 rounded-[12px] font-bold text-lg hover:bg-[#2563eb] transition-all shadow-xl flex items-center gap-3 group">
+                            <button 
+                                onClick={() => navigate('/request-demo', { state: { from: 'cta' } })}
+                                className="bg-[#3b82f6] text-white px-12 py-5 rounded-[12px] font-bold text-lg hover:bg-[#2563eb] transition-all shadow-xl flex items-center gap-3 group"
+                            >
                                 Get Started Now
                                 <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                             </button>

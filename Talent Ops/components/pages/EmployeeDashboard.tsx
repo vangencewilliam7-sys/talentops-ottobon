@@ -32,6 +32,21 @@ import '../employee/index.css';
 export const EmployeeDashboard = () => {
     return (
         <RoleGuard allowedRoles={['employee']}>
+            <style dangerouslySetInnerHTML={{ __html: `
+                html, body { 
+                    overflow: auto !important; 
+                    height: auto !important; 
+                    position: static !important;
+                }
+                .no-scrollbar::-webkit-scrollbar {
+                    display: block !important;
+                    width: 8px !important;
+                }
+                .no-scrollbar::-webkit-scrollbar-thumb {
+                    background: #e2e8f0 !important;
+                    border-radius: 10px !important;
+                }
+            `}} />
             <UserProvider>
                 <ProjectProvider>
                     <ToastProvider>

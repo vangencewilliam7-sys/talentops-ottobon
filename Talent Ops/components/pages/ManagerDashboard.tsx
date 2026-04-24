@@ -34,6 +34,13 @@ import '../manager/index.css';
 export const ManagerDashboard = () => {
     return (
         <RoleGuard allowedRoles={['manager']}>
+            <style dangerouslySetInnerHTML={{ __html: `
+                html, body { 
+                    overflow: auto !important; 
+                    height: auto !important; 
+                    position: static !important;
+                }
+            `}} />
             <UserProvider>
                 <ToastProvider>
                     <ProjectProvider>

@@ -19,6 +19,7 @@ import { RequestDemoPage } from './landing/sections/RequestDemoPage';
 // @ts-ignore
 import PricingPage from './landing/sections/PricingPage';
 import { StylesInjection } from './landing/styles/StylesInjection';
+import OnboardingWizard from './components/shared/Onboarding/OnboardingWizard';
 
 function App() {
 
@@ -30,6 +31,7 @@ function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/request-demo" element={<RequestDemoPage />} />
                 <Route path="/pricing" element={<PricingPage />} />
+                <Route path="/onboarding" element={<OnboardingWizard />} />
 
                 {/* Wrap application routes with ThemeProvider */}
                 <Route element={<ThemeProvider><Outlet /></ThemeProvider>}>

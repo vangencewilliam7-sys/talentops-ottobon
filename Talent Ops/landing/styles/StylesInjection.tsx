@@ -31,9 +31,6 @@ const STYLES = `
 /* Base Utility Overrides */
 .reveal-fade { opacity: 0; visibility: hidden; }
 
-html.lenis, html.lenis body { height: auto; }
-.lenis.lenis-smooth { scroll-behavior: auto !important; }
-.lenis.lenis-stopped { overflow: hidden; }
 
 /* Performance optimization for smooth scrolling */
 body {
